@@ -18,6 +18,7 @@ const PartnersPage = lazy(() => import('@/app/partners/PartnersPage'))
 const ActivitiesPage = lazy(() => import('@/app/activities/ActivitiesPage'))
 const UsersPage = lazy(() => import('@/app/users/UsersPage'))
 const SystemSettingsPage = lazy(() => import('@/app/settings/SystemSettingsPage'))
+const OptionsPage = lazy(() => import('@/app/settings/OptionsPage'))
 const ProfilePage = lazy(() => import('@/app/profile/ProfilePage'))
 
 // 客户门户页面（懒加载）
@@ -59,6 +60,7 @@ export default function App() {
                     <Route path="activities" element={<ActivitiesPage />} />
                     <Route path="users" element={<UsersPage />} />
                     <Route path="settings" element={<SystemSettingsPage />} />
+                    <Route path="settings/options" element={<OptionsPage />} />
                     <Route path="profile" element={<ProfilePage />} />
                     <Route index element={<Navigate to="leads" replace />} />
                   </Route>

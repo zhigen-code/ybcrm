@@ -13,7 +13,7 @@ import { Badge } from '@/shared/components/Badge';
 import { Modal } from '@/shared/components/Modal';
 import { Textarea } from '@/shared/components/Textarea';
 import { formatDate } from '@/shared/utils/format';
-import { SERVICE_OPTIONS } from '@/shared/types';
+import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions';
 const editSchema = z.object({
     phone: z.string().nullable().optional(),
     email: z.string().email().nullable().optional(),
@@ -21,21 +21,23 @@ const editSchema = z.object({
     contractStatus: z.string().nullable().optional(),
 });
 const activitySchema = z.object({
-    activityType: z.enum(['Call', 'Meeting', 'Email', 'Note']),
+    activityType: z.string().min(1),
     description: z.string().optional(),
     activityDate: z.string().min(1),
 });
-const contractStatusOptions = [
-    { value: '待签署', label: '待签署' },
-    { value: '已签署', label: '已签署' },
-    { value: '已终止', label: '已终止' },
-];
 export default function ClientDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [showEdit, setShowEdit] = useState(false);
     const [showActivity, setShowActivity] = useState(false);
+    const { options: contractStatusOpts } = useOptionGroup('contract_status');
+    const { options: activityTypeOpts } = useOptionGroup('activity_type');
+    const { data: servicesData } = useQuery({
+        queryKey: ['services'],
+        queryFn: () => crmApi.get('/services').then((r) => r.data),
+    });
+    const serviceOptions = servicesData?.data ?? [];
     const { data: client } = useQuery({
         queryKey: ['client', id],
         queryFn: () => crmApi.get(`/clients/${id}`).then((r) => r.data.data),
@@ -59,10 +61,10 @@ export default function ClientDetailPage() {
         } : {}),
     });
     const selectedPlans = editForm.watch('servicePlans') ?? [];
-    const togglePlan = (svc) => {
-        const next = selectedPlans.includes(svc)
-            ? selectedPlans.filter((s) => s !== svc)
-            : [...selectedPlans, svc];
+    const togglePlan = (svcName) => {
+        const next = selectedPlans.includes(svcName)
+            ? selectedPlans.filter((s) => s !== svcName)
+            : [...selectedPlans, svcName];
         editForm.setValue('servicePlans', next);
     };
     const activityForm = useForm({
@@ -84,19 +86,11 @@ export default function ClientDetailPage() {
             activityForm.reset();
         },
     });
-    const activityTypeLabel = {
-        Call: '📞 电话', Meeting: '🤝 会面', Email: '✉️ 邮件', Note: '📝 备注',
-    };
     if (!client)
         return _jsx("div", { className: "p-6 text-sm text-gray-500", children: "\u52A0\u8F7D\u4E2D..." });
     return (_jsxs("div", { className: "p-4 sm:p-6 max-w-3xl", children: [_jsx("button", { onClick: () => navigate(-1), className: "mb-4 text-sm text-gray-500 hover:text-gray-700", children: "\u2190 \u8FD4\u56DE" }), _jsxs("div", { className: "rounded-lg border bg-white p-4 sm:p-6 mb-4 sm:mb-6", children: [_jsxs("div", { className: "flex items-start justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-xl font-semibold text-gray-900", children: client.name }), _jsxs("p", { className: "mt-1 text-sm text-gray-500", children: [client.phone ?? '无电话', " \u00B7 ", client.email ?? '无邮箱'] })] }), _jsx(Button, { variant: "secondary", size: "sm", onClick: () => setShowEdit(true), children: "\u7F16\u8F91" })] }), _jsxs("div", { className: "mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 text-sm", children: [_jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u670D\u52A1\u5957\u9910" }), _jsx("div", { className: "mt-0.5 flex flex-wrap gap-1", children: (client.servicePlans ?? []).length > 0
                                             ? (client.servicePlans ?? []).map((p) => _jsx(Badge, { variant: "blue", children: p }, p))
-                                            : _jsx("span", { className: "text-gray-400", children: "\u2014" }) })] }), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u5408\u540C\u72B6\u6001" }), _jsx("p", { className: "mt-0.5", children: client.contractStatus ? (_jsx(Badge, { variant: client.contractStatus === '已签署' ? 'green' : client.contractStatus === '待签署' ? 'yellow' : 'red', children: client.contractStatus })) : '—' })] }), client.detailedProfile?.source && (_jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u6765\u6E90" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: String(client.detailedProfile.source) })] })), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u521B\u5EFA\u4EBA" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: client.createdByName ?? '—' })] }), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u521B\u5EFA\u65F6\u95F4" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: formatDate(client.createdAt) })] }), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u66F4\u65B0\u65F6\u95F4" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: formatDate(client.updatedAt) })] })] }), client.detailedProfile?.notes && (_jsx("p", { className: "mt-3 text-sm text-gray-600 bg-gray-50 rounded p-3", children: String(client.detailedProfile.notes) }))] }), _jsxs("div", { className: "rounded-lg border bg-white p-4 sm:p-6", children: [_jsxs("div", { className: "flex items-center justify-between mb-4", children: [_jsx("h2", { className: "font-semibold text-gray-900", children: "\u8DDF\u8FDB\u8BB0\u5F55" }), _jsx(Button, { size: "sm", variant: "secondary", onClick: () => setShowActivity(true), children: "\u6DFB\u52A0\u8BB0\u5F55" })] }), !activities?.length ? (_jsx("p", { className: "text-sm text-gray-500", children: "\u6682\u65E0\u8DDF\u8FDB\u8BB0\u5F55" })) : (_jsx("div", { className: "space-y-3", children: activities.map((act) => (_jsx("div", { className: "flex gap-3 text-sm border-l-2 border-gray-200 pl-3", children: _jsxs("div", { className: "flex-1", children: [_jsxs("div", { className: "flex items-center gap-2 flex-wrap", children: [_jsx("span", { className: "text-xs font-medium text-gray-600", children: activityTypeLabel[act.activityType] ?? act.activityType }), _jsx("span", { className: "text-xs text-gray-400", children: act.userName ?? '—' }), _jsx("span", { className: "text-xs text-gray-400", children: formatDate(act.activityDate) })] }), act.description && (_jsx("p", { className: "mt-1 text-gray-700", children: act.description }))] }) }, act.id))) }))] }), showEdit && (_jsx(Modal, { title: "\u7F16\u8F91\u5BA2\u6237\u4FE1\u606F", onClose: () => setShowEdit(false), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "secondary", onClick: () => setShowEdit(false), children: "\u53D6\u6D88" }), _jsx(Button, { loading: updateClient.isPending, onClick: editForm.handleSubmit((d) => updateClient.mutate(d)), children: "\u4FDD\u5B58" })] }), children: _jsxs("div", { className: "space-y-3", children: [_jsx(Input, { label: "\u7535\u8BDD", ...editForm.register('phone') }), _jsx(Input, { label: "\u90AE\u7BB1", type: "email", ...editForm.register('email') }), _jsxs("div", { children: [_jsx("p", { className: "mb-1.5 text-sm font-medium text-gray-700", children: "\u670D\u52A1\u5957\u9910" }), _jsx("div", { className: "flex flex-wrap gap-2", children: SERVICE_OPTIONS.map((svc) => (_jsx("button", { type: "button", onClick: () => togglePlan(svc), className: `rounded-full px-3 py-1 text-sm font-medium border transition-colors ${selectedPlans.includes(svc)
+                                            : _jsx("span", { className: "text-gray-400", children: "\u2014" }) })] }), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u5408\u540C\u72B6\u6001" }), _jsx("p", { className: "mt-0.5", children: client.contractStatus ? (_jsx(Badge, { variant: getOptionColor(contractStatusOpts, client.contractStatus), children: client.contractStatus })) : '—' })] }), client.detailedProfile?.source && (_jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u6765\u6E90" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: String(client.detailedProfile.source) })] })), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u521B\u5EFA\u4EBA" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: client.createdByName ?? '—' })] }), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u521B\u5EFA\u65F6\u95F4" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: formatDate(client.createdAt) })] }), _jsxs("div", { children: [_jsx("span", { className: "text-gray-500", children: "\u66F4\u65B0\u65F6\u95F4" }), _jsx("p", { className: "mt-0.5 text-gray-700", children: formatDate(client.updatedAt) })] })] }), client.detailedProfile?.notes && (_jsx("p", { className: "mt-3 text-sm text-gray-600 bg-gray-50 rounded p-3", children: String(client.detailedProfile.notes) }))] }), _jsxs("div", { className: "rounded-lg border bg-white p-4 sm:p-6", children: [_jsxs("div", { className: "flex items-center justify-between mb-4", children: [_jsx("h2", { className: "font-semibold text-gray-900", children: "\u8DDF\u8FDB\u8BB0\u5F55" }), _jsx(Button, { size: "sm", variant: "secondary", onClick: () => setShowActivity(true), children: "\u6DFB\u52A0\u8BB0\u5F55" })] }), !activities?.length ? (_jsx("p", { className: "text-sm text-gray-500", children: "\u6682\u65E0\u8DDF\u8FDB\u8BB0\u5F55" })) : (_jsx("div", { className: "space-y-3", children: activities.map((act) => (_jsx("div", { className: "flex gap-3 text-sm border-l-2 border-gray-200 pl-3", children: _jsxs("div", { className: "flex-1", children: [_jsxs("div", { className: "flex items-center gap-2 flex-wrap", children: [_jsx("span", { className: "text-xs font-medium text-gray-600", children: getOptionLabel(activityTypeOpts, act.activityType) }), _jsx("span", { className: "text-xs text-gray-400", children: act.userName ?? '—' }), _jsx("span", { className: "text-xs text-gray-400", children: formatDate(act.activityDate) })] }), act.description && (_jsx("p", { className: "mt-1 text-gray-700", children: act.description }))] }) }, act.id))) }))] }), showEdit && (_jsx(Modal, { title: "\u7F16\u8F91\u5BA2\u6237\u4FE1\u606F", onClose: () => setShowEdit(false), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "secondary", onClick: () => setShowEdit(false), children: "\u53D6\u6D88" }), _jsx(Button, { loading: updateClient.isPending, onClick: editForm.handleSubmit((d) => updateClient.mutate(d)), children: "\u4FDD\u5B58" })] }), children: _jsxs("div", { className: "space-y-3", children: [_jsx(Input, { label: "\u7535\u8BDD", ...editForm.register('phone') }), _jsx(Input, { label: "\u90AE\u7BB1", type: "email", ...editForm.register('email') }), _jsxs("div", { children: [_jsx("p", { className: "mb-1.5 text-sm font-medium text-gray-700", children: "\u670D\u52A1\u5957\u9910" }), _jsx("div", { className: "flex flex-wrap gap-2", children: serviceOptions.map((svc) => (_jsx("button", { type: "button", onClick: () => togglePlan(svc.name), className: `rounded-full px-3 py-1 text-sm font-medium border transition-colors ${selectedPlans.includes(svc.name)
                                             ? 'bg-primary-600 text-white border-primary-600'
-                                            : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'}`, children: svc }, svc))) })] }), _jsx(Select, { label: "\u5408\u540C\u72B6\u6001", options: contractStatusOptions, placeholder: "\u8BF7\u9009\u62E9...", ...editForm.register('contractStatus') })] }) })), showActivity && (_jsx(Modal, { title: "\u6DFB\u52A0\u8DDF\u8FDB\u8BB0\u5F55", onClose: () => setShowActivity(false), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "secondary", onClick: () => setShowActivity(false), children: "\u53D6\u6D88" }), _jsx(Button, { loading: addActivity.isPending, onClick: activityForm.handleSubmit((d) => addActivity.mutate(d)), children: "\u4FDD\u5B58" })] }), children: _jsxs("div", { className: "space-y-3", children: [_jsx(Select, { label: "\u7C7B\u578B", options: [
-                                { value: 'Call', label: '电话' },
-                                { value: 'Meeting', label: '会面' },
-                                { value: 'Email', label: '邮件' },
-                                { value: 'Note', label: '备注' },
-                            ], ...activityForm.register('activityType') }), _jsx(Textarea, { label: "\u5185\u5BB9", ...activityForm.register('description') }), _jsxs("div", { className: "flex flex-col gap-1", children: [_jsx("label", { className: "text-sm font-medium text-gray-700", children: "\u65F6\u95F4" }), _jsx("input", { type: "datetime-local", className: "rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none", ...activityForm.register('activityDate') })] })] }) }))] }));
+                                            : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'}`, children: svc.name }, svc.id))) })] }), _jsx(Select, { label: "\u5408\u540C\u72B6\u6001", options: toSelectOptions(contractStatusOpts), placeholder: "\u8BF7\u9009\u62E9...", ...editForm.register('contractStatus') })] }) })), showActivity && (_jsx(Modal, { title: "\u6DFB\u52A0\u8DDF\u8FDB\u8BB0\u5F55", onClose: () => setShowActivity(false), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "secondary", onClick: () => setShowActivity(false), children: "\u53D6\u6D88" }), _jsx(Button, { loading: addActivity.isPending, onClick: activityForm.handleSubmit((d) => addActivity.mutate(d)), children: "\u4FDD\u5B58" })] }), children: _jsxs("div", { className: "space-y-3", children: [_jsx(Select, { label: "\u7C7B\u578B", options: toSelectOptions(activityTypeOpts), ...activityForm.register('activityType') }), _jsx(Textarea, { label: "\u5185\u5BB9", ...activityForm.register('description') }), _jsx(Input, { type: "datetime-local", label: "\u65F6\u95F4", ...activityForm.register('activityDate') })] }) }))] }));
 }

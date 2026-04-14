@@ -12,53 +12,38 @@ import { Modal } from '@/shared/components/Modal'
 import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
 import { formatDate } from '@/shared/utils/format'
-import type { Lead, LeadStatus, IntendedService } from '@/shared/types'
-import { SERVICE_OPTIONS } from '@/shared/types'
-
-const statusVariant: Record<LeadStatus, 'gray' | 'blue' | 'green' | 'yellow' | 'red'> = {
-  New: 'blue', Contacted: 'yellow', Qualified: 'gray', Converted: 'green', Lost: 'red',
-}
-const statusLabel: Record<LeadStatus, string> = {
-  New: '新线索', Contacted: '已联系', Qualified: '已确认', Converted: '已转化', Lost: '已丢失',
-}
+import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
+import type { Lead, Service } from '@/shared/types'
 
 const createSchema = z.object({
   source: z.string().min(1, '请填写来源'),
   name: z.string().min(1, '请填写姓名'),
   contactInfo: z.string().min(1, '请填写联系方式'),
-  intendedServices: z.array(z.enum(['赴美试管', '代孕', '供精', '供卵'] as [IntendedService, ...IntendedService[]])).min(1, '请至少选择一个意向服务'),
+  intendedServices: z.array(z.string()).min(1, '请至少选择一个意向服务'),
   notes: z.string().optional(),
 })
 type CreateForm = z.infer<typeof createSchema>
 
 const activitySchema = z.object({
-  activityType: z.enum(['Call', 'Meeting', 'Email', 'Note']),
+  activityType: z.string().min(1, '请选择跟进类型'),
   description: z.string().optional(),
   activityDate: z.string().min(1, '请选择时间'),
 })
 type ActivityForm = z.infer<typeof activitySchema>
-
-const statusFilterOptions = [
-  { value: '', label: '全部' },
-  { value: 'New', label: '新线索' },
-  { value: 'Contacted', label: '已联系' },
-  { value: 'Qualified', label: '已确认' },
-  { value: 'Converted', label: '已转化' },
-  { value: 'Lost', label: '已丢失' },
-]
-
-const activityTypeOptions = [
-  { value: 'Call', label: '📞 电话' },
-  { value: 'Meeting', label: '🤝 会面' },
-  { value: 'Email', label: '✉️ 邮件' },
-  { value: 'Note', label: '📝 备注' },
-]
 
 export default function LeadsPage() {
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
   const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
+
+  const { options: leadStatusOpts } = useOptionGroup('lead_status')
+  const { options: activityTypeOpts } = useOptionGroup('activity_type')
+  const { data: servicesData } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data),
+  })
+  const serviceOptions = servicesData?.data ?? []
 
   const { data, isLoading } = useQuery({
     queryKey: ['leads', statusFilter],
@@ -80,7 +65,7 @@ export default function LeadsPage() {
     defaultValues: { intendedServices: [] },
   })
   const selectedServices = watch('intendedServices') ?? []
-  const toggleService = (svc: IntendedService) => {
+  const toggleService = (svc: string) => {
     const next = selectedServices.includes(svc)
       ? selectedServices.filter((s) => s !== svc)
       : [...selectedServices, svc]
@@ -99,7 +84,7 @@ export default function LeadsPage() {
   // 快速跟进表单
   const activityForm = useForm<ActivityForm>({
     resolver: zodResolver(activitySchema),
-    defaultValues: { activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) },
+    defaultValues: { activityType: activityTypeOpts[0]?.value ?? '', activityDate: new Date().toISOString().slice(0, 16) },
   })
 
   const addActivity = useMutation({
@@ -107,15 +92,20 @@ export default function LeadsPage() {
       crmApi.post('/activities', { ...body, leadId: followUpTarget!.id }),
     onSuccess: () => {
       setFollowUpTarget(null)
-      activityForm.reset({ activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) })
+      activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? '', activityDate: new Date().toISOString().slice(0, 16) })
     },
   })
 
   const openFollowUp = (lead: Lead, e: React.MouseEvent) => {
     e.preventDefault()
-    activityForm.reset({ activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) })
+    activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? '', activityDate: new Date().toISOString().slice(0, 16) })
     setFollowUpTarget(lead)
   }
+
+  const statusFilterOptions = [
+    { value: '', label: '全部' },
+    ...leadStatusOpts.map((o) => ({ value: o.value, label: o.label })),
+  ]
 
   return (
     <div className="p-4 sm:p-6">
@@ -176,7 +166,9 @@ export default function LeadsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={statusVariant[lead.status]}>{statusLabel[lead.status]}</Badge>
+                      <Badge variant={getOptionColor(leadStatusOpts, lead.status)}>
+                        {getOptionLabel(leadStatusOpts, lead.status)}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{lead.source}</td>
                     <td className="px-4 py-3 text-gray-600">{lead.createdByName ?? '—'}</td>
@@ -214,8 +206,8 @@ export default function LeadsPage() {
                       <p className="font-medium text-gray-900 truncate">{lead.name}</p>
                       <p className="mt-0.5 text-xs text-gray-500 truncate">{lead.contactInfo}</p>
                     </div>
-                    <Badge variant={statusVariant[lead.status]} className="flex-shrink-0">
-                      {statusLabel[lead.status]}
+                    <Badge variant={getOptionColor(leadStatusOpts, lead.status)} className="flex-shrink-0">
+                      {getOptionLabel(leadStatusOpts, lead.status)}
                     </Badge>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -253,18 +245,18 @@ export default function LeadsPage() {
             <div>
               <p className="mb-1.5 text-sm font-medium text-gray-700">意向服务</p>
               <div className="flex flex-wrap gap-2">
-                {SERVICE_OPTIONS.map((svc) => (
+                {serviceOptions.map((svc) => (
                   <button
-                    key={svc}
+                    key={svc.id}
                     type="button"
-                    onClick={() => toggleService(svc)}
+                    onClick={() => toggleService(svc.name)}
                     className={`rounded-full px-3 py-1 text-sm font-medium border transition-colors ${
-                      selectedServices.includes(svc)
+                      selectedServices.includes(svc.name)
                         ? 'bg-primary-600 text-white border-primary-600'
                         : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
                     }`}
                   >
-                    {svc}
+                    {svc.name}
                   </button>
                 ))}
               </div>
@@ -305,7 +297,7 @@ export default function LeadsPage() {
           <div className="space-y-3">
             <Select
               label="跟进类型"
-              options={activityTypeOptions}
+              options={toSelectOptions(activityTypeOpts)}
               {...activityForm.register('activityType')}
             />
             <Textarea

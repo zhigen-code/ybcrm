@@ -14,6 +14,7 @@ import { usersRoutes } from './crm/routes/users'
 import { teamsRoutes } from './crm/routes/teams'
 import { uploadRoutes } from './crm/routes/upload'
 import { settingsRoutes } from './crm/routes/settings'
+import { optionsRoutes } from './crm/routes/options'
 
 // 客户门户路由
 import { portalAuthRoutes } from './portal/routes/auth'
@@ -44,6 +45,9 @@ app.use(
   }),
 )
 
+// 公开选项接口（无需登录）
+app.route('/api/options', optionsRoutes)
+
 // 公开接口（无需登录）
 app.get('/api/public/settings', async (c) => {
   const result = await c.env.DB.prepare(
@@ -63,6 +67,7 @@ app.route('/api/users', usersRoutes)
 app.route('/api/teams', teamsRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/admin/settings', settingsRoutes)
+app.route('/api/admin/options', optionsRoutes)
 
 // 客户门户 API（/api/client/*）
 app.route('/api/client/auth', portalAuthRoutes)

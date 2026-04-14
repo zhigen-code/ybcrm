@@ -10,22 +10,12 @@ import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
-import type { Partner, PartnerType } from '@/shared/types'
-
-const typeLabel: Record<PartnerType, string> = {
-  FertilityCenter: '生殖中心',
-  SurrogacyAgency: '代孕机构',
-  EggDonationAgency: '供卵机构',
-}
-const typeBadge: Record<PartnerType, 'blue' | 'purple' | 'green'> = {
-  FertilityCenter: 'blue',
-  SurrogacyAgency: 'purple',
-  EggDonationAgency: 'green',
-}
+import type { Partner } from '@/shared/types'
+import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
 
 const schema = z.object({
   name: z.string().min(1, '请填写名称'),
-  type: z.enum(['FertilityCenter', 'SurrogacyAgency', 'EggDonationAgency']),
+  type: z.string().min(1, '请选择类型'),
   contactPerson: z.string().nullable().optional(),
   contactInfo: z.string().nullable().optional(),
   serviceScope: z.string().optional(),
@@ -37,6 +27,8 @@ export default function PartnersPage() {
   const [editTarget, setEditTarget] = useState<Partner | null>(null)
   const [showForm, setShowForm] = useState(false)
 
+  const { options: partnerTypeOpts } = useOptionGroup('partner_type')
+
   const { data, isLoading } = useQuery({
     queryKey: ['partners'],
     queryFn: () => crmApi.get<{ data: Partner[] }>('/partners').then((r) => r.data),
@@ -45,7 +37,7 @@ export default function PartnersPage() {
   const form = useForm<FormData>({ resolver: zodResolver(schema) })
 
   const openCreate = () => {
-    form.reset({ name: '', type: 'FertilityCenter', contactPerson: '', contactInfo: '', serviceScope: '' })
+    form.reset({ name: '', type: partnerTypeOpts[0]?.value ?? '', contactPerson: '', contactInfo: '', serviceScope: '' })
     setEditTarget(null)
     setShowForm(true)
   }
@@ -96,7 +88,9 @@ export default function PartnersPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <Badge variant={typeBadge[partner.type]}>{typeLabel[partner.type]}</Badge>
+                    <Badge variant={getOptionColor(partnerTypeOpts, partner.type)}>
+                      {getOptionLabel(partnerTypeOpts, partner.type)}
+                    </Badge>
                   </div>
                   <h2 className="mt-1.5 font-semibold text-gray-900 truncate">{partner.name}</h2>
                 </div>
@@ -146,11 +140,7 @@ export default function PartnersPage() {
             <Input label="名称" error={form.formState.errors.name?.message} {...form.register('name')} />
             <Select
               label="类型"
-              options={[
-                { value: 'FertilityCenter', label: '生殖中心' },
-                { value: 'SurrogacyAgency', label: '代孕机构' },
-                { value: 'EggDonationAgency', label: '供卵机构' },
-              ]}
+              options={toSelectOptions(partnerTypeOpts)}
               {...form.register('type')}
             />
             <Input label="联系人" {...form.register('contactPerson')} />

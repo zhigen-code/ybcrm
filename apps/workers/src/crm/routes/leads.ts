@@ -13,8 +13,6 @@ leadsRoutes.use('*', requireAuth)
 const BASE_JOIN = 'FROM leads l LEFT JOIN users u ON l.created_by_userId = u.id'
 const SELECT_COLS = 'SELECT l.*, u.name as created_by_name'
 
-const SERVICE_OPTIONS = ['赴美试管', '代孕', '供精', '供卵'] as const
-
 function parseLead(row: Record<string, unknown>) {
   const lead = toCamel(row) as Record<string, unknown>
   if (typeof lead.intendedServices === 'string') {
@@ -70,7 +68,7 @@ const leadSchema = z.object({
   source: z.string().min(1),
   name: z.string().min(1),
   contactInfo: z.string().min(1),
-  intendedServices: z.array(z.enum(SERVICE_OPTIONS)).min(1, '请至少选择一个意向服务'),
+  intendedServices: z.array(z.string()).min(1, '请至少选择一个意向服务'),
   notes: z.string().nullable().optional(),
 })
 
@@ -114,7 +112,7 @@ leadsRoutes.put(
       assignedToUserId: z.string().nullable().optional(),
       assignedToTeamId: z.string().nullable().optional(),
       contactInfo: z.string().optional(),
-      intendedServices: z.array(z.enum(SERVICE_OPTIONS)).min(1).optional(),
+      intendedServices: z.array(z.string()).min(1).optional(),
     }),
   ),
   async (c) => {

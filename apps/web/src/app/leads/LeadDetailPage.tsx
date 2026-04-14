@@ -11,15 +11,12 @@ import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
 import { Input } from '@/shared/components/Input'
 import { formatDate } from '@/shared/utils/format'
+import { useOptionGroup, toSelectOptions, getOptionLabel } from '@/shared/hooks/useOptions'
 import type { Lead, LeadStatus, SalesActivity } from '@/shared/types'
 import { useState } from 'react'
 
-const statusLabel: Record<LeadStatus, string> = {
-  New: '新线索', Contacted: '已联系', Qualified: '已确认', Converted: '已转化', Lost: '已丢失',
-}
-
 const activitySchema = z.object({
-  activityType: z.enum(['Call', 'Meeting', 'Email', 'Note']),
+  activityType: z.string().min(1),
   description: z.string().optional(),
   activityDate: z.string().min(1),
 })
@@ -30,6 +27,9 @@ export default function LeadDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showActivity, setShowActivity] = useState(false)
+
+  const { options: leadStatusOpts } = useOptionGroup('lead_status')
+  const { options: activityTypeOpts } = useOptionGroup('activity_type')
 
   const { data: lead } = useQuery({
     queryKey: ['lead', id],
@@ -105,18 +105,18 @@ export default function LeadDetailPage() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-600">状态：</span>
-          <div className="flex gap-1.5">
-            {(['New', 'Contacted', 'Qualified', 'Lost'] as LeadStatus[]).map((s) => (
+          <div className="flex flex-wrap gap-1.5">
+            {leadStatusOpts.filter((o) => o.value !== 'Converted').map((o) => (
               <button
-                key={s}
-                onClick={() => updateStatus.mutate(s)}
+                key={o.value}
+                onClick={() => updateStatus.mutate(o.value as LeadStatus)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  lead.status === s
+                  lead.status === o.value
                     ? 'bg-primary-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {statusLabel[s]}
+                {o.label}
               </button>
             ))}
           </div>
@@ -160,7 +160,7 @@ export default function LeadDetailPage() {
             {activities.map((act) => (
               <div key={act.id} className="flex gap-3 text-sm">
                 <span className="mt-0.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 h-fit">
-                  {act.activityType}
+                  {getOptionLabel(activityTypeOpts, act.activityType)}
                 </span>
                 <div className="flex-1">
                   <p className="text-gray-700">{act.description ?? '（无描述）'}</p>
@@ -189,12 +189,7 @@ export default function LeadDetailPage() {
           <div className="space-y-3">
             <Select
               label="类型"
-              options={[
-                { value: 'Call', label: '电话' },
-                { value: 'Meeting', label: '会面' },
-                { value: 'Email', label: '邮件' },
-                { value: 'Note', label: '备注' },
-              ]}
+              options={toSelectOptions(activityTypeOpts)}
               {...register('activityType')}
             />
             <Textarea label="内容" {...register('description')} />

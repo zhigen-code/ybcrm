@@ -12,8 +12,8 @@ import { Badge } from '@/shared/components/Badge'
 import { Modal } from '@/shared/components/Modal'
 import { Textarea } from '@/shared/components/Textarea'
 import { formatDate } from '@/shared/utils/format'
-import type { Client, SalesActivity, IntendedService } from '@/shared/types'
-import { SERVICE_OPTIONS } from '@/shared/types'
+import type { Client, SalesActivity, Service } from '@/shared/types'
+import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
 
 const editSchema = z.object({
   phone: z.string().nullable().optional(),
@@ -24,17 +24,11 @@ const editSchema = z.object({
 type EditForm = z.infer<typeof editSchema>
 
 const activitySchema = z.object({
-  activityType: z.enum(['Call', 'Meeting', 'Email', 'Note']),
+  activityType: z.string().min(1),
   description: z.string().optional(),
   activityDate: z.string().min(1),
 })
 type ActivityForm = z.infer<typeof activitySchema>
-
-const contractStatusOptions = [
-  { value: '待签署', label: '待签署' },
-  { value: '已签署', label: '已签署' },
-  { value: '已终止', label: '已终止' },
-]
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -42,6 +36,15 @@ export default function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [showEdit, setShowEdit] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
+
+  const { options: contractStatusOpts } = useOptionGroup('contract_status')
+  const { options: activityTypeOpts } = useOptionGroup('activity_type')
+
+  const { data: servicesData } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data),
+  })
+  const serviceOptions = servicesData?.data ?? []
 
   const { data: client } = useQuery({
     queryKey: ['client', id],
@@ -71,10 +74,10 @@ export default function ClientDetailPage() {
 
   const selectedPlans = editForm.watch('servicePlans') ?? []
 
-  const togglePlan = (svc: IntendedService) => {
-    const next = selectedPlans.includes(svc)
-      ? selectedPlans.filter((s) => s !== svc)
-      : [...selectedPlans, svc]
+  const togglePlan = (svcName: string) => {
+    const next = selectedPlans.includes(svcName)
+      ? selectedPlans.filter((s) => s !== svcName)
+      : [...selectedPlans, svcName]
     editForm.setValue('servicePlans', next)
   }
 
@@ -99,10 +102,6 @@ export default function ClientDetailPage() {
       activityForm.reset()
     },
   })
-
-  const activityTypeLabel: Record<string, string> = {
-    Call: '📞 电话', Meeting: '🤝 会面', Email: '✉️ 邮件', Note: '📝 备注',
-  }
 
   if (!client) return <div className="p-6 text-sm text-gray-500">加载中...</div>
 
@@ -139,7 +138,7 @@ export default function ClientDetailPage() {
             <span className="text-gray-500">合同状态</span>
             <p className="mt-0.5">
               {client.contractStatus ? (
-                <Badge variant={client.contractStatus === '已签署' ? 'green' : client.contractStatus === '待签署' ? 'yellow' : 'red'}>
+                <Badge variant={getOptionColor(contractStatusOpts, client.contractStatus)}>
                   {client.contractStatus}
                 </Badge>
               ) : '—'}
@@ -188,7 +187,7 @@ export default function ClientDetailPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-medium text-gray-600">
-                      {activityTypeLabel[act.activityType] ?? act.activityType}
+                      {getOptionLabel(activityTypeOpts, act.activityType)}
                     </span>
                     <span className="text-xs text-gray-400">{act.userName ?? '—'}</span>
                     <span className="text-xs text-gray-400">{formatDate(act.activityDate)}</span>
@@ -226,25 +225,25 @@ export default function ClientDetailPage() {
             <div>
               <p className="mb-1.5 text-sm font-medium text-gray-700">服务套餐</p>
               <div className="flex flex-wrap gap-2">
-                {SERVICE_OPTIONS.map((svc) => (
+                {serviceOptions.map((svc) => (
                   <button
-                    key={svc}
+                    key={svc.id}
                     type="button"
-                    onClick={() => togglePlan(svc)}
+                    onClick={() => togglePlan(svc.name)}
                     className={`rounded-full px-3 py-1 text-sm font-medium border transition-colors ${
-                      selectedPlans.includes(svc)
+                      selectedPlans.includes(svc.name)
                         ? 'bg-primary-600 text-white border-primary-600'
                         : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
                     }`}
                   >
-                    {svc}
+                    {svc.name}
                   </button>
                 ))}
               </div>
             </div>
             <Select
               label="合同状态"
-              options={contractStatusOptions}
+              options={toSelectOptions(contractStatusOpts)}
               placeholder="请选择..."
               {...editForm.register('contractStatus')}
             />
@@ -272,23 +271,11 @@ export default function ClientDetailPage() {
           <div className="space-y-3">
             <Select
               label="类型"
-              options={[
-                { value: 'Call', label: '电话' },
-                { value: 'Meeting', label: '会面' },
-                { value: 'Email', label: '邮件' },
-                { value: 'Note', label: '备注' },
-              ]}
+              options={toSelectOptions(activityTypeOpts)}
               {...activityForm.register('activityType')}
             />
             <Textarea label="内容" {...activityForm.register('description')} />
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">时间</label>
-              <input
-                type="datetime-local"
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                {...activityForm.register('activityDate')}
-              />
-            </div>
+            <Input type="datetime-local" label="时间" {...activityForm.register('activityDate')} />
           </div>
         </Modal>
       )}

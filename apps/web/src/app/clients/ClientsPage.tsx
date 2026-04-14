@@ -13,30 +13,21 @@ import { Textarea } from '@/shared/components/Textarea'
 import { Button } from '@/shared/components/Button'
 import { formatDate } from '@/shared/utils/format'
 import type { Client } from '@/shared/types'
-
-const contractBadge: Record<string, 'gray' | 'yellow' | 'green' | 'red'> = {
-  '待签署': 'yellow',
-  '已签署': 'green',
-  '已终止': 'red',
-}
+import { useOptionGroup, toSelectOptions, getOptionColor } from '@/shared/hooks/useOptions'
 
 const activitySchema = z.object({
-  activityType: z.enum(['Call', 'Meeting', 'Email', 'Note']),
+  activityType: z.string().min(1),
   description: z.string().optional(),
   activityDate: z.string().min(1, '请选择时间'),
 })
 type ActivityForm = z.infer<typeof activitySchema>
 
-const activityTypeOptions = [
-  { value: 'Call', label: '📞 电话' },
-  { value: 'Meeting', label: '🤝 会面' },
-  { value: 'Email', label: '✉️ 邮件' },
-  { value: 'Note', label: '📝 备注' },
-]
-
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [followUpTarget, setFollowUpTarget] = useState<Client | null>(null)
+
+  const { options: contractStatusOpts } = useOptionGroup('contract_status')
+  const { options: activityTypeOpts } = useOptionGroup('activity_type')
 
   const { data, isLoading } = useQuery({
     queryKey: ['clients'],
@@ -57,13 +48,13 @@ export default function ClientsPage() {
       crmApi.post('/activities', { ...body, clientId: followUpTarget!.id }),
     onSuccess: () => {
       setFollowUpTarget(null)
-      activityForm.reset({ activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) })
+      activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? 'Call', activityDate: new Date().toISOString().slice(0, 16) })
     },
   })
 
   const openFollowUp = (client: Client, e: React.MouseEvent) => {
     e.preventDefault()
-    activityForm.reset({ activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) })
+    activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? 'Call', activityDate: new Date().toISOString().slice(0, 16) })
     setFollowUpTarget(client)
   }
 
@@ -117,7 +108,7 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-4 py-3">
                       {client.contractStatus ? (
-                        <Badge variant={contractBadge[client.contractStatus] ?? 'gray'}>
+                        <Badge variant={getOptionColor(contractStatusOpts, client.contractStatus)}>
                           {client.contractStatus}
                         </Badge>
                       ) : (
@@ -162,7 +153,7 @@ export default function ClientsPage() {
                       </p>
                     </div>
                     {client.contractStatus ? (
-                      <Badge variant={contractBadge[client.contractStatus] ?? 'gray'} className="flex-shrink-0">
+                      <Badge variant={getOptionColor(contractStatusOpts, client.contractStatus)} className="flex-shrink-0">
                         {client.contractStatus}
                       </Badge>
                     ) : null}
@@ -206,7 +197,7 @@ export default function ClientsPage() {
           <div className="space-y-3">
             <Select
               label="跟进类型"
-              options={activityTypeOptions}
+              options={toSelectOptions(activityTypeOpts)}
               {...activityForm.register('activityType')}
             />
             <Textarea

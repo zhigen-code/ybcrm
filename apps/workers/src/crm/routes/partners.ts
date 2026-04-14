@@ -25,7 +25,7 @@ partnersRoutes.get('/:id', async (c) => {
 
 const partnerSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(['FertilityCenter', 'SurrogacyAgency', 'EggDonationAgency']),
+  type: z.string().min(1, '请选择类型'),
   contactPerson: z.string().nullable().optional(),
   contactInfo: z.string().nullable().optional(),
   serviceScope: z.array(z.string()).optional(),
@@ -34,6 +34,15 @@ const partnerSchema = z.object({
 
 partnersRoutes.post('/', requireAdmin, zValidator('json', partnerSchema), async (c) => {
   const body = c.req.valid('json')
+
+  // 动态验证 type 是否在 option_items 中
+  const validType = await c.env.DB.prepare(
+    "SELECT id FROM option_items WHERE group_key = 'partner_type' AND value = ? AND is_active = 1",
+  ).bind(body.type).first()
+  if (!validType) {
+    return c.json({ message: '无效的合作伙伴类型' }, 400)
+  }
+
   const id = uuidv4()
   await c.env.DB.prepare(
     'INSERT INTO partners (id, name, type, contact_person, contact_info, service_scope, api_config) VALUES (?, ?, ?, ?, ?, ?, ?)',

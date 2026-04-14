@@ -34,15 +34,13 @@ export interface Team {
 }
 
 export type LeadStatus = 'New' | 'Contacted' | 'Qualified' | 'Converted' | 'Lost'
-export type IntendedService = '赴美试管' | '代孕' | '供精' | '供卵'
-export const SERVICE_OPTIONS: IntendedService[] = ['赴美试管', '代孕', '供精', '供卵']
 
 export interface Lead {
   id: string
   source: string
   name: string
   contactInfo: string
-  intendedServices: IntendedService[]
+  intendedServices: string[]
   status: LeadStatus
   notes: string | null
   assignedToUserId: string | null
@@ -78,19 +76,15 @@ export interface Service {
   createdAt: string
 }
 
-export type PartnerType = 'FertilityCenter' | 'SurrogacyAgency' | 'EggDonationAgency'
-
 export interface Partner {
   id: string
   name: string
-  type: PartnerType
+  type: string
   contactPerson: string | null
   contactInfo: string | null
   serviceScope: string[]
   createdAt: string
 }
-
-export type ActivityType = 'Call' | 'Meeting' | 'Email' | 'Note'
 
 export interface SalesActivity {
   id: string
@@ -98,7 +92,7 @@ export interface SalesActivity {
   leadId: string | null
   userId: string
   userName: string | null
-  activityType: ActivityType
+  activityType: string
   description: string | null
   activityDate: string
   createdAt: string
