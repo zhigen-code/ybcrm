@@ -1,0 +1,21 @@
+{
+  "name": "crm-root",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:workers": "pnpm --filter workers dev",
+    "dev": "concurrently \"pnpm dev:web\" \"pnpm dev:workers\"",
+    "build:web": "pnpm --filter web build",
+    "deploy:workers": "pnpm --filter workers deploy",
+    "deploy:web": "pnpm --filter web deploy",
+    "db:migrate": "pnpm --filter workers db:migrate",
+    "db:migrate:local": "pnpm --filter workers db:migrate:local",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "workers",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "wrangler d1 migrations apply crm-db",
+    "db:migrate:local": "wrangler d1 migrations apply crm-db --local"
+  },
+  "dependencies": {
+    "hono": "^4.6.3",
+    "zod": "^3.23.8",
+    "jose": "^5.9.3",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241004.0",
+    "@hono/zod-validator": "^0.4.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.5.3",
+    "wrangler": "^3.78.0"
+  }
+}
