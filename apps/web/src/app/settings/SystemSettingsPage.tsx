@@ -7,6 +7,8 @@ import { crmApi } from '@/shared/utils/request'
 import { Input } from '@/shared/components/Input'
 import { Button } from '@/shared/components/Button'
 import { Select } from '@/shared/components/Select'
+import { Modal } from '@/shared/components/Modal'
+import type { Team } from '@/shared/types'
 
 const schema = z.object({
   system_name:     z.string().min(1, '请填写系统名称'),
@@ -22,9 +24,58 @@ type SettingsForm = z.infer<typeof schema>
 
 type Settings = Record<string, string>
 
+const TABS = [
+  { key: 'basic', label: '基本配置' },
+  { key: 'smtp',  label: '邮件服务器' },
+  { key: 'teams', label: '团队管理' },
+] as const
+type TabKey = typeof TABS[number]['key']
+
+const teamSchema = z.object({
+  name:   z.string().min(1, '请填写团队名称'),
+  region: z.string().optional(),
+})
+type TeamForm = z.infer<typeof teamSchema>
+
 export default function SystemSettingsPage() {
   const queryClient = useQueryClient()
   const [saved, setSaved] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabKey>('basic')
+  const [editTarget, setEditTarget] = useState<Team | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
+
+  // 团队列表
+  const { data: teams, isLoading: teamsLoading } = useQuery({
+    queryKey: ['teams'],
+    queryFn: () => crmApi.get<{ data: Team[] }>('/teams').then((r) => r.data.data),
+    enabled: activeTab === 'teams',
+  })
+
+  const teamForm = useForm<TeamForm>({ resolver: zodResolver(teamSchema) })
+  const addForm  = useForm<TeamForm>({ resolver: zodResolver(teamSchema) })
+
+  const invalidateTeams = () => queryClient.invalidateQueries({ queryKey: ['teams'] })
+
+  const updateTeam = useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & TeamForm) =>
+      crmApi.put(`/teams/${id}`, body),
+    onSuccess: () => { setEditTarget(null); invalidateTeams() },
+  })
+
+  const addTeam = useMutation({
+    mutationFn: (body: TeamForm) => crmApi.post('/teams', body),
+    onSuccess: () => { setShowAdd(false); addForm.reset(); invalidateTeams() },
+  })
+
+  const deleteTeam = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/teams/${id}`),
+    onSuccess: invalidateTeams,
+  })
+
+  const openEdit = (team: Team) => {
+    setEditTarget(team)
+    teamForm.reset({ name: team.name, region: team.region ?? '' })
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['system-settings'],
@@ -55,61 +106,213 @@ export default function SystemSettingsPage() {
   if (isLoading) return <div className="p-6 text-sm text-gray-500">加载中...</div>
 
   return (
-    <div className="p-4 sm:p-6 max-w-2xl">
-      <h1 className="text-lg sm:text-xl font-semibold text-gray-900 mb-6">系统管理</h1>
+    <div className="p-4 sm:p-6">
+      <div className="mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">系统管理</h1>
+        <p className="mt-0.5 text-sm text-gray-500">配置系统基本信息和服务参数</p>
+      </div>
 
-      <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="space-y-6">
-        {/* 基本配置 */}
-        <div className="rounded-lg border bg-white p-4 sm:p-6">
-          <h2 className="font-medium text-gray-900 mb-4">基本配置</h2>
-          <div className="space-y-3">
-            <Input
-              label="系统名称"
-              error={errors.system_name?.message}
-              {...register('system_name')}
-            />
-          </div>
-        </div>
+      {/* Tab 切换 */}
+      <div className="mb-4 flex gap-1 border-b">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === t.key
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* 邮件服务器配置 */}
-        <div className="rounded-lg border bg-white p-4 sm:p-6">
-          <h2 className="font-medium text-gray-900 mb-1">邮件服务器配置</h2>
-          <p className="text-xs text-gray-500 mb-4">用于发送通知邮件、魔法链接等系统邮件</p>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2">
-                <Input label="SMTP 服务器" placeholder="smtp.example.com" {...register('smtp_host')} />
+      <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))}>
+        <div className="max-w-2xl">
+          {activeTab === 'basic' && (
+            <div className="rounded-lg border bg-white p-4 sm:p-6">
+              <div className="space-y-3">
+                <Input
+                  label="系统名称"
+                  error={errors.system_name?.message}
+                  {...register('system_name')}
+                />
               </div>
-              <Input label="端口" placeholder="465" {...register('smtp_port')} />
             </div>
-            <Select
-              label="加密方式"
-              options={[
-                { value: 'true', label: 'SSL/TLS（推荐）' },
-                { value: 'false', label: '不加密' },
-              ]}
-              {...register('smtp_secure')}
-            />
-            <Input label="账号（用户名）" placeholder="your@email.com" {...register('smtp_user')} />
-            <Input
-              label="密码 / 授权码"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              {...register('smtp_password')}
-            />
-            <Input label="发件人邮箱" placeholder="noreply@example.com" {...register('smtp_from_email')} />
-            <Input label="发件人名称" placeholder="辅助生殖 CRM" {...register('smtp_from_name')} />
-          </div>
-        </div>
+          )}
 
-        <div className="flex items-center gap-3">
-          <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
-            保存设置
-          </Button>
-          {saved && <span className="text-sm text-green-600">已保存</span>}
+          {activeTab === 'smtp' && (
+            <div className="rounded-lg border bg-white p-4 sm:p-6">
+              <p className="text-xs text-gray-500 mb-4">用于发送通知邮件、魔法链接等系统邮件</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <Input label="SMTP 服务器" placeholder="smtp.example.com" {...register('smtp_host')} />
+                  </div>
+                  <Input label="端口" placeholder="465" {...register('smtp_port')} />
+                </div>
+                <Select
+                  label="加密方式"
+                  options={[
+                    { value: 'true', label: 'SSL/TLS（推荐）' },
+                    { value: 'false', label: '不加密' },
+                  ]}
+                  {...register('smtp_secure')}
+                />
+                <Input label="账号（用户名）" placeholder="your@email.com" {...register('smtp_user')} />
+                <Input
+                  label="密码 / 授权码"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                  {...register('smtp_password')}
+                />
+                <Input label="发件人邮箱" placeholder="noreply@example.com" {...register('smtp_from_email')} />
+                <Input label="发件人名称" placeholder="辅助生殖 CRM" {...register('smtp_from_name')} />
+              </div>
+            </div>
+          )}
+
+          {activeTab !== 'teams' && (
+            <div className="flex items-center gap-3 mt-4">
+              <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
+                保存设置
+              </Button>
+              {saved && <span className="text-sm text-green-600">已保存</span>}
+            </div>
+          )}
         </div>
       </form>
+
+      {/* 团队管理（独立于 form，避免嵌套表单） */}
+      {activeTab === 'teams' && (
+        <div className="max-w-2xl">
+          <div className="rounded-lg border bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+              <span className="text-sm font-medium text-gray-700">团队列表</span>
+              <Button size="sm" onClick={() => { setShowAdd(true); addForm.reset() }}>
+                + 新建团队
+              </Button>
+            </div>
+
+            {teamsLoading ? (
+              <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+            ) : !teams?.length ? (
+              <div className="py-8 text-center text-sm text-gray-400">暂无团队</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">团队名称</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">区域</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {teams.map((team) => (
+                    <tr key={team.id}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{team.name}</td>
+                      <td className="px-4 py-3 text-gray-500">{team.region ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => openEdit(team)}
+                            className="text-xs text-primary-600 hover:text-primary-800"
+                          >
+                            编辑
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            onClick={() => {
+                              if (confirm(`确认删除团队「${team.name}」？成员将被移出该团队。`)) {
+                                deleteTeam.mutate(team.id)
+                              }
+                            }}
+                            className="text-xs text-red-500 hover:text-red-700"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 编辑弹窗 */}
+          {editTarget && (
+            <Modal
+              title={`编辑团队：${editTarget.name}`}
+              onClose={() => setEditTarget(null)}
+              footer={
+                <>
+                  <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
+                  <Button
+                    loading={updateTeam.isPending}
+                    onClick={teamForm.handleSubmit((d) =>
+                      updateTeam.mutate({ id: editTarget.id, ...d })
+                    )}
+                  >
+                    保存
+                  </Button>
+                </>
+              }
+            >
+              <div className="space-y-3">
+                <Input
+                  label="团队名称"
+                  error={teamForm.formState.errors.name?.message}
+                  {...teamForm.register('name')}
+                />
+                <Input
+                  label="区域（可选）"
+                  placeholder="如：华东、北京"
+                  {...teamForm.register('region')}
+                />
+              </div>
+            </Modal>
+          )}
+
+          {/* 新建弹窗 */}
+          {showAdd && (
+            <Modal
+              title="新建团队"
+              onClose={() => { setShowAdd(false); addForm.reset() }}
+              footer={
+                <>
+                  <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset() }}>
+                    取消
+                  </Button>
+                  <Button
+                    loading={addTeam.isPending}
+                    onClick={addForm.handleSubmit((d) => addTeam.mutate(d))}
+                  >
+                    创建
+                  </Button>
+                </>
+              }
+            >
+              <div className="space-y-3">
+                <Input
+                  label="团队名称"
+                  error={addForm.formState.errors.name?.message}
+                  {...addForm.register('name')}
+                />
+                <Input
+                  label="区域（可选）"
+                  placeholder="如：华东、北京"
+                  {...addForm.register('region')}
+                />
+              </div>
+            </Modal>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -86,6 +86,12 @@ export interface Partner {
   createdAt: string
 }
 
+export interface ActivityAttachment {
+  key: string
+  name: string
+  size: number
+}
+
 export interface SalesActivity {
   id: string
   clientId: string | null
@@ -96,6 +102,7 @@ export interface SalesActivity {
   description: string | null
   activityDate: string
   createdAt: string
+  attachments: ActivityAttachment[]
 }
 
 // ---- 客户门户 ----

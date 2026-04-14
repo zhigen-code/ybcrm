@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
+import { v4 as uuidv4 } from 'uuid'
 
 // CRM 内部路由
 import { authRoutes } from './crm/routes/auth'
@@ -15,6 +18,8 @@ import { teamsRoutes } from './crm/routes/teams'
 import { uploadRoutes } from './crm/routes/upload'
 import { settingsRoutes } from './crm/routes/settings'
 import { optionsRoutes } from './crm/routes/options'
+import { apiKeysRoutes } from './crm/routes/apiKeys'
+import { requireApiKey } from './crm/middleware/apiKeyAuth'
 
 // 客户门户路由
 import { portalAuthRoutes } from './portal/routes/auth'
@@ -56,6 +61,38 @@ app.get('/api/public/settings', async (c) => {
   return c.json({ data: { systemName: result?.value ?? '辅助生殖 CRM' } })
 })
 
+// 外部 API（API Key 鉴权，允许所有 origin）
+app.use('/api/v1/*', cors({ origin: '*' }))
+
+const v1LeadSchema = z.object({
+  source: z.string().min(1, '请填写来源'),
+  name: z.string().min(1, '请填写姓名'),
+  contactInfo: z.string().min(1, '请填写联系方式'),
+  intendedServices: z.array(z.string()).min(1, '请至少填写一个意向服务'),
+  notes: z.string().nullable().optional(),
+})
+
+app.post(
+  '/api/v1/leads',
+  requireApiKey,
+  zValidator('json', v1LeadSchema),
+  async (c) => {
+    const body = c.req.valid('json')
+    const { userId } = c.get('jwtPayload')
+    const id = uuidv4()
+    await c.env.DB.prepare(
+      `INSERT INTO leads (id, source, name, contact_info, intended_service, intended_services, status, notes, created_by_userId)
+       VALUES (?, ?, ?, ?, ?, ?, 'New', ?, ?)`,
+    ).bind(
+      id, body.source, body.name, body.contactInfo,
+      body.intendedServices[0], JSON.stringify(body.intendedServices),
+      body.notes ?? null, userId,
+    ).run()
+    await c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id })
+    return c.json({ data: { id, status: 'New' } }, 201)
+  },
+)
+
 // CRM 内部 API（/api/*）
 app.route('/api/auth', authRoutes)
 app.route('/api/leads', leadsRoutes)
@@ -68,6 +105,7 @@ app.route('/api/teams', teamsRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/admin/settings', settingsRoutes)
 app.route('/api/admin/options', optionsRoutes)
+app.route('/api/auth/api-keys', apiKeysRoutes)
 
 // 客户门户 API（/api/client/*）
 app.route('/api/client/auth', portalAuthRoutes)

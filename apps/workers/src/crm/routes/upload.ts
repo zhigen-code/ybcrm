@@ -22,3 +22,21 @@ uploadRoutes.post('/internal', async (c) => {
   return c.json({ data: { key, name: file.name, size: file.size } }, 201)
 })
 
+// GET /api/upload/file?key=xxx - 内部文件下载（流式代理）
+uploadRoutes.get(
+  '/file',
+  zValidator('query', z.object({ key: z.string().min(1) })),
+  async (c) => {
+    const { key } = c.req.valid('query')
+    const obj = await c.env.STORAGE.get(key)
+    if (!obj) return c.json({ message: '文件不存在' }, 404)
+    const fileName = key.split('/').pop() ?? 'file'
+    return new Response(obj.body as ReadableStream, {
+      headers: {
+        'Content-Type': obj.httpMetadata?.contentType ?? 'application/octet-stream',
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      },
+    })
+  },
+)
+

@@ -10,10 +10,11 @@ import { Input } from '@/shared/components/Input'
 import { Select } from '@/shared/components/Select'
 import { Badge } from '@/shared/components/Badge'
 import { Modal } from '@/shared/components/Modal'
-import { Textarea } from '@/shared/components/Textarea'
 import { formatDate } from '@/shared/utils/format'
 import type { Client, SalesActivity, Service } from '@/shared/types'
 import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
+import { ActivityModal } from '@/shared/components/ActivityModal'
+import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 
 const editSchema = z.object({
   phone: z.string().nullable().optional(),
@@ -22,13 +23,6 @@ const editSchema = z.object({
   contractStatus: z.string().nullable().optional(),
 })
 type EditForm = z.infer<typeof editSchema>
-
-const activitySchema = z.object({
-  activityType: z.string().min(1),
-  description: z.string().optional(),
-  activityDate: z.string().min(1),
-})
-type ActivityForm = z.infer<typeof activitySchema>
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -81,11 +75,6 @@ export default function ClientDetailPage() {
     editForm.setValue('servicePlans', next)
   }
 
-  const activityForm = useForm<ActivityForm>({
-    resolver: zodResolver(activitySchema),
-    defaultValues: { activityDate: new Date().toISOString().slice(0, 16), activityType: 'Call' },
-  })
-
   const updateClient = useMutation({
     mutationFn: (body: EditForm) => crmApi.put(`/clients/${id}`, body),
     onSuccess: () => {
@@ -94,12 +83,19 @@ export default function ClientDetailPage() {
     },
   })
 
+  const downloadFile = async (key: string, name: string) => {
+    const res = await crmApi.get('/upload/file', { params: { key }, responseType: 'blob' })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = name; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const addActivity = useMutation({
-    mutationFn: (body: ActivityForm) => crmApi.post('/activities', { ...body, clientId: id }),
+    mutationFn: (body: ActivitySubmitData) => crmApi.post('/activities', { ...body, clientId: id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activities', 'client', id] })
       setShowActivity(false)
-      activityForm.reset()
     },
   })
 
@@ -195,6 +191,24 @@ export default function ClientDetailPage() {
                   {act.description && (
                     <p className="mt-1 text-gray-700">{act.description}</p>
                   )}
+                  {(act.attachments ?? []).length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {act.attachments.map((att) => (
+                        <button
+                          key={att.key}
+                          type="button"
+                          onClick={() => downloadFile(att.key, att.name)}
+                          className="inline-flex items-center gap-1 rounded bg-primary-50 px-2 py-0.5 text-xs text-primary-600 hover:text-primary-800"
+                        >
+                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          </svg>
+                          {att.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -253,31 +267,12 @@ export default function ClientDetailPage() {
 
       {/* 添加跟进记录弹窗 */}
       {showActivity && (
-        <Modal
+        <ActivityModal
           title="添加跟进记录"
           onClose={() => setShowActivity(false)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setShowActivity(false)}>取消</Button>
-              <Button
-                loading={addActivity.isPending}
-                onClick={activityForm.handleSubmit((d) => addActivity.mutate(d))}
-              >
-                保存
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-3">
-            <Select
-              label="类型"
-              options={toSelectOptions(activityTypeOpts)}
-              {...activityForm.register('activityType')}
-            />
-            <Textarea label="内容" {...activityForm.register('description')} />
-            <Input type="datetime-local" label="时间" {...activityForm.register('activityDate')} />
-          </div>
-        </Modal>
+          loading={addActivity.isPending}
+          onSubmit={(d) => addActivity.mutate(d)}
+        />
       )}
     </div>
   )

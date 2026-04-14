@@ -48,3 +48,11 @@ teamsRoutes.put(
     return c.json({ data: toCamel(updated as Record<string, unknown>) })
   },
 )
+
+teamsRoutes.delete('/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id')
+  // 解除成员关联后再删除
+  await c.env.DB.prepare('UPDATE users SET team_id = NULL WHERE team_id = ?').bind(id).run()
+  await c.env.DB.prepare('DELETE FROM teams WHERE id = ?').bind(id).run()
+  return c.json({ data: { success: true } })
+})

@@ -9,7 +9,16 @@ export const activitiesRoutes = new Hono<{ Bindings: Env }>()
 
 activitiesRoutes.use('*', requireAuth)
 
-const ACTIVITY_SELECT = 'SELECT sa.*, u.name as user_name FROM sales_activities sa LEFT JOIN users u ON sa.user_id = u.id'
+const ACTIVITY_SELECT = `
+  SELECT sa.*, u.name as user_name,
+    (SELECT json_group_array(json_object('key', aa.r2_object_key, 'name', aa.file_name, 'size', aa.file_size))
+     FROM activity_attachments aa WHERE aa.activity_id = sa.id) as raw_attachments
+  FROM sales_activities sa LEFT JOIN users u ON sa.user_id = u.id`
+
+function parseAttachments(raw: unknown): { key: string; name: string; size: number }[] {
+  if (!raw || raw === 'null') return []
+  try { return JSON.parse(raw as string) } catch { return [] }
+}
 
 activitiesRoutes.get('/', async (c) => {
   const { clientId, leadId } = c.req.query()
@@ -30,7 +39,13 @@ activitiesRoutes.get('/', async (c) => {
   const results = await c.env.DB.prepare(
     `${ACTIVITY_SELECT} ${whereClause} ORDER BY sa.created_at DESC`,
   ).bind(...params).all()
-  return c.json({ data: toCamelList(results.results as Record<string, unknown>[]) })
+
+  const data = toCamelList(results.results as Record<string, unknown>[]).map((a) => ({
+    ...a,
+    attachments: parseAttachments(a.rawAttachments),
+    rawAttachments: undefined,
+  }))
+  return c.json({ data })
 })
 
 activitiesRoutes.post(
@@ -43,6 +58,11 @@ activitiesRoutes.post(
       activityType: z.string().min(1, '请选择跟进类型'),
       description: z.string().nullable().optional(),
       activityDate: z.string().min(1),
+      attachmentKeys: z.array(z.object({
+        key: z.string(),
+        name: z.string(),
+        size: z.number(),
+      })).optional().default([]),
     }),
   ),
   async (c) => {
@@ -65,9 +85,23 @@ activitiesRoutes.post(
       .bind(id, body.clientId ?? null, body.leadId ?? null, userId, body.activityType, body.description ?? null, body.activityDate)
       .run()
 
-    const activity = await c.env.DB.prepare(
+    if (body.attachmentKeys.length > 0) {
+      const stmts = body.attachmentKeys.map((att) =>
+        c.env.DB.prepare(
+          'INSERT INTO activity_attachments (id, activity_id, r2_object_key, file_name, file_size) VALUES (?, ?, ?, ?, ?)',
+        ).bind(uuidv4(), id, att.key, att.name, att.size),
+      )
+      await c.env.DB.batch(stmts)
+    }
+
+    const rawActivity = await c.env.DB.prepare(
       `${ACTIVITY_SELECT} WHERE sa.id = ?`,
     ).bind(id).first()
-    return c.json({ data: toCamel(activity as Record<string, unknown>) }, 201)
+    const activity = {
+      ...toCamel(rawActivity as Record<string, unknown>),
+      attachments: parseAttachments((rawActivity as Record<string, unknown>).raw_attachments),
+      rawAttachments: undefined,
+    }
+    return c.json({ data: activity }, 201)
   },
 )

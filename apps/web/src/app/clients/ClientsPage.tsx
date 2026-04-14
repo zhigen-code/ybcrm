@@ -1,33 +1,21 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { crmApi } from '@/shared/utils/request'
 import { Input } from '@/shared/components/Input'
 import { Badge } from '@/shared/components/Badge'
-import { Modal } from '@/shared/components/Modal'
-import { Select } from '@/shared/components/Select'
-import { Textarea } from '@/shared/components/Textarea'
 import { Button } from '@/shared/components/Button'
 import { formatDate } from '@/shared/utils/format'
 import type { Client } from '@/shared/types'
-import { useOptionGroup, toSelectOptions, getOptionColor } from '@/shared/hooks/useOptions'
-
-const activitySchema = z.object({
-  activityType: z.string().min(1),
-  description: z.string().optional(),
-  activityDate: z.string().min(1, '请选择时间'),
-})
-type ActivityForm = z.infer<typeof activitySchema>
+import { useOptionGroup, getOptionColor } from '@/shared/hooks/useOptions'
+import { ActivityModal } from '@/shared/components/ActivityModal'
+import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [followUpTarget, setFollowUpTarget] = useState<Client | null>(null)
 
   const { options: contractStatusOpts } = useOptionGroup('contract_status')
-  const { options: activityTypeOpts } = useOptionGroup('activity_type')
 
   const { data, isLoading } = useQuery({
     queryKey: ['clients'],
@@ -38,23 +26,14 @@ export default function ClientsPage() {
     !search || c.name.includes(search) || c.email?.includes(search) || c.phone?.includes(search),
   )
 
-  const activityForm = useForm<ActivityForm>({
-    resolver: zodResolver(activitySchema),
-    defaultValues: { activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) },
-  })
-
   const addActivity = useMutation({
-    mutationFn: (body: ActivityForm) =>
+    mutationFn: (body: ActivitySubmitData) =>
       crmApi.post('/activities', { ...body, clientId: followUpTarget!.id }),
-    onSuccess: () => {
-      setFollowUpTarget(null)
-      activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? 'Call', activityDate: new Date().toISOString().slice(0, 16) })
-    },
+    onSuccess: () => setFollowUpTarget(null),
   })
 
   const openFollowUp = (client: Client, e: React.MouseEvent) => {
     e.preventDefault()
-    activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? 'Call', activityDate: new Date().toISOString().slice(0, 16) })
     setFollowUpTarget(client)
   }
 
@@ -179,40 +158,12 @@ export default function ClientsPage() {
 
       {/* 快速跟进弹窗 */}
       {followUpTarget && (
-        <Modal
+        <ActivityModal
           title={`跟进：${followUpTarget.name}`}
           onClose={() => setFollowUpTarget(null)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setFollowUpTarget(null)}>取消</Button>
-              <Button
-                loading={addActivity.isPending}
-                onClick={activityForm.handleSubmit((d) => addActivity.mutate(d))}
-              >
-                保存
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-3">
-            <Select
-              label="跟进类型"
-              options={toSelectOptions(activityTypeOpts)}
-              {...activityForm.register('activityType')}
-            />
-            <Textarea
-              label="内容"
-              placeholder="记录本次跟进的要点..."
-              {...activityForm.register('description')}
-            />
-            <Input
-              type="datetime-local"
-              label="时间"
-              error={activityForm.formState.errors.activityDate?.message}
-              {...activityForm.register('activityDate')}
-            />
-          </div>
-        </Modal>
+          loading={addActivity.isPending}
+          onSubmit={(d) => addActivity.mutate(d)}
+        />
       )}
     </div>
   )

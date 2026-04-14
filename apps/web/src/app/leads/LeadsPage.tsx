@@ -11,8 +11,10 @@ import { Badge } from '@/shared/components/Badge'
 import { Modal } from '@/shared/components/Modal'
 import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
+import { ActivityModal } from '@/shared/components/ActivityModal'
+import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { formatDate } from '@/shared/utils/format'
-import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
+import { useOptionGroup, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
 import type { Lead, Service } from '@/shared/types'
 
 const createSchema = z.object({
@@ -24,13 +26,6 @@ const createSchema = z.object({
 })
 type CreateForm = z.infer<typeof createSchema>
 
-const activitySchema = z.object({
-  activityType: z.string().min(1, '请选择跟进类型'),
-  description: z.string().optional(),
-  activityDate: z.string().min(1, '请选择时间'),
-})
-type ActivityForm = z.infer<typeof activitySchema>
-
 export default function LeadsPage() {
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
@@ -38,7 +33,6 @@ export default function LeadsPage() {
   const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
 
   const { options: leadStatusOpts } = useOptionGroup('lead_status')
-  const { options: activityTypeOpts } = useOptionGroup('activity_type')
   const { data: servicesData } = useQuery({
     queryKey: ['services'],
     queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data),
@@ -81,24 +75,14 @@ export default function LeadsPage() {
     },
   })
 
-  // 快速跟进表单
-  const activityForm = useForm<ActivityForm>({
-    resolver: zodResolver(activitySchema),
-    defaultValues: { activityType: activityTypeOpts[0]?.value ?? '', activityDate: new Date().toISOString().slice(0, 16) },
-  })
-
   const addActivity = useMutation({
-    mutationFn: (body: ActivityForm) =>
+    mutationFn: (body: ActivitySubmitData) =>
       crmApi.post('/activities', { ...body, leadId: followUpTarget!.id }),
-    onSuccess: () => {
-      setFollowUpTarget(null)
-      activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? '', activityDate: new Date().toISOString().slice(0, 16) })
-    },
+    onSuccess: () => setFollowUpTarget(null),
   })
 
   const openFollowUp = (lead: Lead, e: React.MouseEvent) => {
     e.preventDefault()
-    activityForm.reset({ activityType: activityTypeOpts[0]?.value ?? '', activityDate: new Date().toISOString().slice(0, 16) })
     setFollowUpTarget(lead)
   }
 
@@ -279,40 +263,12 @@ export default function LeadsPage() {
 
       {/* 快速跟进弹窗 */}
       {followUpTarget && (
-        <Modal
+        <ActivityModal
           title={`跟进：${followUpTarget.name}`}
           onClose={() => setFollowUpTarget(null)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setFollowUpTarget(null)}>取消</Button>
-              <Button
-                loading={addActivity.isPending}
-                onClick={activityForm.handleSubmit((d) => addActivity.mutate(d))}
-              >
-                保存
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-3">
-            <Select
-              label="跟进类型"
-              options={toSelectOptions(activityTypeOpts)}
-              {...activityForm.register('activityType')}
-            />
-            <Textarea
-              label="内容"
-              placeholder="记录本次跟进的要点..."
-              {...activityForm.register('description')}
-            />
-            <Input
-              type="datetime-local"
-              label="时间"
-              error={activityForm.formState.errors.activityDate?.message}
-              {...activityForm.register('activityDate')}
-            />
-          </div>
-        </Modal>
+          loading={addActivity.isPending}
+          onSubmit={(d) => addActivity.mutate(d)}
+        />
       )}
     </div>
   )
