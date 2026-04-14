@@ -9,25 +9,17 @@ import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
 import { Badge } from '@/shared/components/Badge'
 import { Modal } from '@/shared/components/Modal'
+import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
 import { formatDate } from '@/shared/utils/format'
 import type { Lead, LeadStatus, IntendedService } from '@/shared/types'
 import { SERVICE_OPTIONS } from '@/shared/types'
 
 const statusVariant: Record<LeadStatus, 'gray' | 'blue' | 'green' | 'yellow' | 'red'> = {
-  New: 'blue',
-  Contacted: 'yellow',
-  Qualified: 'gray',
-  Converted: 'green',
-  Lost: 'red',
+  New: 'blue', Contacted: 'yellow', Qualified: 'gray', Converted: 'green', Lost: 'red',
 }
-
 const statusLabel: Record<LeadStatus, string> = {
-  New: '新线索',
-  Contacted: '已联系',
-  Qualified: '已确认',
-  Converted: '已转化',
-  Lost: '已丢失',
+  New: '新线索', Contacted: '已联系', Qualified: '已确认', Converted: '已转化', Lost: '已丢失',
 }
 
 const createSchema = z.object({
@@ -39,6 +31,13 @@ const createSchema = z.object({
 })
 type CreateForm = z.infer<typeof createSchema>
 
+const activitySchema = z.object({
+  activityType: z.enum(['Call', 'Meeting', 'Email', 'Note']),
+  description: z.string().optional(),
+  activityDate: z.string().min(1, '请选择时间'),
+})
+type ActivityForm = z.infer<typeof activitySchema>
+
 const statusFilterOptions = [
   { value: '', label: '全部' },
   { value: 'New', label: '新线索' },
@@ -48,19 +47,27 @@ const statusFilterOptions = [
   { value: 'Lost', label: '已丢失' },
 ]
 
+const activityTypeOptions = [
+  { value: 'Call', label: '📞 电话' },
+  { value: 'Meeting', label: '🤝 会面' },
+  { value: 'Email', label: '✉️ 邮件' },
+  { value: 'Note', label: '📝 备注' },
+]
+
 export default function LeadsPage() {
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
+  const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['leads', statusFilter],
     queryFn: () =>
-      crmApi
-        .get<{ data: Lead[]; total: number }>('/leads', { params: { status: statusFilter || undefined } })
+      crmApi.get<{ data: Lead[]; total: number }>('/leads', { params: { status: statusFilter || undefined } })
         .then((r) => r.data),
   })
 
+  // 新建线索表单
   const {
     register,
     handleSubmit,
@@ -72,9 +79,7 @@ export default function LeadsPage() {
     resolver: zodResolver(createSchema),
     defaultValues: { intendedServices: [] },
   })
-
   const selectedServices = watch('intendedServices') ?? []
-
   const toggleService = (svc: IntendedService) => {
     const next = selectedServices.includes(svc)
       ? selectedServices.filter((s) => s !== svc)
@@ -90,6 +95,27 @@ export default function LeadsPage() {
       reset()
     },
   })
+
+  // 快速跟进表单
+  const activityForm = useForm<ActivityForm>({
+    resolver: zodResolver(activitySchema),
+    defaultValues: { activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) },
+  })
+
+  const addActivity = useMutation({
+    mutationFn: (body: ActivityForm) =>
+      crmApi.post('/activities', { ...body, leadId: followUpTarget!.id }),
+    onSuccess: () => {
+      setFollowUpTarget(null)
+      activityForm.reset({ activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) })
+    },
+  })
+
+  const openFollowUp = (lead: Lead, e: React.MouseEvent) => {
+    e.preventDefault()
+    activityForm.reset({ activityType: 'Call', activityDate: new Date().toISOString().slice(0, 16) })
+    setFollowUpTarget(lead)
+  }
 
   return (
     <div className="p-4 sm:p-6">
@@ -156,9 +182,18 @@ export default function LeadsPage() {
                     <td className="px-4 py-3 text-gray-600">{lead.createdByName ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
                     <td className="px-4 py-3">
-                      <Link to={`/app/leads/${lead.id}`} className="text-primary-600 hover:underline">
-                        查看
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => openFollowUp(lead, e)}
+                          className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                        >
+                          + 跟进
+                        </button>
+                        <span className="text-gray-300">|</span>
+                        <Link to={`/app/leads/${lead.id}`} className="text-xs text-gray-500 hover:text-gray-700">
+                          详情
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -169,31 +204,40 @@ export default function LeadsPage() {
           {/* 移动端卡片列表 */}
           <div className="sm:hidden space-y-3">
             {data.data.map((lead) => (
-              <Link
-                key={lead.id}
-                to={`/app/leads/${lead.id}`}
-                className="block rounded-lg border bg-white p-4 hover:shadow-sm transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{lead.name}</p>
-                    <p className="mt-0.5 text-xs text-gray-500 truncate">{lead.contactInfo}</p>
+              <div key={lead.id} className="rounded-lg border bg-white overflow-hidden">
+                <Link
+                  to={`/app/leads/${lead.id}`}
+                  className="block p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{lead.name}</p>
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">{lead.contactInfo}</p>
+                    </div>
+                    <Badge variant={statusVariant[lead.status]} className="flex-shrink-0">
+                      {statusLabel[lead.status]}
+                    </Badge>
                   </div>
-                  <Badge variant={statusVariant[lead.status]} className="flex-shrink-0">
-                    {statusLabel[lead.status]}
-                  </Badge>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(lead.intendedServices ?? []).map((svc) => (
+                      <Badge key={svc} variant="blue">{svc}</Badge>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+                    <span>{lead.source}</span>
+                    {lead.createdByName && <span>· {lead.createdByName}</span>}
+                    <span className="ml-auto">{formatDate(lead.createdAt)}</span>
+                  </div>
+                </Link>
+                <div className="border-t px-4 py-2 flex justify-end">
+                  <button
+                    onClick={(e) => openFollowUp(lead, e)}
+                    className="text-sm text-primary-600 font-medium"
+                  >
+                    + 添加跟进记录
+                  </button>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {(lead.intendedServices ?? []).map((svc) => (
-                    <Badge key={svc} variant="blue">{svc}</Badge>
-                  ))}
-                </div>
-                <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                  <span>{lead.source}</span>
-                  {lead.createdByName && <span>· {lead.createdByName}</span>}
-                  <span className="ml-auto">{formatDate(lead.createdAt)}</span>
-                </div>
-              </Link>
+              </div>
             ))}
           </div>
         </>
@@ -238,6 +282,44 @@ export default function LeadsPage() {
               </Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* 快速跟进弹窗 */}
+      {followUpTarget && (
+        <Modal
+          title={`跟进：${followUpTarget.name}`}
+          onClose={() => setFollowUpTarget(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setFollowUpTarget(null)}>取消</Button>
+              <Button
+                loading={addActivity.isPending}
+                onClick={activityForm.handleSubmit((d) => addActivity.mutate(d))}
+              >
+                保存
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <Select
+              label="跟进类型"
+              options={activityTypeOptions}
+              {...activityForm.register('activityType')}
+            />
+            <Textarea
+              label="内容"
+              placeholder="记录本次跟进的要点..."
+              {...activityForm.register('description')}
+            />
+            <Input
+              type="datetime-local"
+              label="时间"
+              error={activityForm.formState.errors.activityDate?.message}
+              {...activityForm.register('activityDate')}
+            />
+          </div>
         </Modal>
       )}
     </div>
