@@ -97,12 +97,20 @@ export default function LeadDetailPage() {
 
   // 判断是否正在编辑分配：undefined=未进入编辑，null=选择"取消分配"，string=选择了某用户
   const isEditingAssign = assigningUserId !== undefined
+  const isConverted = lead.status === 'Converted'
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl">
       <button onClick={() => navigate(-1)} className="mb-4 text-sm text-gray-500 hover:text-gray-700">
         ← 返回
       </button>
+
+      {/* 已转化提示 */}
+      {isConverted && (
+        <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm text-green-700">
+          该线索已转化为客户，信息仅供查阅，不可修改。
+        </div>
+      )}
 
       {/* 基本信息 */}
       <div className="rounded-lg border bg-white p-4 sm:p-6 mb-4 sm:mb-6">
@@ -125,21 +133,25 @@ export default function LeadDetailPage() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-600">状态：</span>
-          <div className="flex flex-wrap gap-1.5">
-            {leadStatusOpts.filter((o) => o.value !== 'Converted').map((o) => (
-              <button
-                key={o.value}
-                onClick={() => updateStatus.mutate(o.value as LeadStatus)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  lead.status === o.value
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
+          {isConverted ? (
+            <Badge variant="green">{getOptionLabel(leadStatusOpts, lead.status)}</Badge>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {leadStatusOpts.filter((o) => o.value !== 'Converted').map((o) => (
+                <button
+                  key={o.value}
+                  onClick={() => updateStatus.mutate(o.value as LeadStatus)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    lead.status === o.value
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 负责人行 */}
@@ -150,7 +162,7 @@ export default function LeadDetailPage() {
               <span className={`text-sm ${lead.assignedToName ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
                 {lead.assignedToName ?? '未分配'}
               </span>
-              {canAssign && (
+              {canAssign && !isConverted && (
                 <button
                   onClick={() => setAssigningUserId(lead.assignedToUserId ?? null)}
                   className="text-xs text-primary-600 hover:text-primary-800 underline"

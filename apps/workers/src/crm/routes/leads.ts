@@ -131,6 +131,10 @@ leadsRoutes.put(
     }>()
     if (!lead) throw new HTTPException(404, { message: '线索不存在' })
 
+    if (lead.status === 'Converted') {
+      throw new HTTPException(403, { message: '线索已转化，不可修改' })
+    }
+
     if (role === 'sales' && lead.assigned_to_userId !== userId) {
       throw new HTTPException(403, { message: '无权操作此线索' })
     }
