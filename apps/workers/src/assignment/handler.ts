@@ -34,6 +34,15 @@ export async function handleLeadAssignmentBatch(
 }
 
 async function assignLead(leadId: string, env: Env): Promise<void> {
+  // 检查全局自动分配开关
+  const setting = await env.DB.prepare(
+    "SELECT value FROM system_settings WHERE key = 'auto_assign_enabled'",
+  ).first<{ value: string }>()
+  if (setting?.value === 'false') {
+    console.log('自动分配已关闭，跳过线索分配')
+    return
+  }
+
   const lead = await env.DB.prepare(
     'SELECT * FROM leads WHERE id = ? AND assigned_to_userId IS NULL',
   ).bind(leadId).first<Lead>()

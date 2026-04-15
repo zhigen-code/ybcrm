@@ -22,14 +22,15 @@ settingsRoutes.put(
   zValidator(
     'json',
     z.object({
-      system_name:     z.string().optional(),
-      smtp_host:       z.string().optional(),
-      smtp_port:       z.string().optional(),
-      smtp_secure:     z.string().optional(),
-      smtp_user:       z.string().optional(),
-      smtp_password:   z.string().optional(),
-      smtp_from_email: z.string().optional(),
-      smtp_from_name:  z.string().optional(),
+      system_name:          z.string().optional(),
+      smtp_host:            z.string().optional(),
+      smtp_port:            z.string().optional(),
+      smtp_secure:          z.string().optional(),
+      smtp_user:            z.string().optional(),
+      smtp_password:        z.string().optional(),
+      smtp_from_email:      z.string().optional(),
+      smtp_from_name:       z.string().optional(),
+      auto_assign_enabled:  z.string().optional(),
     }),
   ),
   async (c) => {

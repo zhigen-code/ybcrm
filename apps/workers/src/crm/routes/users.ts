@@ -12,9 +12,17 @@ usersRoutes.use('*', requireAuth, requireAdmin)
 
 usersRoutes.get('/', async (c) => {
   const results = await c.env.DB.prepare(
-    'SELECT id, email, name, role, team_id, capacity, current_leads_count, created_at FROM users ORDER BY name',
+    'SELECT id, email, name, role, team_id, capacity, specialization, current_leads_count, created_at FROM users ORDER BY name',
   ).all()
-  return c.json({ data: toCamelList(results.results as Record<string, unknown>[]) })
+  const users = (results.results as Record<string, unknown>[]).map((u) => {
+    const camel = toCamel(u) as Record<string, unknown>
+    if (typeof camel.specialization === 'string') {
+      try { camel.specialization = JSON.parse(camel.specialization as string) } catch { camel.specialization = [] }
+    }
+    camel.specialization ??= []
+    return camel
+  })
+  return c.json({ data: users })
 })
 
 usersRoutes.put(

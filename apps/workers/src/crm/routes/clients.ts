@@ -74,15 +74,22 @@ clientsRoutes.post(
     const { userId } = c.get('jwtPayload')
     const id = uuidv4()
 
-    // 从线索获取备注和来源
+    // 从线索获取备注、来源和负责人（用于后续减少计数）
     let leadNotes: string | null = null
     let leadSource: string | null = null
+    let leadAssignedUserId: string | null = null
+    let leadStatus: string = ''
     if (body.leadId) {
-      const lead = await c.env.DB.prepare('SELECT notes, source FROM leads WHERE id = ?')
-        .bind(body.leadId)
-        .first<{ notes: string | null; source: string | null }>()
+      const lead = await c.env.DB.prepare(
+        'SELECT notes, source, assigned_to_userId, status FROM leads WHERE id = ?',
+      ).bind(body.leadId).first<{
+        notes: string | null; source: string | null
+        assigned_to_userId: string | null; status: string
+      }>()
       leadNotes = lead?.notes ?? null
       leadSource = lead?.source ?? null
+      leadAssignedUserId = lead?.assigned_to_userId ?? null
+      leadStatus = lead?.status ?? ''
     }
 
     const detailedProfile = JSON.stringify({
@@ -116,6 +123,13 @@ clientsRoutes.post(
       await c.env.DB.prepare("UPDATE leads SET status = 'Converted', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
         .bind(body.leadId)
         .run()
+      // 如果线索原本处于活跃状态，减少负责人的线索计数
+      const wasActive = !['Converted', 'Lost'].includes(leadStatus)
+      if (wasActive && leadAssignedUserId) {
+        await c.env.DB.prepare(
+          'UPDATE users SET current_leads_count = MAX(0, current_leads_count - 1) WHERE id = ?',
+        ).bind(leadAssignedUserId).run()
+      }
       // 将该线索下所有跟进记录关联到新客户
       await c.env.DB.prepare('UPDATE sales_activities SET client_id = ? WHERE lead_id = ? AND client_id IS NULL')
         .bind(id, body.leadId)

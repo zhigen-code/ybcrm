@@ -10,8 +10,8 @@ export const leadsRoutes = new Hono<{ Bindings: Env }>()
 
 leadsRoutes.use('*', requireAuth)
 
-const BASE_JOIN = 'FROM leads l LEFT JOIN users u ON l.created_by_userId = u.id'
-const SELECT_COLS = 'SELECT l.*, u.name as created_by_name'
+const BASE_JOIN = 'FROM leads l LEFT JOIN users u ON l.created_by_userId = u.id LEFT JOIN users assign_u ON l.assigned_to_userId = assign_u.id'
+const SELECT_COLS = 'SELECT l.*, u.name as created_by_name, assign_u.name as assigned_to_name'
 
 function parseLead(row: Record<string, unknown>) {
   const lead = toCamel(row) as Record<string, unknown>
@@ -24,15 +24,20 @@ function parseLead(row: Record<string, unknown>) {
 // GET /api/leads
 leadsRoutes.get('/', async (c) => {
   const { userId, role, teamId } = c.get('jwtPayload')
-  const { status, page = '1', pageSize = '20' } = c.req.query()
+  const { status, mine, page = '1', pageSize = '20' } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
   let whereClause = 'WHERE 1=1'
   const whereParams: unknown[] = []
 
   if (role === 'sales') {
+    // sales 角色始终只看分配给自己或自己团队的线索
     whereClause += ' AND (l.assigned_to_userId = ? OR l.assigned_to_teamId = ?)'
     whereParams.push(userId, teamId)
+  } else if (mine === 'true') {
+    // admin/operations 可选只看分配给自己的
+    whereClause += ' AND l.assigned_to_userId = ?'
+    whereParams.push(userId)
   }
   if (status) {
     whereClause += ' AND l.status = ?'
@@ -149,6 +154,34 @@ leadsRoutes.put(
     await c.env.DB.prepare(`UPDATE leads SET ${updates.join(', ')} WHERE id = ?`)
       .bind(...params)
       .run()
+
+    // ── current_leads_count 维护 ──
+    const TERMINAL = ['Converted', 'Lost']
+    const wasActive = !TERMINAL.includes(lead.status)
+    const newStatus = body.status ?? lead.status
+    const becomingTerminal = wasActive && TERMINAL.includes(newStatus)
+    const reassigning = body.assignedToUserId !== undefined && body.assignedToUserId !== lead.assigned_to_userId
+
+    if (becomingTerminal) {
+      // 线索关闭 → 减少原负责人计数
+      if (lead.assigned_to_userId) {
+        await c.env.DB.prepare(
+          'UPDATE users SET current_leads_count = MAX(0, current_leads_count - 1) WHERE id = ?',
+        ).bind(lead.assigned_to_userId).run()
+      }
+    } else if (reassigning && wasActive) {
+      // 重新分配（仅限活跃线索）→ 旧人 -1，新人 +1
+      if (lead.assigned_to_userId) {
+        await c.env.DB.prepare(
+          'UPDATE users SET current_leads_count = MAX(0, current_leads_count - 1) WHERE id = ?',
+        ).bind(lead.assigned_to_userId).run()
+      }
+      if (body.assignedToUserId) {
+        await c.env.DB.prepare(
+          'UPDATE users SET current_leads_count = current_leads_count + 1 WHERE id = ?',
+        ).bind(body.assignedToUserId).run()
+      }
+    }
 
     // 记录修改操作
     const statusLabels: Record<string, string> = {

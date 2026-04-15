@@ -9,7 +9,7 @@ import { Input } from '@/shared/components/Input'
 import { Select } from '@/shared/components/Select'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
-import type { User, Team, UserRole } from '@/shared/types'
+import type { User, Team, UserRole, Service } from '@/shared/types'
 
 const roleBadge: Record<UserRole, 'red' | 'blue' | 'green'> = {
   admin: 'red', operations: 'blue', sales: 'green',
@@ -31,6 +31,7 @@ const editSchema = z.object({
   role: z.enum(['admin', 'operations', 'sales']),
   teamId: z.string().optional(),
   capacity: z.coerce.number().int().min(1).max(100),
+  specialization: z.array(z.string()),
 })
 
 const resetPasswordSchema = z.object({
@@ -61,6 +62,12 @@ export default function UsersPage() {
     queryFn: () => crmApi.get<{ data: Team[] }>('/teams').then((r) => r.data),
   })
 
+  const { data: servicesData } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data.data),
+  })
+  const serviceNames = servicesData?.map((s) => s.name) ?? []
+
   const teamOptions = [
     { value: '', label: '无团队' },
     ...(teams?.data.map((t) => ({ value: t.id, label: t.name })) ?? []),
@@ -76,6 +83,7 @@ export default function UsersPage() {
       role: u.role,
       teamId: u.teamId ?? '',
       capacity: u.capacity,
+      specialization: u.specialization ?? [],
     })
     setEditTarget(u)
   }
@@ -142,6 +150,7 @@ export default function UsersPage() {
                 <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-700">邮箱</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-700">角色</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">专长服务</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-700">当前线索 / 容量</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -153,6 +162,17 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-gray-500">{user.email}</td>
                   <td className="px-4 py-3">
                     <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {(user.specialization ?? []).length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {user.specialization.map((s) => (
+                          <Badge key={s} variant="blue">{s}</Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">未设置</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
                     <div className="flex items-center gap-2">
@@ -247,6 +267,41 @@ export default function UsersPage() {
             />
             <Select label="所属团队" options={teamOptions} {...editForm.register('teamId')} />
             <Input label="线索容量" type="number" {...editForm.register('capacity')} />
+            <div>
+              <p className="mb-1.5 text-sm font-medium text-gray-700">
+                专长服务
+                <span className="ml-1 text-xs font-normal text-gray-400">（用于专长匹配自动分配）</span>
+              </p>
+              {serviceNames.length === 0 ? (
+                <p className="text-xs text-gray-400">请先在服务管理中创建服务</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {serviceNames.map((name) => {
+                    const selected = (editForm.watch('specialization') ?? []).includes(name)
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => {
+                          const cur = editForm.getValues('specialization') ?? []
+                          editForm.setValue(
+                            'specialization',
+                            selected ? cur.filter((s) => s !== name) : [...cur, name],
+                          )
+                        }}
+                        className={`rounded-full px-3 py-1 text-sm font-medium border transition-colors ${
+                          selected
+                            ? 'bg-primary-600 text-white border-primary-600'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </Modal>
       )}

@@ -10,6 +10,22 @@ import { Select } from '@/shared/components/Select'
 import { Modal } from '@/shared/components/Modal'
 import type { Team } from '@/shared/types'
 
+interface AssignmentRule {
+  id: string
+  ruleType: string
+  ruleTypeLabel: string
+  priority: number
+  configJson: string
+  isActive: number
+}
+
+const RULE_DESCRIPTIONS: Record<string, string> = {
+  round_robin:  '按顺序轮流分配给每位销售人员',
+  load_balance: '分配给当前线索数最少的销售人员',
+  skill_match:  '优先分配给专长与线索意向服务匹配的销售人员',
+  region_match: '优先分配给所在区域与线索来源地区匹配的销售人员',
+}
+
 const schema = z.object({
   system_name:     z.string().min(1, '请填写系统名称'),
   smtp_host:       z.string(),
@@ -25,9 +41,10 @@ type SettingsForm = z.infer<typeof schema>
 type Settings = Record<string, string>
 
 const TABS = [
-  { key: 'basic', label: '基本配置' },
-  { key: 'smtp',  label: '邮件服务器' },
-  { key: 'teams', label: '团队管理' },
+  { key: 'basic',      label: '基本配置' },
+  { key: 'smtp',       label: '邮件服务器' },
+  { key: 'teams',      label: '团队管理' },
+  { key: 'assignment', label: '自动分配' },
 ] as const
 type TabKey = typeof TABS[number]['key']
 
@@ -76,6 +93,26 @@ export default function SystemSettingsPage() {
     setEditTarget(team)
     teamForm.reset({ name: team.name, region: team.region ?? '' })
   }
+
+  // 分配规则
+  const { data: rules, isLoading: rulesLoading } = useQuery({
+    queryKey: ['assignment-rules'],
+    queryFn: () =>
+      crmApi.get<{ data: AssignmentRule[] }>('/admin/assignment-rules').then((r) => r.data.data),
+    enabled: activeTab === 'assignment',
+  })
+
+  const updateRule = useMutation({
+    mutationFn: ({ id, ...body }: { id: string; isActive?: boolean; priority?: number }) =>
+      crmApi.put(`/admin/assignment-rules/${id}`, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assignment-rules'] }),
+  })
+
+  const toggleAutoAssign = useMutation({
+    mutationFn: (enabled: boolean) =>
+      crmApi.put('/admin/settings', { auto_assign_enabled: enabled ? 'true' : 'false' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['system-settings'] }),
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['system-settings'],
@@ -176,7 +213,7 @@ export default function SystemSettingsPage() {
             </div>
           )}
 
-          {activeTab !== 'teams' && (
+          {activeTab !== 'teams' && activeTab !== 'assignment' && (
             <div className="flex items-center gap-3 mt-4">
               <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
                 保存设置
@@ -311,6 +348,118 @@ export default function SystemSettingsPage() {
               </div>
             </Modal>
           )}
+        </div>
+      )}
+
+      {/* 自动分配（独立于 form） */}
+      {activeTab === 'assignment' && (
+        <div className="max-w-2xl space-y-4">
+          {/* 全局开关 */}
+          <div className="rounded-lg border bg-white p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">自动分配开关</p>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  开启后，新建线索将根据下方规则自动分配给销售人员
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const current = data?.auto_assign_enabled !== 'false'
+                  toggleAutoAssign.mutate(!current)
+                }}
+                disabled={toggleAutoAssign.isPending}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  data?.auto_assign_enabled !== 'false' ? 'bg-primary-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out ${
+                    data?.auto_assign_enabled !== 'false' ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* 分配规则列表 */}
+          <div className="rounded-lg border bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b bg-gray-50">
+              <p className="text-sm font-medium text-gray-700">分配规则</p>
+              <p className="mt-0.5 text-xs text-gray-500">规则按优先级顺序依次尝试，第一个匹配成功的规则生效</p>
+            </div>
+
+            {rulesLoading ? (
+              <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+            ) : !rules?.length ? (
+              <div className="py-8 text-center text-sm text-gray-400">暂无规则</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">优先级</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">规则名称</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">说明</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-700">启用</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-700">调整顺序</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {[...rules].sort((a, b) => a.priority - b.priority).map((rule, idx, arr) => (
+                    <tr key={rule.id} className={rule.isActive ? '' : 'opacity-50'}>
+                      <td className="px-4 py-3 text-center text-gray-400 text-xs">{rule.priority}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{rule.ruleTypeLabel}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{RULE_DESCRIPTIONS[rule.ruleType] ?? '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => updateRule.mutate({ id: rule.id, isActive: rule.isActive === 0 })}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                            rule.isActive ? 'bg-primary-600' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                            rule.isActive ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => {
+                              const prev = arr[idx - 1]!
+                              updateRule.mutate({ id: rule.id, priority: prev.priority })
+                              updateRule.mutate({ id: prev.id, priority: rule.priority })
+                            }}
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="上移"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === arr.length - 1}
+                            onClick={() => {
+                              const next = arr[idx + 1]!
+                              updateRule.mutate({ id: rule.id, priority: next.priority })
+                              updateRule.mutate({ id: next.id, priority: rule.priority })
+                            }}
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="下移"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -7,14 +7,19 @@ import { formatDate } from '@/shared/utils/format'
 import { useOptionGroup, getOptionLabel } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
-import type { Lead, LeadStatus, SalesActivity } from '@/shared/types'
+import { useCrmAuth } from '@/app/auth/CrmAuthContext'
+import type { Lead, LeadStatus, SalesActivity, User } from '@/shared/types'
 import { useState } from 'react'
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user: me } = useCrmAuth()
   const [showActivity, setShowActivity] = useState(false)
+  const [assigningUserId, setAssigningUserId] = useState<string | null | undefined>(undefined)
+
+  const canAssign = me?.role === 'admin' || me?.role === 'operations'
 
   const { options: leadStatusOpts } = useOptionGroup('lead_status')
   const { options: activityTypeOpts } = useOptionGroup('activity_type')
@@ -30,9 +35,30 @@ export default function LeadDetailPage() {
       crmApi.get<{ data: SalesActivity[] }>('/activities', { params: { leadId: id } }).then((r) => r.data.data),
   })
 
+  // 用于分配负责人的用户列表（仅 sales 角色）
+  const { data: usersData } = useQuery({
+    queryKey: ['users-sales'],
+    queryFn: () =>
+      crmApi.get<{ data: User[] }>('/users').then((r) =>
+        r.data.data.filter((u) => u.role === 'sales'),
+      ),
+    enabled: canAssign,
+  })
+  const salesUsers = usersData ?? []
+
   const updateStatus = useMutation({
     mutationFn: (status: LeadStatus) => crmApi.put(`/leads/${id}`, { status }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lead', id] }),
+  })
+
+  const assignLead = useMutation({
+    mutationFn: (assignedToUserId: string | null) =>
+      crmApi.put(`/leads/${id}`, { assignedToUserId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead', id] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      setAssigningUserId(undefined)
+    },
   })
 
   const convertToClient = useMutation({
@@ -67,6 +93,9 @@ export default function LeadDetailPage() {
   })
 
   if (!lead) return <div className="p-6 text-sm text-gray-500">加载中...</div>
+
+  // 判断是否正在编辑分配：undefined=未进入编辑，null=选择"取消分配"，string=选择了某用户
+  const isEditingAssign = assigningUserId !== undefined
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl">
@@ -107,12 +136,60 @@ export default function LeadDetailPage() {
           </div>
         </div>
 
+        {/* 负责人行 */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-gray-600">负责人：</span>
+          {!isEditingAssign ? (
+            <>
+              <span className={`text-sm ${lead.assignedToName ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
+                {lead.assignedToName ?? '未分配'}
+              </span>
+              {canAssign && (
+                <button
+                  onClick={() => setAssigningUserId(lead.assignedToUserId ?? null)}
+                  className="text-xs text-primary-600 hover:text-primary-800 underline"
+                >
+                  {lead.assignedToUserId ? '变更' : '分配'}
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <select
+                className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={assigningUserId ?? ''}
+                onChange={(e) => setAssigningUserId(e.target.value || null)}
+              >
+                <option value="">— 取消分配 —</option>
+                {salesUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                loading={assignLead.isPending}
+                onClick={() => assignLead.mutate(assigningUserId ?? null)}
+              >
+                确认
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setAssigningUserId(undefined)}
+              >
+                取消
+              </Button>
+            </div>
+          )}
+        </div>
+
         {lead.notes && (
           <p className="mt-3 text-sm text-gray-600 bg-gray-50 rounded p-3">{lead.notes}</p>
         )}
 
-        <div className="mt-4 text-xs text-gray-400">
-          创建人：{lead.createdByName ?? '—'} · 创建于 {formatDate(lead.createdAt)}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+          <span>创建人：{lead.createdByName ?? '—'}</span>
+          <span>创建于 {formatDate(lead.createdAt)}</span>
         </div>
 
         {lead.status !== 'Converted' && lead.status !== 'Lost' && (

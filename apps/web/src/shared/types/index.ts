@@ -45,6 +45,7 @@ export interface Lead {
   notes: string | null
   assignedToUserId: string | null
   assignedToTeamId: string | null
+  assignedToName: string | null
   createdByUserId: string | null
   createdByName: string | null
   createdAt: string

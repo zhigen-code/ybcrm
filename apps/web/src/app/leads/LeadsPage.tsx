@@ -15,6 +15,7 @@ import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { formatDate } from '@/shared/utils/format'
 import { useOptionGroup, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
+import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 import type { Lead, Service } from '@/shared/types'
 
 const createSchema = z.object({
@@ -28,9 +29,14 @@ type CreateForm = z.infer<typeof createSchema>
 
 export default function LeadsPage() {
   const queryClient = useQueryClient()
+  const { user } = useCrmAuth()
   const [showCreate, setShowCreate] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
+  const [mineOnly, setMineOnly] = useState(false)
   const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
+
+  // sales 角色后端已自动过滤，不需要切换
+  const canToggleMine = user?.role !== 'sales'
 
   const { options: leadStatusOpts } = useOptionGroup('lead_status')
   const { data: servicesData } = useQuery({
@@ -40,10 +46,11 @@ export default function LeadsPage() {
   const serviceOptions = servicesData?.data ?? []
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', statusFilter],
+    queryKey: ['leads', statusFilter, mineOnly],
     queryFn: () =>
-      crmApi.get<{ data: Lead[]; total: number }>('/leads', { params: { status: statusFilter || undefined } })
-        .then((r) => r.data),
+      crmApi.get<{ data: Lead[]; total: number }>('/leads', {
+        params: { status: statusFilter || undefined, mine: mineOnly ? 'true' : undefined },
+      }).then((r) => r.data),
   })
 
   // 新建线索表单
@@ -101,21 +108,46 @@ export default function LeadsPage() {
         <Button onClick={() => setShowCreate(true)} size="sm">新建线索</Button>
       </div>
 
-      {/* 状态筛选 */}
-      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {statusFilterOptions.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => setStatusFilter(value)}
-            className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              statusFilter === value
-                ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-600 border hover:bg-gray-50'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* 视图切换 + 状态筛选 */}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        {/* 我的线索 / 全部 切换（仅 admin/operations） */}
+        {canToggleMine && (
+          <div className="flex rounded-lg border bg-white overflow-hidden flex-shrink-0">
+            <button
+              onClick={() => setMineOnly(false)}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                !mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => setMineOnly(true)}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              我的线索
+            </button>
+          </div>
+        )}
+
+        {/* 状态筛选 */}
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+          {statusFilterOptions.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setStatusFilter(value)}
+              className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                statusFilter === value
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white text-gray-600 border hover:bg-gray-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
@@ -133,7 +165,7 @@ export default function LeadsPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">意向服务</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">来源</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">创建人</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">负责人</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">创建时间</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -155,7 +187,7 @@ export default function LeadsPage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{lead.source}</td>
-                    <td className="px-4 py-3 text-gray-600">{lead.createdByName ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{lead.assignedToName ?? <span className="text-gray-400">未分配</span>}</td>
                     <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -201,7 +233,10 @@ export default function LeadsPage() {
                   </div>
                   <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                     <span>{lead.source}</span>
-                    {lead.createdByName && <span>· {lead.createdByName}</span>}
+                    {lead.assignedToName
+                      ? <span>· 负责人：{lead.assignedToName}</span>
+                      : <span className="text-gray-400">· 未分配</span>
+                    }
                     <span className="ml-auto">{formatDate(lead.createdAt)}</span>
                   </div>
                 </Link>
