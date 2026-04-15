@@ -48,7 +48,7 @@ export default function PartnersPage() {
       type: p.type,
       contactPerson: p.contactPerson,
       contactInfo: p.contactInfo,
-      serviceScope: p.serviceScope.join('、'),
+      serviceScope: (p.serviceScope ?? []).join('、'),
     })
     setEditTarget(p)
     setShowForm(true)
@@ -106,9 +106,9 @@ export default function PartnersPage() {
                 </div>
               )}
 
-              {partner.serviceScope.length > 0 && (
+              {(partner.serviceScope ?? []).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {partner.serviceScope.map((s) => (
+                  {(partner.serviceScope ?? []).map((s) => (
                     <span key={s} className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
                       {s}
                     </span>

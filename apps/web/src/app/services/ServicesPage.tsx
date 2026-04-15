@@ -41,7 +41,7 @@ export default function ServicesPage() {
       name: s.name,
       description: s.description,
       price: s.price,
-      processSteps: s.processSteps.join('\n'),
+      processSteps: (s.processSteps ?? []).join('\n'),
     })
     setEditTarget(s)
     setShowCreate(true)
@@ -92,11 +92,11 @@ export default function ServicesPage() {
                   ¥{service.price.toLocaleString()}
                 </p>
               )}
-              {service.processSteps.length > 0 && (
+              {(service.processSteps ?? []).length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs font-medium text-gray-500 mb-1">服务流程</p>
                   <ol className="space-y-1">
-                    {service.processSteps.map((step, i) => (
+                    {(service.processSteps ?? []).map((step, i) => (
                       <li key={i} className="flex gap-2 text-xs text-gray-600">
                         <span className="flex-shrink-0 w-4 h-4 rounded-full bg-primary-100 text-primary-700 text-center leading-4 font-medium">
                           {i + 1}
