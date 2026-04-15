@@ -46,6 +46,14 @@ type RegisterForm = z.infer<typeof registerSchema>
 type EditForm = z.infer<typeof editSchema>
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>
 
+function parseSpecialization(val: unknown): string[] {
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try { return JSON.parse(val) } catch { /* ignore */ }
+  }
+  return []
+}
+
 export default function UsersPage() {
   const queryClient = useQueryClient()
   const [showRegister, setShowRegister] = useState(false)
@@ -83,7 +91,7 @@ export default function UsersPage() {
       role: u.role,
       teamId: u.teamId ?? '',
       capacity: u.capacity,
-      specialization: u.specialization ?? [],
+      specialization: parseSpecialization(u.specialization),
     })
     setEditTarget(u)
   }
@@ -169,15 +177,18 @@ export default function UsersPage() {
                 </div>
 
                 {/* 专长 */}
-                {Array.isArray(user.specialization) && user.specialization.length > 0 ? (
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {user.specialization.map((s) => (
-                      <Badge key={s} variant="blue">{s}</Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400 mb-3">专长未设置</p>
-                )}
+                {(() => {
+                  const specs = parseSpecialization(user.specialization)
+                  return specs.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {specs.map((s) => (
+                        <Badge key={s} variant="blue">{s}</Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 mb-3">专长未设置</p>
+                  )
+                })()}
 
                 <div className="flex gap-2 border-t pt-3">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>编辑</Button>
@@ -209,15 +220,18 @@ export default function UsersPage() {
                       <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      {Array.isArray(user.specialization) && user.specialization.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {user.specialization.map((s) => (
-                            <Badge key={s} variant="blue">{s}</Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">未设置</span>
-                      )}
+                      {(() => {
+                        const specs = parseSpecialization(user.specialization)
+                        return specs.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {specs.map((s) => (
+                              <Badge key={s} variant="blue">{s}</Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">未设置</span>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       <div className="flex items-center gap-2">
