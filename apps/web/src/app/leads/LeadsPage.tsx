@@ -77,7 +77,8 @@ export default function LeadsPage() {
     mutationFn: (body: CreateForm) =>
       crmApi.post<{ data: Lead }>('/leads', body).then((r) => r.data.data),
     onSuccess: (newLead) => {
-      // 直接写入缓存，避免 D1 最终一致性导致刷新后看不到新数据
+      // 直接写入缓存；不立即 invalidate——D1 最终一致性下重新请求会返回旧数据，
+      // 覆盖掉这里的乐观更新，导致新线索消失。用户切换筛选或刷新页面时会自然同步。
       queryClient.setQueryData(
         ['leads', statusFilter, mineOnly],
         (old: { data: Lead[]; total: number } | undefined) =>
@@ -85,8 +86,6 @@ export default function LeadsPage() {
             ? { ...old, data: [newLead, ...old.data], total: old.total + 1 }
             : old,
       )
-      // 同时异步刷新保证最终一致
-      queryClient.invalidateQueries({ queryKey: ['leads'] })
       setShowCreate(false)
       reset()
     },
