@@ -74,8 +74,18 @@ export default function LeadsPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (body: CreateForm) => crmApi.post('/leads', body),
-    onSuccess: () => {
+    mutationFn: (body: CreateForm) =>
+      crmApi.post<{ data: Lead }>('/leads', body).then((r) => r.data.data),
+    onSuccess: (newLead) => {
+      // 直接写入缓存，避免 D1 最终一致性导致刷新后看不到新数据
+      queryClient.setQueryData(
+        ['leads', statusFilter, mineOnly],
+        (old: { data: Lead[]; total: number } | undefined) =>
+          old
+            ? { ...old, data: [newLead, ...old.data], total: old.total + 1 }
+            : old,
+      )
+      // 同时异步刷新保证最终一致
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       setShowCreate(false)
       reset()
