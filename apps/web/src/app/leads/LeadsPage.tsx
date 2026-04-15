@@ -33,6 +33,7 @@ export default function LeadsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
+  const [search, setSearch] = useState('')
   const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
 
   // sales 角色后端已自动过滤，不需要切换
@@ -52,6 +53,19 @@ export default function LeadsPage() {
         params: { status: statusFilter || undefined, mine: mineOnly ? 'true' : undefined },
       }).then((r) => r.data),
   })
+
+  const allLeads = data?.data ?? []
+  const filtered = search
+    ? allLeads.filter((l) => {
+        const q = search.toLowerCase()
+        return (
+          l.name.toLowerCase().includes(q) ||
+          l.contactInfo.toLowerCase().includes(q) ||
+          l.source.toLowerCase().includes(q) ||
+          (l.leadNo != null && `l-${l.leadNo}`.includes(q.replace(/^l-?/, 'l-')))
+        )
+      })
+    : allLeads
 
   // 新建线索表单
   const {
@@ -103,9 +117,20 @@ export default function LeadsPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-gray-900">线索管理</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">共 {data?.total ?? 0} 条线索</p>
+          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">
+          {search ? `${filtered.length} / ${data?.total ?? 0} 条` : `共 ${data?.total ?? 0} 条线索`}
+        </p>
         </div>
         <Button onClick={() => setShowCreate(true)} size="sm">新建线索</Button>
+      </div>
+
+      {/* 搜索框 */}
+      <div className="mb-3">
+        <Input
+          placeholder="搜索姓名、联系方式、来源、编号..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* 视图切换 + 状态筛选 */}
@@ -152,8 +177,8 @@ export default function LeadsPage() {
 
       {isLoading ? (
         <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
-      ) : !(data?.data ?? []).length ? (
-        <div className="py-12 text-center text-sm text-gray-500">暂无线索</div>
+      ) : !filtered.length ? (
+        <div className="py-12 text-center text-sm text-gray-500">{search ? '无匹配线索' : '暂无线索'}</div>
       ) : (
         <>
           {/* 桌面端表格 */}
@@ -173,7 +198,7 @@ export default function LeadsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(data?.data ?? []).map((lead) => (
+                {filtered.map((lead) => (
                   <tr key={lead.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-400 text-xs font-mono">L-{String(lead.leadNo ?? '').padStart(4, '0')}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{lead.name}</td>
@@ -215,7 +240,7 @@ export default function LeadsPage() {
 
           {/* 移动端卡片列表 */}
           <div className="sm:hidden space-y-3">
-            {(data?.data ?? []).map((lead) => (
+            {filtered.map((lead) => (
               <div key={lead.id} className="rounded-lg border bg-white overflow-hidden">
                 <Link
                   to={`/app/leads/${lead.id}`}
