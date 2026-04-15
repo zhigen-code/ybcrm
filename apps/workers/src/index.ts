@@ -39,14 +39,16 @@ app.use(
   cors({
     origin: (origin) => {
       const allowed = [
-        'https://kehu.ybivf.com',
+        'https://youbei.zhigen.net',
         'https://crm.irfc.cn',
         'https://crm-web-6sc.pages.dev',
         'http://localhost:5173',
       ]
       if (allowed.includes(origin)) return origin
-      // 允许 Pages 预览部署的子域名
+      // 允许 Cloudflare Pages 预览部署的子域名
       if (origin?.endsWith('.crm-web-6sc.pages.dev')) return origin
+      // 允许阿里云 ESA Pages 预览子域名
+      if (origin?.endsWith('.esapages.com')) return origin
       return null
     },
     credentials: true,
