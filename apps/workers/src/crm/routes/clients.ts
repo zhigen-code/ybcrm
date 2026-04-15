@@ -10,8 +10,8 @@ export const clientsRoutes = new Hono<{ Bindings: Env }>()
 
 clientsRoutes.use('*', requireAuth)
 
-const BASE_JOIN = 'FROM clients c LEFT JOIN users u ON c.created_by_userId = u.id'
-const SELECT_COLS = 'SELECT c.*, u.name as created_by_name'
+const BASE_JOIN = 'FROM clients c LEFT JOIN users u ON c.created_by_userId = u.id LEFT JOIN leads l ON c.lead_id = l.id'
+const SELECT_COLS = 'SELECT c.*, u.name as created_by_name, l.lead_no'
 
 function parseClient(row: Record<string, unknown>) {
   const client = toCamel(row) as Record<string, unknown>

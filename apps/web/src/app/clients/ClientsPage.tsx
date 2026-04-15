@@ -65,6 +65,7 @@ export default function ClientsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">编号</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">联系方式</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">服务套餐</th>
@@ -77,6 +78,7 @@ export default function ClientsPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((client) => (
                   <tr key={client.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-400 text-xs font-mono">{client.leadNo != null ? `L-${String(client.leadNo).padStart(4, '0')}` : '—'}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{client.name}</td>
                     <td className="px-4 py-3 text-gray-600">
                       <div>{client.phone ?? '—'}</div>
@@ -128,6 +130,9 @@ export default function ClientsPage() {
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 truncate">{client.name}</p>
                       <p className="mt-0.5 text-xs text-gray-500">
+                        {client.leadNo != null && (
+                          <span className="font-mono text-gray-400 mr-1">L-{String(client.leadNo).padStart(4, '0')}</span>
+                        )}
                         {client.phone ?? client.email ?? '无联系方式'}
                       </p>
                     </div>

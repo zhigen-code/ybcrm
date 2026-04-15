@@ -108,7 +108,12 @@ export default function LeadDetailPage() {
       <div className="rounded-lg border bg-white p-4 sm:p-6 mb-4 sm:mb-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">{lead.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold text-gray-900">{lead.name}</h1>
+              {lead.leadNo != null && (
+                <span className="font-mono text-sm text-gray-400">L-{String(lead.leadNo).padStart(4, '0')}</span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-gray-500">{lead.contactInfo} · {lead.source}</p>
           </div>
           <div className="flex flex-wrap gap-1">

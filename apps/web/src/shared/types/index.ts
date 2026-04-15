@@ -37,6 +37,7 @@ export type LeadStatus = 'New' | 'Contacted' | 'Qualified' | 'Converted' | 'Lost
 
 export interface Lead {
   id: string
+  leadNo: number | null
   source: string
   name: string
   contactInfo: string
@@ -55,6 +56,7 @@ export interface Lead {
 export interface Client {
   id: string
   leadId: string | null
+  leadNo: number | null
   name: string
   email: string | null
   phone: string | null

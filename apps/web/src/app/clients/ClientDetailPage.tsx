@@ -112,7 +112,12 @@ export default function ClientDetailPage() {
       <div className="rounded-lg border bg-white p-4 sm:p-6 mb-4 sm:mb-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">{client.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold text-gray-900">{client.name}</h1>
+              {client.leadNo != null && (
+                <span className="font-mono text-sm text-gray-400">L-{String(client.leadNo).padStart(4, '0')}</span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-gray-500">
               {client.phone ?? '无电话'} · {client.email ?? '无邮箱'}
             </p>

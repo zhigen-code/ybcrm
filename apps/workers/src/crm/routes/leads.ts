@@ -84,8 +84,8 @@ leadsRoutes.post('/', zValidator('json', leadSchema), async (c) => {
   const id = uuidv4()
 
   await c.env.DB.prepare(
-    `INSERT INTO leads (id, source, name, contact_info, intended_service, intended_services, status, notes, created_by_userId)
-     VALUES (?, ?, ?, ?, ?, ?, 'New', ?, ?)`,
+    `INSERT INTO leads (id, source, name, contact_info, intended_service, intended_services, status, notes, created_by_userId, lead_no)
+     VALUES (?, ?, ?, ?, ?, ?, 'New', ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
   ).bind(
     id,
     body.source,
