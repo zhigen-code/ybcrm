@@ -40,6 +40,7 @@ app.use(
     origin: (origin) => {
       const allowed = [
         'https://kehu.ybivf.com',
+        'https://crm.irfc.cn',
         'https://crm-web-6sc.pages.dev',
         'http://localhost:5173',
       ]

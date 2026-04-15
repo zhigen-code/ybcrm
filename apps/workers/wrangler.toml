@@ -32,7 +32,7 @@ max_batch_size = 10
 max_batch_timeout = 5
 
 [[routes]]
-pattern = "kehu-api.ybivf.com"
+pattern = "crmapi.irfc.cn"
 custom_domain = true
 
 [dev]
