@@ -134,73 +134,119 @@ export default function UsersPage() {
   })
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 sm:p-6">
+      <div className="mb-4 sm:mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">用户管理</h1>
         <Button onClick={() => setShowRegister(true)}>新建用户</Button>
       </div>
 
-      <div className="rounded-lg border bg-white overflow-hidden">
-        {isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">邮箱</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">角色</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">专长服务</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">当前线索 / 容量</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users?.data.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{user.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    {Array.isArray(user.specialization) && user.specialization.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {user.specialization.map((s) => (
-                          <Badge key={s} variant="blue">{s}</Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">未设置</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 rounded-full bg-gray-200 max-w-[80px]">
-                        <div
-                          className="h-full rounded-full bg-primary-500"
-                          style={{ width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs">{user.currentLeadsCount}/{user.capacity}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>
-                        编辑
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>
-                        重置密码
-                      </Button>
-                    </div>
-                  </td>
+      {isLoading ? (
+        <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
+      ) : (
+        <>
+          {/* 移动端：卡片列表 */}
+          <div className="space-y-3 sm:hidden">
+            {users?.data.map((user) => (
+              <div key={user.id} className="rounded-lg border bg-white p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div>
+                    <p className="font-medium text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
+                  </div>
+                  <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
+                </div>
+
+                {/* 容量进度条 */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs text-gray-500 shrink-0">线索容量</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-gray-200">
+                    <div
+                      className="h-full rounded-full bg-primary-500"
+                      style={{ width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-600 shrink-0">{user.currentLeadsCount}/{user.capacity}</span>
+                </div>
+
+                {/* 专长 */}
+                {Array.isArray(user.specialization) && user.specialization.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {user.specialization.map((s) => (
+                      <Badge key={s} variant="blue">{s}</Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 mb-3">专长未设置</p>
+                )}
+
+                <div className="flex gap-2 border-t pt-3">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>编辑</Button>
+                  <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>重置密码</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 桌面端：表格 */}
+          <div className="hidden sm:block rounded-lg border bg-white overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">邮箱</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">角色</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">专长服务</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">当前线索 / 容量</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users?.data.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">{user.name}</td>
+                    <td className="px-4 py-3 text-gray-500">{user.email}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {Array.isArray(user.specialization) && user.specialization.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.specialization.map((s) => (
+                            <Badge key={s} variant="blue">{s}</Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">未设置</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-gray-200 max-w-[80px]">
+                          <div
+                            className="h-full rounded-full bg-primary-500"
+                            style={{ width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs">{user.currentLeadsCount}/{user.capacity}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 justify-end">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>
+                          编辑
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>
+                          重置密码
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* 新建用户 */}
       {showRegister && (
