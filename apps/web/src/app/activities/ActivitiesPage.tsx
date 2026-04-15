@@ -5,42 +5,9 @@ import { crmApi } from '@/shared/utils/request'
 import { Badge } from '@/shared/components/Badge'
 import { Input } from '@/shared/components/Input'
 import { Button } from '@/shared/components/Button'
+import { AttachmentList } from '@/shared/components/AttachmentList'
 import { formatDate } from '@/shared/utils/format'
-import type { SalesActivity, ActivityAttachment } from '@/shared/types'
-
-async function downloadAttachment(att: ActivityAttachment) {
-  const res = await crmApi.get<Blob>(`/upload/file?key=${encodeURIComponent(att.key)}`, {
-    responseType: 'blob',
-  })
-  const url = URL.createObjectURL(res.data)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = att.name
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function AttachmentList({ attachments }: { attachments: ActivityAttachment[] }) {
-  if (!attachments || attachments.length === 0) return null
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {attachments.map((att) => (
-        <button
-          key={att.key}
-          type="button"
-          onClick={() => downloadAttachment(att)}
-          className="inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors"
-          title={`下载 ${att.name}`}
-        >
-          <svg className="h-3 w-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 1a.5.5 0 0 1 .5.5v7.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 .708-.708L7.5 9.293V1.5A.5.5 0 0 1 8 1zM2 12.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
-          </svg>
-          <span className="max-w-[120px] truncate">{att.name}</span>
-        </button>
-      ))}
-    </div>
-  )
-}
+import type { SalesActivity } from '@/shared/types'
 
 const typeConfig: Record<string, { label: string; variant: 'blue' | 'green' | 'yellow' | 'gray' }> = {
   Call:    { label: '电话', variant: 'blue' },

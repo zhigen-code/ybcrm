@@ -15,6 +15,7 @@ import type { Client, SalesActivity, Service } from '@/shared/types'
 import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
+import { AttachmentList } from '@/shared/components/AttachmentList'
 
 const editSchema = z.object({
   phone: z.string().nullable().optional(),
@@ -83,7 +84,7 @@ export default function ClientDetailPage() {
     },
   })
 
-  const downloadFile = async (key: string, name: string) => {
+  const _downloadFile = async (key: string, name: string) => {
     const res = await crmApi.get('/upload/file', { params: { key }, responseType: 'blob' })
     const url = URL.createObjectURL(res.data as Blob)
     const a = document.createElement('a')
@@ -191,24 +192,7 @@ export default function ClientDetailPage() {
                   {act.description && (
                     <p className="mt-1 text-gray-700">{act.description}</p>
                   )}
-                  {(act.attachments ?? []).length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {act.attachments.map((att) => (
-                        <button
-                          key={att.key}
-                          type="button"
-                          onClick={() => downloadFile(att.key, att.name)}
-                          className="inline-flex items-center gap-1 rounded bg-primary-50 px-2 py-0.5 text-xs text-primary-600 hover:text-primary-800"
-                        >
-                          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                          </svg>
-                          {att.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <AttachmentList attachments={act.attachments ?? []} />
                 </div>
               </div>
             ))}
