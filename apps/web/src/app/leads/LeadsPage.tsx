@@ -162,6 +162,7 @@ export default function LeadsPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">联系方式</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">意向服务</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">来源</th>
@@ -174,6 +175,7 @@ export default function LeadsPage() {
                 {(data?.data ?? []).map((lead) => (
                   <tr key={lead.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{lead.name}</td>
+                    <td className="px-4 py-3 text-gray-600">{lead.contactInfo}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {(lead.intendedServices ?? []).map((svc) => (
