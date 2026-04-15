@@ -70,11 +70,11 @@ export default function UsersPage() {
     queryFn: () => crmApi.get<{ data: Team[] }>('/teams').then((r) => r.data),
   })
 
-  const { data: servicesData } = useQuery({
+  const { data: servicesResp } = useQuery({
     queryKey: ['services'],
-    queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data.data),
+    queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data),
   })
-  const serviceNames = servicesData?.map((s) => s.name) ?? []
+  const serviceNames = (servicesResp?.data ?? []).map((s) => s.name)
 
   const teamOptions = [
     { value: '', label: '无团队' },
