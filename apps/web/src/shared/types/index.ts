@@ -96,7 +96,9 @@ export interface ActivityAttachment {
 export interface SalesActivity {
   id: string
   clientId: string | null
+  clientName: string | null
   leadId: string | null
+  leadName: string | null
   userId: string
   userName: string | null
   activityType: string

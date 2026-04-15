@@ -10,10 +10,19 @@ export const activitiesRoutes = new Hono<{ Bindings: Env }>()
 activitiesRoutes.use('*', requireAuth)
 
 const ACTIVITY_SELECT = `
-  SELECT sa.*, u.name as user_name,
+  SELECT sa.*, u.name as user_name, c.name as client_name, l.name as lead_name,
     (SELECT json_group_array(json_object('key', aa.r2_object_key, 'name', aa.file_name, 'size', aa.file_size))
      FROM activity_attachments aa WHERE aa.activity_id = sa.id) as raw_attachments
-  FROM sales_activities sa LEFT JOIN users u ON sa.user_id = u.id`
+  FROM sales_activities sa
+  LEFT JOIN users u ON sa.user_id = u.id
+  LEFT JOIN clients c ON sa.client_id = c.id
+  LEFT JOIN leads l ON sa.lead_id = l.id`
+
+const ACTIVITY_COUNT_FROM = `
+  FROM sales_activities sa
+  LEFT JOIN users u ON sa.user_id = u.id
+  LEFT JOIN clients c ON sa.client_id = c.id
+  LEFT JOIN leads l ON sa.lead_id = l.id`
 
 function parseAttachments(raw: unknown): { key: string; name: string; size: number }[] {
   if (!raw || raw === 'null') return []
@@ -21,7 +30,12 @@ function parseAttachments(raw: unknown): { key: string; name: string; size: numb
 }
 
 activitiesRoutes.get('/', async (c) => {
-  const { clientId, leadId } = c.req.query()
+  const { clientId, leadId, search, page: pageStr, pageSize: pageSizeStr } = c.req.query()
+
+  const page = Math.max(1, parseInt(pageStr ?? '1'))
+  const pageSize = Math.min(100, Math.max(1, parseInt(pageSizeStr ?? '20')))
+  const offset = (page - 1) * pageSize
+
   let whereClause = 'WHERE 1=1'
   const params: unknown[] = []
 
@@ -36,16 +50,27 @@ activitiesRoutes.get('/', async (c) => {
     params.push(leadId)
   }
 
+  if (search) {
+    whereClause += ' AND (sa.description LIKE ? OR u.name LIKE ? OR c.name LIKE ? OR l.name LIKE ?)'
+    const q = `%${search}%`
+    params.push(q, q, q, q)
+  }
+
+  const countRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) as total ${ACTIVITY_COUNT_FROM} ${whereClause}`,
+  ).bind(...params).first<{ total: number }>()
+  const total = countRow?.total ?? 0
+
   const results = await c.env.DB.prepare(
-    `${ACTIVITY_SELECT} ${whereClause} ORDER BY sa.created_at DESC`,
-  ).bind(...params).all()
+    `${ACTIVITY_SELECT} ${whereClause} ORDER BY sa.created_at DESC LIMIT ? OFFSET ?`,
+  ).bind(...params, pageSize, offset).all()
 
   const data = toCamelList(results.results as Record<string, unknown>[]).map((a) => ({
     ...a,
     attachments: parseAttachments(a.rawAttachments),
     rawAttachments: undefined,
   }))
-  return c.json({ data })
+  return c.json({ data, total, page, pageSize })
 })
 
 activitiesRoutes.post(
