@@ -31,5 +31,9 @@ queue = "lead-assignment-queue"
 max_batch_size = 10
 max_batch_timeout = 5
 
+[[routes]]
+pattern = "crmapi.irfc.cn"
+custom_domain = true
+
 [dev]
 port = 8787
