@@ -37,6 +37,17 @@ const resetPasswordSchema = z.object({
     message: '两次密码不一致',
     path: ['confirmPassword'],
 });
+function parseSpecialization(val) {
+    if (Array.isArray(val))
+        return val;
+    if (typeof val === 'string') {
+        try {
+            return JSON.parse(val);
+        }
+        catch { /* ignore */ }
+    }
+    return [];
+}
 export default function UsersPage() {
     const queryClient = useQueryClient();
     const [showRegister, setShowRegister] = useState(false);
@@ -50,14 +61,14 @@ export default function UsersPage() {
         queryKey: ['teams'],
         queryFn: () => crmApi.get('/teams').then((r) => r.data),
     });
-    const { data: servicesData } = useQuery({
+    const { data: servicesResp } = useQuery({
         queryKey: ['services'],
-        queryFn: () => crmApi.get('/services').then((r) => r.data.data),
+        queryFn: () => crmApi.get('/services').then((r) => r.data),
     });
-    const serviceNames = servicesData?.map((s) => s.name) ?? [];
+    const serviceNames = (servicesResp?.data ?? []).map((s) => s.name);
     const teamOptions = [
         { value: '', label: '无团队' },
-        ...(teams?.data.map((t) => ({ value: t.id, label: t.name })) ?? []),
+        ...((teams?.data ?? []).map((t) => ({ value: t.id, label: t.name }))),
     ];
     const registerForm = useForm({ resolver: zodResolver(registerSchema) });
     const editForm = useForm({ resolver: zodResolver(editSchema) });
@@ -68,7 +79,7 @@ export default function UsersPage() {
             role: u.role,
             teamId: u.teamId ?? '',
             capacity: u.capacity,
-            specialization: u.specialization ?? [],
+            specialization: parseSpecialization(u.specialization),
         });
         setEditTarget(u);
     };
@@ -110,7 +121,13 @@ export default function UsersPage() {
             resetPasswordForm.setError('newPassword', { message: msg });
         },
     });
-    return (_jsxs("div", { className: "p-6", children: [_jsxs("div", { className: "mb-6 flex items-center justify-between", children: [_jsx("h1", { className: "text-xl font-semibold text-gray-900", children: "\u7528\u6237\u7BA1\u7406" }), _jsx(Button, { onClick: () => setShowRegister(true), children: "\u65B0\u5EFA\u7528\u6237" })] }), _jsx("div", { className: "rounded-lg border bg-white overflow-hidden", children: isLoading ? (_jsx("div", { className: "py-12 text-center text-sm text-gray-500", children: "\u52A0\u8F7D\u4E2D..." })) : (_jsxs("table", { className: "w-full text-sm", children: [_jsx("thead", { className: "bg-gray-50 border-b", children: _jsxs("tr", { children: [_jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u59D3\u540D" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u90AE\u7BB1" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u89D2\u8272" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u4E13\u957F\u670D\u52A1" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u5F53\u524D\u7EBF\u7D22 / \u5BB9\u91CF" }), _jsx("th", { className: "px-4 py-3" })] }) }), _jsx("tbody", { className: "divide-y divide-gray-100", children: users?.data.map((user) => (_jsxs("tr", { className: "hover:bg-gray-50", children: [_jsx("td", { className: "px-4 py-3 font-medium text-gray-900", children: user.name }), _jsx("td", { className: "px-4 py-3 text-gray-500", children: user.email }), _jsx("td", { className: "px-4 py-3", children: _jsx(Badge, { variant: roleBadge[user.role], children: roleLabel[user.role] }) }), _jsx("td", { className: "px-4 py-3", children: Array.isArray(user.specialization) && user.specialization.length > 0 ? (_jsx("div", { className: "flex flex-wrap gap-1", children: user.specialization.map((s) => (_jsx(Badge, { variant: "blue", children: s }, s))) })) : (_jsx("span", { className: "text-xs text-gray-400", children: "\u672A\u8BBE\u7F6E" })) }), _jsx("td", { className: "px-4 py-3 text-gray-600", children: _jsxs("div", { className: "flex items-center gap-2", children: [_jsx("div", { className: "flex-1 h-1.5 rounded-full bg-gray-200 max-w-[80px]", children: _jsx("div", { className: "h-full rounded-full bg-primary-500", style: { width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` } }) }), _jsxs("span", { className: "text-xs", children: [user.currentLeadsCount, "/", user.capacity] })] }) }), _jsx("td", { className: "px-4 py-3", children: _jsxs("div", { className: "flex items-center gap-2 justify-end", children: [_jsx(Button, { variant: "ghost", size: "sm", onClick: () => openEdit(user), children: "\u7F16\u8F91" }), _jsx(Button, { variant: "ghost", size: "sm", onClick: () => openResetPassword(user), children: "\u91CD\u7F6E\u5BC6\u7801" })] }) })] }, user.id))) })] })) }), showRegister && (_jsx(Modal, { title: "\u65B0\u5EFA\u7528\u6237", onClose: () => setShowRegister(false), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "secondary", onClick: () => setShowRegister(false), children: "\u53D6\u6D88" }), _jsx(Button, { loading: registerMutation.isPending, onClick: registerForm.handleSubmit((d) => registerMutation.mutate(d)), children: "\u521B\u5EFA" })] }), children: _jsxs("div", { className: "space-y-3", children: [_jsx(Input, { label: "\u59D3\u540D", error: registerForm.formState.errors.name?.message, ...registerForm.register('name') }), _jsx(Input, { label: "\u90AE\u7BB1", type: "email", error: registerForm.formState.errors.email?.message, ...registerForm.register('email') }), _jsx(Input, { label: "\u521D\u59CB\u5BC6\u7801", type: "password", error: registerForm.formState.errors.password?.message, ...registerForm.register('password') }), _jsx(Select, { label: "\u89D2\u8272", options: [
+    return (_jsxs("div", { className: "p-4 sm:p-6", children: [_jsxs("div", { className: "mb-4 sm:mb-6 flex items-center justify-between", children: [_jsx("h1", { className: "text-xl font-semibold text-gray-900", children: "\u7528\u6237\u7BA1\u7406" }), _jsx(Button, { onClick: () => setShowRegister(true), children: "\u65B0\u5EFA\u7528\u6237" })] }), isLoading ? (_jsx("div", { className: "py-12 text-center text-sm text-gray-500", children: "\u52A0\u8F7D\u4E2D..." })) : (_jsxs(_Fragment, { children: [_jsx("div", { className: "space-y-3 sm:hidden", children: (users?.data ?? []).map((user) => (_jsxs("div", { className: "rounded-lg border bg-white p-4", children: [_jsxs("div", { className: "flex items-start justify-between gap-2 mb-2", children: [_jsxs("div", { children: [_jsx("p", { className: "font-medium text-gray-900", children: user.name }), _jsx("p", { className: "text-xs text-gray-500 mt-0.5", children: user.email })] }), _jsx(Badge, { variant: roleBadge[user.role], children: roleLabel[user.role] })] }), _jsxs("div", { className: "flex items-center gap-2 mb-2", children: [_jsx("span", { className: "text-xs text-gray-500 shrink-0", children: "\u7EBF\u7D22\u5BB9\u91CF" }), _jsx("div", { className: "flex-1 h-1.5 rounded-full bg-gray-200", children: _jsx("div", { className: "h-full rounded-full bg-primary-500", style: { width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` } }) }), _jsxs("span", { className: "text-xs text-gray-600 shrink-0", children: [user.currentLeadsCount, "/", user.capacity] })] }), (() => {
+                                    const specs = parseSpecialization(user.specialization);
+                                    return specs.length > 0 ? (_jsx("div", { className: "flex flex-wrap gap-1 mb-3", children: specs.map((s) => (_jsx(Badge, { variant: "blue", children: s }, s))) })) : (_jsx("p", { className: "text-xs text-gray-400 mb-3", children: "\u4E13\u957F\u672A\u8BBE\u7F6E" }));
+                                })(), _jsxs("div", { className: "flex gap-2 border-t pt-3", children: [_jsx(Button, { variant: "ghost", size: "sm", onClick: () => openEdit(user), children: "\u7F16\u8F91" }), _jsx(Button, { variant: "ghost", size: "sm", onClick: () => openResetPassword(user), children: "\u91CD\u7F6E\u5BC6\u7801" })] })] }, user.id))) }), _jsx("div", { className: "hidden sm:block rounded-lg border bg-white overflow-hidden", children: _jsxs("table", { className: "w-full text-sm", children: [_jsx("thead", { className: "bg-gray-50 border-b", children: _jsxs("tr", { children: [_jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u59D3\u540D" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u90AE\u7BB1" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u89D2\u8272" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u4E13\u957F\u670D\u52A1" }), _jsx("th", { className: "px-4 py-3 text-left font-medium text-gray-700", children: "\u5F53\u524D\u7EBF\u7D22 / \u5BB9\u91CF" }), _jsx("th", { className: "px-4 py-3" })] }) }), _jsx("tbody", { className: "divide-y divide-gray-100", children: (users?.data ?? []).map((user) => (_jsxs("tr", { className: "hover:bg-gray-50", children: [_jsx("td", { className: "px-4 py-3 font-medium text-gray-900", children: user.name }), _jsx("td", { className: "px-4 py-3 text-gray-500", children: user.email }), _jsx("td", { className: "px-4 py-3", children: _jsx(Badge, { variant: roleBadge[user.role], children: roleLabel[user.role] }) }), _jsx("td", { className: "px-4 py-3", children: (() => {
+                                                    const specs = parseSpecialization(user.specialization);
+                                                    return specs.length > 0 ? (_jsx("div", { className: "flex flex-wrap gap-1", children: specs.map((s) => (_jsx(Badge, { variant: "blue", children: s }, s))) })) : (_jsx("span", { className: "text-xs text-gray-400", children: "\u672A\u8BBE\u7F6E" }));
+                                                })() }), _jsx("td", { className: "px-4 py-3 text-gray-600", children: _jsxs("div", { className: "flex items-center gap-2", children: [_jsx("div", { className: "flex-1 h-1.5 rounded-full bg-gray-200 max-w-[80px]", children: _jsx("div", { className: "h-full rounded-full bg-primary-500", style: { width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` } }) }), _jsxs("span", { className: "text-xs", children: [user.currentLeadsCount, "/", user.capacity] })] }) }), _jsx("td", { className: "px-4 py-3", children: _jsxs("div", { className: "flex items-center gap-2 justify-end", children: [_jsx(Button, { variant: "ghost", size: "sm", onClick: () => openEdit(user), children: "\u7F16\u8F91" }), _jsx(Button, { variant: "ghost", size: "sm", onClick: () => openResetPassword(user), children: "\u91CD\u7F6E\u5BC6\u7801" })] }) })] }, user.id))) })] }) })] })), showRegister && (_jsx(Modal, { title: "\u65B0\u5EFA\u7528\u6237", onClose: () => setShowRegister(false), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "secondary", onClick: () => setShowRegister(false), children: "\u53D6\u6D88" }), _jsx(Button, { loading: registerMutation.isPending, onClick: registerForm.handleSubmit((d) => registerMutation.mutate(d)), children: "\u521B\u5EFA" })] }), children: _jsxs("div", { className: "space-y-3", children: [_jsx(Input, { label: "\u59D3\u540D", error: registerForm.formState.errors.name?.message, ...registerForm.register('name') }), _jsx(Input, { label: "\u90AE\u7BB1", type: "email", error: registerForm.formState.errors.email?.message, ...registerForm.register('email') }), _jsx(Input, { label: "\u521D\u59CB\u5BC6\u7801", type: "password", error: registerForm.formState.errors.password?.message, ...registerForm.register('password') }), _jsx(Select, { label: "\u89D2\u8272", options: [
                                 { value: 'admin', label: '管理员' },
                                 { value: 'operations', label: '运营' },
                                 { value: 'sales', label: '销售' },

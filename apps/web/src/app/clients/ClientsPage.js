@@ -16,7 +16,7 @@ export default function ClientsPage() {
         queryKey: ['clients'],
         queryFn: () => crmApi.get('/clients').then((r) => r.data),
     });
-    const filtered = data?.data.filter((c) => !search || c.name.includes(search) || c.email?.includes(search) || c.phone?.includes(search));
+    const filtered = (data?.data ?? []).filter((c) => !search || c.name.includes(search) || c.email?.includes(search) || c.phone?.includes(search));
     const addActivity = useMutation({
         mutationFn: (body) => crmApi.post('/activities', { ...body, clientId: followUpTarget.id }),
         onSuccess: () => setFollowUpTarget(null),
