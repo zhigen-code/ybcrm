@@ -39,7 +39,7 @@ app.use(
   cors({
     origin: (origin) => {
       const allowed = [
-        'https://crm.irfc.cn',
+        'https://kehu.ybivf.com',
         'https://crm-web-6sc.pages.dev',
         'http://localhost:5173',
       ]
