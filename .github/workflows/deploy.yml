@@ -53,4 +53,4 @@ jobs:
 
       - name: Deploy Pages
         working-directory: apps/web
-        run: npx wrangler pages deploy dist --project-name crm-web
+        run: npx wrangler pages deploy dist --project-name crm-web --account-id 31e3e7b5940076dd1813afe9c32a408d
