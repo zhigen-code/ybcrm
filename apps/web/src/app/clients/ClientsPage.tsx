@@ -22,7 +22,7 @@ export default function ClientsPage() {
     queryFn: () => crmApi.get<{ data: Client[] }>('/clients').then((r) => r.data),
   })
 
-  const filtered = data?.data.filter((c) =>
+  const filtered = (data?.data ?? []).filter((c) =>
     !search || c.name.includes(search) || c.email?.includes(search) || c.phone?.includes(search),
   )
 

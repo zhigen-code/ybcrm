@@ -78,7 +78,7 @@ export default function UsersPage() {
 
   const teamOptions = [
     { value: '', label: '无团队' },
-    ...(teams?.data.map((t) => ({ value: t.id, label: t.name })) ?? []),
+    ...((teams?.data ?? []).map((t) => ({ value: t.id, label: t.name }))),
   ]
 
   const registerForm = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) })
@@ -154,7 +154,7 @@ export default function UsersPage() {
         <>
           {/* 移动端：卡片列表 */}
           <div className="space-y-3 sm:hidden">
-            {users?.data.map((user) => (
+            {(users?.data ?? []).map((user) => (
               <div key={user.id} className="rounded-lg border bg-white p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
@@ -212,7 +212,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users?.data.map((user) => (
+                {(users?.data ?? []).map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{user.name}</td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>

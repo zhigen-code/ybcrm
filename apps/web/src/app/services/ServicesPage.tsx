@@ -76,7 +76,7 @@ export default function ServicesPage() {
         <div className="text-sm text-gray-500">加载中...</div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {data?.data.map((service) => (
+          {(data?.data ?? []).map((service) => (
             <div key={service.id} className="rounded-lg border bg-white p-5">
               <div className="flex items-start justify-between">
                 <h2 className="font-semibold text-gray-900">{service.name}</h2>

@@ -152,7 +152,7 @@ export default function LeadsPage() {
 
       {isLoading ? (
         <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
-      ) : !data?.data.length ? (
+      ) : !(data?.data ?? []).length ? (
         <div className="py-12 text-center text-sm text-gray-500">暂无线索</div>
       ) : (
         <>
@@ -171,7 +171,7 @@ export default function LeadsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {data.data.map((lead) => (
+                {(data?.data ?? []).map((lead) => (
                   <tr key={lead.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{lead.name}</td>
                     <td className="px-4 py-3">
@@ -211,7 +211,7 @@ export default function LeadsPage() {
 
           {/* 移动端卡片列表 */}
           <div className="sm:hidden space-y-3">
-            {data.data.map((lead) => (
+            {(data?.data ?? []).map((lead) => (
               <div key={lead.id} className="rounded-lg border bg-white overflow-hidden">
                 <Link
                   to={`/app/leads/${lead.id}`}
