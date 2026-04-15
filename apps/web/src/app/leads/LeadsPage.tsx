@@ -74,24 +74,11 @@ export default function LeadsPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (body: CreateForm) =>
-      crmApi.post<{ data: Lead }>('/leads', body).then((r) => r.data.data),
-    onSuccess: (newLead) => {
-      // 立即写入缓存，线索马上出现在列表
-      queryClient.setQueryData(
-        ['leads', statusFilter, mineOnly],
-        (old: { data: Lead[]; total: number } | undefined) =>
-          old
-            ? { ...old, data: [newLead, ...old.data], total: old.total + 1 }
-            : old,
-      )
+    mutationFn: (body: CreateForm) => crmApi.post('/leads', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
       setShowCreate(false)
       reset()
-      // 延迟 3 秒再重新请求：等 D1 边缘节点完成同步后刷新，
-      // 避免立即请求返回旧数据覆盖上面的乐观更新
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['leads'] })
-      }, 3000)
     },
   })
 
