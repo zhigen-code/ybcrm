@@ -164,7 +164,7 @@ export default function UsersPage() {
                     <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
                   </td>
                   <td className="px-4 py-3">
-                    {(user.specialization ?? []).length > 0 ? (
+                    {Array.isArray(user.specialization) && user.specialization.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {user.specialization.map((s) => (
                           <Badge key={s} variant="blue">{s}</Badge>
@@ -277,16 +277,18 @@ export default function UsersPage() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {serviceNames.map((name) => {
-                    const selected = (editForm.watch('specialization') ?? []).includes(name)
+                    const cur = editForm.watch('specialization')
+                    const selected = Array.isArray(cur) && cur.includes(name)
                     return (
                       <button
                         key={name}
                         type="button"
                         onClick={() => {
-                          const cur = editForm.getValues('specialization') ?? []
+                          const cur = editForm.getValues('specialization')
+                          const curArr = Array.isArray(cur) ? cur : []
                           editForm.setValue(
                             'specialization',
-                            selected ? cur.filter((s) => s !== name) : [...cur, name],
+                            selected ? curArr.filter((s) => s !== name) : [...curArr, name],
                           )
                         }}
                         className={`rounded-full px-3 py-1 text-sm font-medium border transition-colors ${

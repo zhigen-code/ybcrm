@@ -34,10 +34,16 @@ authRoutes.post(
 
 authRoutes.get('/me', requireAuth, async (c) => {
   const { userId } = c.get('jwtPayload')
-  const user = await c.env.DB.prepare(
+  const row = await c.env.DB.prepare(
     'SELECT id, email, name, role, team_id, capacity, specialization, current_leads_count, created_at FROM users WHERE id = ?',
-  ).bind(userId).first()
-  if (!user) throw new HTTPException(404, { message: '用户不存在' })
+  ).bind(userId).first<Record<string, unknown>>()
+  if (!row) throw new HTTPException(404, { message: '用户不存在' })
+  const { toCamel } = await import('../../shared/db')
+  const user = toCamel(row) as Record<string, unknown>
+  if (typeof user.specialization === 'string') {
+    try { user.specialization = JSON.parse(user.specialization as string) } catch { user.specialization = [] }
+  }
+  user.specialization ??= []
   return c.json({ data: user })
 })
 
