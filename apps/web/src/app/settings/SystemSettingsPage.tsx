@@ -607,12 +607,17 @@ export default function SystemSettingsPage() {
                     onChange={(e) => setAiProviderForm((f) => ({ ...f, apiKey: e.target.value }))}
                   />
                   {aiProviderForm.providerType !== 'anthropic' && (
-                    <Input
-                      label={aiProviderForm.providerType === 'openai' ? 'Base URL（可选，留空用官方地址）' : 'Base URL'}
-                      placeholder="https://your-api.com/v1"
-                      value={aiProviderForm.baseUrl}
-                      onChange={(e) => setAiProviderForm((f) => ({ ...f, baseUrl: e.target.value }))}
-                    />
+                    <div>
+                      <Input
+                        label={aiProviderForm.providerType === 'openai' ? 'Base URL（可选，留空用官方地址）' : 'Base URL'}
+                        placeholder="https://api.openai.com/v1"
+                        value={aiProviderForm.baseUrl}
+                        onChange={(e) => setAiProviderForm((f) => ({ ...f, baseUrl: e.target.value }))}
+                      />
+                      <p className="mt-1 text-xs text-gray-400">
+                        填写到 /v1 为止，不含 /chat/completions 等端点路径
+                      </p>
+                    </div>
                   )}
                 </div>
                 <div className="flex gap-2">

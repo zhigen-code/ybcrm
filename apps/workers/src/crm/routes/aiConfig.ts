@@ -130,6 +130,13 @@ aiConfigRoutes.delete('/providers/:id', async (c) => {
   return c.json({ data: { success: true } })
 })
 
+// 解析 OpenAI 兼容接口的 base URL
+// 规则：直接使用用户填写的值，去掉末尾 /，默认 https://api.openai.com/v1
+// 用户应填写不含具体端点的根路径，如 https://api.openai.com/v1 或 https://gateway.ai.cloudflare.com/v1/{acct}/{gw}/openai
+function resolveOpenAIBase(baseUrl: string | null): string {
+  return (baseUrl ?? '').replace(/\/$/, '') || 'https://api.openai.com/v1'
+}
+
 // ─── 查询提供商可用模型（从外部 API 拉取） ─────────────────────────────────
 
 // GET /api/admin/ai/providers/:id/available-models
@@ -149,10 +156,7 @@ aiConfigRoutes.get('/providers/:id/available-models', async (c) => {
   }
 
   // OpenAI 或兼容接口
-  // base_url 应含完整路径（如 https://api.openai.com/v1），直接追加 /models
-  const rawBase = provider.base_url?.replace(/\/$/, '') || 'https://api.openai.com/v1'
-  // 兼容旧数据：若 base_url 不含 /v1 结尾，自动补上（如用户填的是 https://api.openai.com）
-  const baseUrl = rawBase.endsWith('/v1') ? rawBase : `${rawBase}/v1`
+  const baseUrl = resolveOpenAIBase(provider.base_url)
   try {
     const res = await fetch(`${baseUrl}/models`, {
       headers: { Authorization: `Bearer ${provider.api_key}` },
@@ -300,17 +304,17 @@ aiConfigRoutes.post(
     }
 
     // OpenAI 或兼容接口
-    const rawBase = row.base_url?.replace(/\/$/, '') || 'https://api.openai.com/v1'
-    const baseUrl = rawBase.endsWith('/v1') ? rawBase : `${rawBase}/v1`
+    const baseUrl = resolveOpenAIBase(row.base_url)
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${row.api_key}`,
         'content-type': 'application/json',
       },
+      // 不传 max_tokens / max_completion_tokens：不同模型支持的参数名不同，
+      // 省略该参数可避免 400 报错，测试场景用模型默认值即可
       body: JSON.stringify({
         model: row.model_id,
-        max_tokens: 256,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
