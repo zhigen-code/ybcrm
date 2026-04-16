@@ -8,6 +8,7 @@ import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
 import { Textarea } from '@/shared/components/Textarea'
 import { Modal } from '@/shared/components/Modal'
+import { FileManager } from '@/shared/components/FileManager'
 import type { Service } from '@/shared/types'
 
 const schema = z.object({
@@ -107,6 +108,10 @@ export default function ServicesPage() {
                   </ol>
                 </div>
               )}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-2">资料文件</p>
+                <FileManager entityType="service" entityId={service.id} />
+              </div>
             </div>
           ))}
         </div>

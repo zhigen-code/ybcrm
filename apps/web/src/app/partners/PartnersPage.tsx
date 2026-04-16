@@ -10,6 +10,7 @@ import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
+import { FileManager } from '@/shared/components/FileManager'
 import type { Partner } from '@/shared/types'
 import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
 
@@ -115,6 +116,10 @@ export default function PartnersPage() {
                   ))}
                 </div>
               )}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-500 mb-2">相关文件</p>
+                <FileManager entityType="partner" entityId={partner.id} />
+              </div>
             </div>
           ))}
         </div>
