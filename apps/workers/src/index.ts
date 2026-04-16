@@ -20,6 +20,7 @@ import { settingsRoutes } from './crm/routes/settings'
 import { optionsRoutes } from './crm/routes/options'
 import { apiKeysRoutes } from './crm/routes/apiKeys'
 import { assignmentRulesRoutes } from './crm/routes/assignmentRules'
+import { aiConfigRoutes } from './crm/routes/aiConfig'
 import { requireApiKey } from './crm/middleware/apiKeyAuth'
 
 // 客户门户路由
@@ -111,6 +112,7 @@ app.route('/api/upload', uploadRoutes)
 app.route('/api/admin/settings', settingsRoutes)
 app.route('/api/admin/options', optionsRoutes)
 app.route('/api/admin/assignment-rules', assignmentRulesRoutes)
+app.route('/api/admin/ai', aiConfigRoutes)
 app.route('/api/auth/api-keys', apiKeysRoutes)
 
 // 客户门户 API（/api/client/*）

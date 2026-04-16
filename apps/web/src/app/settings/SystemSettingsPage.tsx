@@ -10,6 +10,25 @@ import { Select } from '@/shared/components/Select'
 import { Modal } from '@/shared/components/Modal'
 import type { Team } from '@/shared/types'
 
+interface AiProvider {
+  id: string
+  name: string
+  providerType: 'openai' | 'anthropic' | 'custom'
+  apiKeyMasked: string
+  baseUrl: string | null
+  isActive: number
+}
+
+interface AiModel {
+  id: string
+  providerId: string
+  providerName: string
+  providerType: string
+  modelId: string
+  displayName: string
+  isEnabled: number
+}
+
 interface AssignmentRule {
   id: string
   ruleType: string
@@ -45,6 +64,7 @@ const TABS = [
   { key: 'smtp',       label: '邮件服务器' },
   { key: 'teams',      label: '团队管理' },
   { key: 'assignment', label: '自动分配' },
+  { key: 'ai',         label: 'AI 配置' },
 ] as const
 type TabKey = typeof TABS[number]['key']
 
@@ -61,12 +81,74 @@ export default function SystemSettingsPage() {
   const [editTarget, setEditTarget] = useState<Team | null>(null)
   const [showAdd, setShowAdd] = useState(false)
 
+  // AI 配置相关 state
+  const [showAddProvider, setShowAddProvider] = useState(false)
+  const [aiProviderForm, setAiProviderForm] = useState({ name: '', providerType: 'openai', apiKey: '', baseUrl: '' })
+  const [availableModels, setAvailableModels] = useState<{ id: string; name: string }[] | null>(null)
+  const [loadingModelsFor, setLoadingModelsFor] = useState<string | null>(null)
+  const [modelsProviderId, setModelsProviderId] = useState<string | null>(null)
+  const [modelsError, setModelsError] = useState<string | null>(null)
+
   // 团队列表
   const { data: teams, isLoading: teamsLoading } = useQuery({
     queryKey: ['teams'],
     queryFn: () => crmApi.get<{ data: Team[] }>('/teams').then((r) => r.data.data),
     enabled: activeTab === 'teams',
   })
+
+  // AI 提供商 & 模型
+  const { data: aiProvidersData, refetch: refetchProviders } = useQuery({
+    queryKey: ['ai-providers'],
+    queryFn: () => crmApi.get<{ data: AiProvider[] }>('/admin/ai/providers').then((r) => r.data.data),
+    enabled: activeTab === 'ai',
+  })
+  const aiProviders = aiProvidersData ?? []
+
+  const { data: aiModelsData, refetch: refetchModels } = useQuery({
+    queryKey: ['ai-models'],
+    queryFn: () => crmApi.get<{ data: AiModel[] }>('/admin/ai/models').then((r) => r.data.data),
+    enabled: activeTab === 'ai',
+  })
+  const aiModels = aiModelsData ?? []
+
+  const addProvider = useMutation({
+    mutationFn: (body: typeof aiProviderForm) => crmApi.post('/admin/ai/providers', body),
+    onSuccess: () => { setShowAddProvider(false); setAiProviderForm({ name: '', providerType: 'openai', apiKey: '', baseUrl: '' }); refetchProviders() },
+  })
+
+  const deleteProvider = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/admin/ai/providers/${id}`),
+    onSuccess: () => { refetchProviders(); refetchModels() },
+  })
+
+  const enableModel = useMutation({
+    mutationFn: (body: { providerId: string; modelId: string; displayName: string }) =>
+      crmApi.post('/admin/ai/models', body),
+    onSuccess: () => refetchModels(),
+  })
+
+  const removeModel = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/admin/ai/models/${id}`),
+    onSuccess: () => refetchModels(),
+  })
+
+  const fetchAvailableModels = async (providerId: string) => {
+    setLoadingModelsFor(providerId)
+    setModelsProviderId(providerId)
+    setAvailableModels(null)
+    setModelsError(null)
+    try {
+      const res = await crmApi.get<{ data: { id: string; name: string }[] }>(
+        `/admin/ai/providers/${providerId}/available-models`,
+      )
+      setAvailableModels(res.data.data)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '查询失败'
+      setModelsError(msg)
+    } finally {
+      setLoadingModelsFor(null)
+    }
+  }
 
   const teamForm = useForm<TeamForm>({ resolver: zodResolver(teamSchema) })
   const addForm  = useForm<TeamForm>({ resolver: zodResolver(teamSchema) })
@@ -213,7 +295,7 @@ export default function SystemSettingsPage() {
             </div>
           )}
 
-          {activeTab !== 'teams' && activeTab !== 'assignment' && (
+          {activeTab !== 'teams' && activeTab !== 'assignment' && activeTab !== 'ai' && (
             <div className="flex items-center gap-3 mt-4">
               <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
                 保存设置
@@ -453,6 +535,200 @@ export default function SystemSettingsPage() {
                             ↓
                           </button>
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+      {/* AI 配置 */}
+      {activeTab === 'ai' && (
+        <div className="space-y-6">
+          {/* 模型提供商 */}
+          <div className="rounded-lg border bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+              <h2 className="font-semibold text-gray-800 text-sm">模型提供商</h2>
+              <Button size="sm" onClick={() => setShowAddProvider(true)}>+ 添加</Button>
+            </div>
+
+            {/* 添加提供商表单 */}
+            {showAddProvider && (
+              <div className="p-4 border-b bg-blue-50 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    label="名称"
+                    placeholder="如：OpenAI"
+                    value={aiProviderForm.name}
+                    onChange={(e) => setAiProviderForm((f) => ({ ...f, name: e.target.value }))}
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">类型</label>
+                    <select
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      value={aiProviderForm.providerType}
+                      onChange={(e) => setAiProviderForm((f) => ({ ...f, providerType: e.target.value }))}
+                    >
+                      <option value="openai">OpenAI</option>
+                      <option value="anthropic">Anthropic</option>
+                      <option value="custom">自定义（OpenAI 兼容）</option>
+                    </select>
+                  </div>
+                  <Input
+                    label="API Key"
+                    placeholder="sk-..."
+                    value={aiProviderForm.apiKey}
+                    onChange={(e) => setAiProviderForm((f) => ({ ...f, apiKey: e.target.value }))}
+                  />
+                  {aiProviderForm.providerType === 'custom' && (
+                    <Input
+                      label="Base URL"
+                      placeholder="https://your-api.com"
+                      value={aiProviderForm.baseUrl}
+                      onChange={(e) => setAiProviderForm((f) => ({ ...f, baseUrl: e.target.value }))}
+                    />
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    loading={addProvider.isPending}
+                    onClick={() => addProvider.mutate(aiProviderForm)}
+                    disabled={!aiProviderForm.name || !aiProviderForm.apiKey}
+                  >
+                    保存
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setShowAddProvider(false)}>取消</Button>
+                </div>
+              </div>
+            )}
+
+            {aiProviders.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-gray-400 text-center">暂未添加提供商</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">名称</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">类型</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">API Key</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">Base URL</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {aiProviders.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2.5 font-medium text-gray-900">{p.name}</td>
+                      <td className="px-4 py-2.5 text-gray-500 capitalize">{p.providerType}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{p.apiKeyMasked}</td>
+                      <td className="px-4 py-2.5 text-gray-500 text-xs">{p.baseUrl ?? '—'}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => fetchAvailableModels(p.id)}
+                            disabled={loadingModelsFor === p.id}
+                            className="text-xs text-primary-600 hover:text-primary-800 font-medium disabled:opacity-50"
+                          >
+                            {loadingModelsFor === p.id ? '查询中...' : '查询模型'}
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            onClick={() => { if (confirm(`确认删除提供商「${p.name}」及其所有已启用模型？`)) deleteProvider.mutate(p.id) }}
+                            className="text-xs text-red-500 hover:text-red-700"
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 查询到的可用模型 */}
+          {modelsProviderId && (
+            <div className="rounded-lg border bg-white overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                <h2 className="font-semibold text-gray-800 text-sm">
+                  可用模型 — {aiProviders.find((p) => p.id === modelsProviderId)?.name}
+                </h2>
+                <button onClick={() => { setModelsProviderId(null); setAvailableModels(null) }}
+                  className="text-xs text-gray-400 hover:text-gray-600">关闭</button>
+              </div>
+              {modelsError ? (
+                <p className="px-4 py-4 text-sm text-red-500">{modelsError}</p>
+              ) : !availableModels ? (
+                <p className="px-4 py-4 text-sm text-gray-400">加载中...</p>
+              ) : (
+                <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
+                  {availableModels.map((m) => {
+                    const already = aiModels.some(
+                      (em) => em.providerId === modelsProviderId && em.modelId === m.id,
+                    )
+                    return (
+                      <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
+                        <div>
+                          <span className="text-sm font-medium text-gray-800">{m.name}</span>
+                          {m.name !== m.id && <span className="ml-2 text-xs text-gray-400">{m.id}</span>}
+                        </div>
+                        {already ? (
+                          <span className="text-xs text-green-600 font-medium">已启用</span>
+                        ) : (
+                          <button
+                            onClick={() => enableModel.mutate({
+                              providerId: modelsProviderId!,
+                              modelId: m.id,
+                              displayName: m.name,
+                            })}
+                            disabled={enableModel.isPending}
+                            className="text-xs text-primary-600 hover:text-primary-800 font-medium disabled:opacity-50"
+                          >
+                            启用
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 已启用模型 */}
+          <div className="rounded-lg border bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b bg-gray-50">
+              <h2 className="font-semibold text-gray-800 text-sm">已启用模型</h2>
+            </div>
+            {aiModels.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-gray-400 text-center">暂无已启用模型，请先添加提供商并查询模型</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">显示名称</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">模型 ID</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">提供商</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {aiModels.map((m) => (
+                    <tr key={m.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2.5 font-medium text-gray-900">{m.displayName}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{m.modelId}</td>
+                      <td className="px-4 py-2.5 text-gray-500">{m.providerName}</td>
+                      <td className="px-4 py-2.5">
+                        <button
+                          onClick={() => { if (confirm(`确认移除模型「${m.displayName}」？`)) removeModel.mutate(m.id) }}
+                          className="text-xs text-red-500 hover:text-red-700"
+                        >
+                          移除
+                        </button>
                       </td>
                     </tr>
                   ))}
