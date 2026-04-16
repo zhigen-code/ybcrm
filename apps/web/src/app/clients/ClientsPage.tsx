@@ -10,21 +10,35 @@ import type { Client } from '@/shared/types'
 import { useOptionGroup, getOptionColor } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
+import { Pagination } from '@/shared/components/Pagination'
+
+const PAGE_SIZE = 20
 
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [followUpTarget, setFollowUpTarget] = useState<Client | null>(null)
 
   const { options: contractStatusOpts } = useOptionGroup('contract_status')
 
+  const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
+  const handleSearch = (val: string) => {
+    setSearch(val)
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0])
+    searchTimeout[1](setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 300))
+  }
+
   const { data, isLoading } = useQuery({
-    queryKey: ['clients'],
-    queryFn: () => crmApi.get<{ data: Client[] }>('/clients').then((r) => r.data),
+    queryKey: ['clients', debouncedSearch, page],
+    queryFn: () => crmApi.get<{ data: Client[]; total: number; page: number; pageSize: number }>('/clients', {
+      params: { search: debouncedSearch || undefined, page, pageSize: PAGE_SIZE },
+    }).then((r) => r.data),
   })
 
-  const filtered = (data?.data ?? []).filter((c) =>
-    !search || c.name.includes(search) || c.email?.includes(search) || c.phone?.includes(search),
-  )
+  const filtered = data?.data ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const addActivity = useMutation({
     mutationFn: (body: ActivitySubmitData) =>
@@ -42,7 +56,7 @@ export default function ClientsPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-gray-900">客户档案</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">共 {data?.data.length ?? 0} 位客户</p>
+          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">共 {total} 位客户</p>
         </div>
       </div>
 
@@ -50,7 +64,7 @@ export default function ClientsPage() {
         <Input
           placeholder="搜索姓名、邮箱、电话..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
         />
       </div>
 
@@ -158,6 +172,8 @@ export default function ClientsPage() {
               </div>
             ))}
           </div>
+
+          <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>
       )}
 

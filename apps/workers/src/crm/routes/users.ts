@@ -11,9 +11,25 @@ export const usersRoutes = new Hono<{ Bindings: Env }>()
 usersRoutes.use('*', requireAuth, requireAdmin)
 
 usersRoutes.get('/', async (c) => {
-  const results = await c.env.DB.prepare(
-    'SELECT id, email, name, role, team_id, capacity, specialization, current_leads_count, created_at FROM users ORDER BY name',
-  ).all()
+  const { page = '1', pageSize = '20', search } = c.req.query()
+  const offset = (Number(page) - 1) * Number(pageSize)
+
+  let where = 'WHERE 1=1'
+  const params: unknown[] = []
+  if (search) {
+    where += ' AND (name LIKE ? OR email LIKE ?)'
+    const q = `%${search}%`
+    params.push(q, q)
+  }
+
+  const [results, countResult] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT id, email, name, role, team_id, capacity, specialization, current_leads_count, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
+    ).bind(...params, Number(pageSize), offset).all(),
+    c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`)
+      .bind(...params).first<{ total: number }>(),
+  ])
+
   const users = (results.results as Record<string, unknown>[]).map((u) => {
     const camel = toCamel(u) as Record<string, unknown>
     if (typeof camel.specialization === 'string') {
@@ -22,7 +38,7 @@ usersRoutes.get('/', async (c) => {
     camel.specialization ??= []
     return camel
   })
-  return c.json({ data: users })
+  return c.json({ data: users, total: countResult?.total ?? 0, page: Number(page), pageSize: Number(pageSize) })
 })
 
 usersRoutes.put(

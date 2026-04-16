@@ -12,6 +12,7 @@ import { Modal } from '@/shared/components/Modal'
 import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
 import { Combobox } from '@/shared/components/Combobox'
+import { Pagination } from '@/shared/components/Pagination'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { formatDate } from '@/shared/utils/format'
@@ -35,7 +36,11 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
+
+  const PAGE_SIZE = 20
 
   // sales 角色后端已自动过滤，不需要切换
   const canToggleMine = user?.role !== 'sales'
@@ -53,26 +58,31 @@ export default function LeadsPage() {
   })
   const serviceOptions = servicesData?.data ?? []
 
+  // 搜索防抖
+  const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
+  const handleSearch = (val: string) => {
+    setSearch(val)
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0])
+    searchTimeout[1](setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 300))
+  }
+
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', statusFilter, mineOnly],
+    queryKey: ['leads', statusFilter, mineOnly, debouncedSearch, page],
     queryFn: () =>
-      crmApi.get<{ data: Lead[]; total: number }>('/leads', {
-        params: { status: statusFilter || undefined, mine: mineOnly ? 'true' : undefined },
+      crmApi.get<{ data: Lead[]; total: number; page: number; pageSize: number }>('/leads', {
+        params: {
+          status: statusFilter || undefined,
+          mine: mineOnly ? 'true' : undefined,
+          search: debouncedSearch || undefined,
+          page,
+          pageSize: PAGE_SIZE,
+        },
       }).then((r) => r.data),
   })
 
-  const allLeads = data?.data ?? []
-  const filtered = search
-    ? allLeads.filter((l) => {
-        const q = search.toLowerCase()
-        return (
-          l.name.toLowerCase().includes(q) ||
-          l.contactInfo.toLowerCase().includes(q) ||
-          l.source.toLowerCase().includes(q) ||
-          (l.leadNo != null && `l-${l.leadNo}`.includes(q.replace(/^l-?/, 'l-')))
-        )
-      })
-    : allLeads
+  const filtered = data?.data ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   // 新建线索表单
   const {
@@ -124,9 +134,7 @@ export default function LeadsPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-gray-900">线索管理</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">
-          {search ? `${filtered.length} / ${data?.total ?? 0} 条` : `共 ${data?.total ?? 0} 条线索`}
-        </p>
+          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">共 {total} 条线索</p>
         </div>
         <Button onClick={() => setShowCreate(true)} size="sm">新建线索</Button>
       </div>
@@ -136,7 +144,7 @@ export default function LeadsPage() {
         <Input
           placeholder="搜索姓名、联系方式、来源、编号..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
         />
       </div>
 
@@ -246,7 +254,7 @@ export default function LeadsPage() {
           </div>
 
           {/* 移动端卡片列表 */}
-          <div className="sm:hidden space-y-3">
+          <div className="sm:hidden space-y-2">
             {filtered.map((lead) => (
               <div key={lead.id} className="rounded-lg border bg-white overflow-hidden">
                 <Link
@@ -290,6 +298,8 @@ export default function LeadsPage() {
               </div>
             ))}
           </div>
+
+          <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>
       )}
 

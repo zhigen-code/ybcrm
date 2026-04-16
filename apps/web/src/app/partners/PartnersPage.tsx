@@ -11,8 +11,11 @@ import { Textarea } from '@/shared/components/Textarea'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
 import { FileManager } from '@/shared/components/FileManager'
+import { Pagination } from '@/shared/components/Pagination'
 import type { Partner } from '@/shared/types'
 import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
+
+const PAGE_SIZE = 20
 
 const schema = z.object({
   name: z.string().min(1, '请填写名称'),
@@ -27,13 +30,29 @@ export default function PartnersPage() {
   const queryClient = useQueryClient()
   const [editTarget, setEditTarget] = useState<Partner | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
 
   const { options: partnerTypeOpts } = useOptionGroup('partner_type')
 
+  const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
+  const handleSearch = (val: string) => {
+    setSearch(val)
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0])
+    searchTimeout[1](setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 300))
+  }
+
   const { data, isLoading } = useQuery({
-    queryKey: ['partners'],
-    queryFn: () => crmApi.get<{ data: Partner[] }>('/partners').then((r) => r.data),
+    queryKey: ['partners', debouncedSearch, page],
+    queryFn: () => crmApi.get<{ data: Partner[]; total: number; page: number; pageSize: number }>('/partners', {
+      params: { search: debouncedSearch || undefined, page, pageSize: PAGE_SIZE },
+    }).then((r) => r.data),
   })
+
+  const partners = data?.data ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const form = useForm<FormData>({ resolver: zodResolver(schema) })
 
@@ -75,16 +94,24 @@ export default function PartnersPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">合作伙伴</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">合作伙伴</h1>
+          <p className="mt-0.5 text-sm text-gray-500">共 {total} 家</p>
+        </div>
         <Button onClick={openCreate}>新建合作伙伴</Button>
+      </div>
+
+      <div className="mb-4">
+        <Input placeholder="搜索名称、联系人..." value={search} onChange={(e) => handleSearch(e.target.value)} />
       </div>
 
       {isLoading ? (
         <div className="text-sm text-gray-500">加载中...</div>
       ) : (
+        <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(data?.data ?? []).map((partner) => (
+          {partners.map((partner) => (
             <div key={partner.id} className="rounded-lg border bg-white p-5">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -123,6 +150,8 @@ export default function PartnersPage() {
             </div>
           ))}
         </div>
+        <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
+        </>
       )}
 
       {showForm && (

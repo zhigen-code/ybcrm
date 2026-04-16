@@ -11,8 +11,30 @@ export const partnersRoutes = new Hono<{ Bindings: Env }>()
 partnersRoutes.use('*', requireAuth)
 
 partnersRoutes.get('/', async (c) => {
-  const results = await c.env.DB.prepare('SELECT * FROM partners ORDER BY name').all()
-  return c.json({ data: toCamelList(results.results as Record<string, unknown>[]) })
+  const { page = '1', pageSize = '20', search } = c.req.query()
+  const offset = (Number(page) - 1) * Number(pageSize)
+
+  let where = 'WHERE 1=1'
+  const params: unknown[] = []
+  if (search) {
+    where += ' AND (name LIKE ? OR contact_person LIKE ?)'
+    const q = `%${search}%`
+    params.push(q, q)
+  }
+
+  const [results, countResult] = await Promise.all([
+    c.env.DB.prepare(`SELECT * FROM partners ${where} ORDER BY name LIMIT ? OFFSET ?`)
+      .bind(...params, Number(pageSize), offset).all(),
+    c.env.DB.prepare(`SELECT COUNT(*) as total FROM partners ${where}`)
+      .bind(...params).first<{ total: number }>(),
+  ])
+
+  return c.json({
+    data: toCamelList(results.results as Record<string, unknown>[]),
+    total: countResult?.total ?? 0,
+    page: Number(page),
+    pageSize: Number(pageSize),
+  })
 })
 
 partnersRoutes.get('/:id', async (c) => {

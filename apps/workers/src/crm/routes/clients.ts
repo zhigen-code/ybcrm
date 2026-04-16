@@ -27,7 +27,7 @@ function parseClient(row: Record<string, unknown>) {
 // GET /api/clients
 clientsRoutes.get('/', async (c) => {
   const { role, userId } = c.get('jwtPayload')
-  const { page = '1', pageSize = '20' } = c.req.query()
+  const { page = '1', pageSize = '20', search } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
   let whereClause = 'WHERE 1=1'
@@ -37,12 +37,27 @@ clientsRoutes.get('/', async (c) => {
     whereClause += ' AND c.assigned_sales_userId = ?'
     whereParams.push(userId)
   }
+  if (search) {
+    whereClause += ' AND (c.name LIKE ? OR c.email LIKE ? OR c.phone LIKE ?)'
+    const q = `%${search}%`
+    whereParams.push(q, q, q)
+  }
 
-  const results = await c.env.DB.prepare(
-    `${SELECT_COLS} ${BASE_JOIN} ${whereClause} ORDER BY c.created_at DESC LIMIT ? OFFSET ?`,
-  ).bind(...whereParams, Number(pageSize), offset).all()
+  const [results, countResult] = await Promise.all([
+    c.env.DB.prepare(
+      `${SELECT_COLS} ${BASE_JOIN} ${whereClause} ORDER BY c.created_at DESC LIMIT ? OFFSET ?`,
+    ).bind(...whereParams, Number(pageSize), offset).all(),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) as total FROM clients c ${whereClause}`,
+    ).bind(...whereParams).first<{ total: number }>(),
+  ])
 
-  return c.json({ data: (results.results as Record<string, unknown>[]).map(parseClient) })
+  return c.json({
+    data: (results.results as Record<string, unknown>[]).map(parseClient),
+    total: countResult?.total ?? 0,
+    page: Number(page),
+    pageSize: Number(pageSize),
+  })
 })
 
 // GET /api/clients/:id

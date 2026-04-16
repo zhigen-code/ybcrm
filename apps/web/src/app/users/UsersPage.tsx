@@ -54,16 +54,36 @@ function parseSpecialization(val: unknown): string[] {
   return []
 }
 
+import { Pagination } from '@/shared/components/Pagination'
+
+const PAGE_SIZE = 20
+
 export default function UsersPage() {
   const queryClient = useQueryClient()
   const [showRegister, setShowRegister] = useState(false)
   const [editTarget, setEditTarget] = useState<User | null>(null)
   const [resetTarget, setResetTarget] = useState<User | null>(null)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
 
-  const { data: users, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => crmApi.get<{ data: User[] }>('/users').then((r) => r.data),
+  const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
+  const handleSearch = (val: string) => {
+    setSearch(val)
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0])
+    searchTimeout[1](setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 300))
+  }
+
+  const { data: usersData, isLoading } = useQuery({
+    queryKey: ['users', debouncedSearch, page],
+    queryFn: () => crmApi.get<{ data: User[]; total: number; page: number; pageSize: number }>('/users', {
+      params: { search: debouncedSearch || undefined, page, pageSize: PAGE_SIZE },
+    }).then((r) => r.data),
   })
+
+  const users = usersData?.data ?? []
+  const total = usersData?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const { data: teams } = useQuery({
     queryKey: ['teams'],
@@ -144,8 +164,15 @@ export default function UsersPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 sm:mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">用户管理</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">用户管理</h1>
+          <p className="mt-0.5 text-sm text-gray-500">共 {total} 名用户</p>
+        </div>
         <Button onClick={() => setShowRegister(true)}>新建用户</Button>
+      </div>
+
+      <div className="mb-4">
+        <Input placeholder="搜索姓名、邮箱..." value={search} onChange={(e) => handleSearch(e.target.value)} />
       </div>
 
       {isLoading ? (
@@ -154,7 +181,7 @@ export default function UsersPage() {
         <>
           {/* 移动端：卡片列表 */}
           <div className="space-y-3 sm:hidden">
-            {(users?.data ?? []).map((user) => (
+            {users.map((user) => (
               <div key={user.id} className="rounded-lg border bg-white p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
@@ -212,7 +239,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(users?.data ?? []).map((user) => (
+                {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{user.name}</td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>
@@ -259,6 +286,8 @@ export default function UsersPage() {
               </tbody>
             </table>
           </div>
+
+          <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>
       )}
 

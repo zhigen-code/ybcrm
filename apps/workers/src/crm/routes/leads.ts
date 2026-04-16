@@ -32,24 +32,27 @@ leadsRoutes.get('/sources', async (c) => {
 // GET /api/leads
 leadsRoutes.get('/', async (c) => {
   const { userId, role, teamId } = c.get('jwtPayload')
-  const { status, mine, page = '1', pageSize = '20' } = c.req.query()
+  const { status, mine, search, page = '1', pageSize = '20' } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
   let whereClause = 'WHERE 1=1'
   const whereParams: unknown[] = []
 
   if (role === 'sales') {
-    // sales 角色始终只看分配给自己或自己团队的线索
     whereClause += ' AND (l.assigned_to_userId = ? OR l.assigned_to_teamId = ?)'
     whereParams.push(userId, teamId)
   } else if (mine === 'true') {
-    // admin/operations 可选只看分配给自己的
     whereClause += ' AND l.assigned_to_userId = ?'
     whereParams.push(userId)
   }
   if (status) {
     whereClause += ' AND l.status = ?'
     whereParams.push(status)
+  }
+  if (search) {
+    whereClause += ' AND (l.name LIKE ? OR l.contact_info LIKE ? OR l.source LIKE ? OR CAST(l.lead_no AS TEXT) LIKE ?)'
+    const q = `%${search}%`
+    whereParams.push(q, q, q, q)
   }
 
   const results = await c.env.DB.prepare(

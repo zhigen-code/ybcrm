@@ -6,6 +6,7 @@ import { Badge } from '@/shared/components/Badge'
 import { Input } from '@/shared/components/Input'
 import { Button } from '@/shared/components/Button'
 import { AttachmentList } from '@/shared/components/AttachmentList'
+import { Pagination } from '@/shared/components/Pagination'
 import { formatDate } from '@/shared/utils/format'
 import type { SalesActivity } from '@/shared/types'
 
@@ -149,30 +150,7 @@ export default function ActivitiesPage() {
             </table>
           </div>
 
-          {/* 分页 */}
-          {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-              <span>共 {total} 条，第 {page} / {totalPages} 页</span>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  上一页
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  下一页
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </>
       )}
     </div>
