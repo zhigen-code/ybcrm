@@ -139,17 +139,23 @@ export function FileManager({ entityType, entityId, readonly = false }: Props) {
   })
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
     e.target.value = ''
 
     setUploading(true)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      await crmApi.post(`/upload/attachments?entityType=${entityType}&entityId=${entityId}`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      await Promise.all(
+        files.map((file) => {
+          const form = new FormData()
+          form.append('file', file)
+          return crmApi.post(
+            `/upload/attachments?entityType=${entityType}&entityId=${entityId}`,
+            form,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+          )
+        }),
+      )
       queryClient.invalidateQueries({ queryKey })
     } finally {
       setUploading(false)
@@ -229,7 +235,7 @@ export function FileManager({ entityType, entityId, readonly = false }: Props) {
 
       {!readonly && (
         <div className="mt-2">
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
