@@ -255,3 +255,71 @@ aiConfigRoutes.delete('/models/:id', async (c) => {
   await c.env.DB.prepare('DELETE FROM ai_models WHERE id = ?').bind(id).run()
   return c.json({ data: { success: true } })
 })
+
+// POST /api/admin/ai/models/:id/test  —— 测试模型连通性
+aiConfigRoutes.post(
+  '/models/:id/test',
+  zValidator('json', z.object({ prompt: z.string().min(1).default('你好，请用一句话介绍你自己。') })),
+  async (c) => {
+    const { role } = c.get('jwtPayload')
+    requireAdmin(role)
+    const id = c.req.param('id')
+    const { prompt } = c.req.valid('json')
+
+    const row = await c.env.DB.prepare(`
+      SELECT m.model_id, p.provider_type, p.api_key, p.base_url
+      FROM ai_models m JOIN ai_providers p ON m.provider_id = p.id
+      WHERE m.id = ?
+    `).bind(id).first<{ model_id: string; provider_type: string; api_key: string; base_url: string | null }>()
+    if (!row) throw new HTTPException(404, { message: '模型不存在' })
+
+    const start = Date.now()
+
+    // Anthropic
+    if (row.provider_type === 'anthropic') {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': row.api_key,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: row.model_id,
+          max_tokens: 256,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        throw new HTTPException(502, { message: `调用失败：${res.status} ${text.slice(0, 300)}` })
+      }
+      const json = await res.json() as { content?: { text?: string }[] }
+      const reply = json.content?.[0]?.text ?? '（无返回内容）'
+      return c.json({ data: { reply, latencyMs: Date.now() - start } })
+    }
+
+    // OpenAI 或兼容接口
+    const rawBase = row.base_url?.replace(/\/$/, '') || 'https://api.openai.com/v1'
+    const baseUrl = rawBase.endsWith('/v1') ? rawBase : `${rawBase}/v1`
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${row.api_key}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: row.model_id,
+        max_tokens: 256,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new HTTPException(502, { message: `调用失败：${res.status} ${text.slice(0, 300)}` })
+    }
+    const json = await res.json() as { choices?: { message?: { content?: string } }[] }
+    const reply = json.choices?.[0]?.message?.content ?? '（无返回内容）'
+    return c.json({ data: { reply, latencyMs: Date.now() - start } })
+  },
+)

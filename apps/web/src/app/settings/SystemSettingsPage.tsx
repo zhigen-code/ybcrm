@@ -89,6 +89,29 @@ export default function SystemSettingsPage() {
   const [modelsProviderId, setModelsProviderId] = useState<string | null>(null)
   const [modelsError, setModelsError] = useState<string | null>(null)
   const [manualModel, setManualModel] = useState({ modelId: '', displayName: '' })
+  const [testModelId, setTestModelId] = useState<string | null>(null)
+  const [testPrompt, setTestPrompt] = useState('你好，请用一句话介绍你自己。')
+  const [testResult, setTestResult] = useState<{ reply: string; latencyMs: number } | null>(null)
+  const [testError, setTestError] = useState<string | null>(null)
+  const [testLoading, setTestLoading] = useState(false)
+
+  const runTest = async (modelId: string) => {
+    setTestLoading(true)
+    setTestResult(null)
+    setTestError(null)
+    try {
+      const res = await crmApi.post<{ data: { reply: string; latencyMs: number } }>(
+        `/admin/ai/models/${modelId}/test`,
+        { prompt: testPrompt },
+      )
+      setTestResult(res.data.data)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '测试失败'
+      setTestError(msg)
+    } finally {
+      setTestLoading(false)
+    }
+  }
 
   // 团队列表
   const { data: teams, isLoading: teamsLoading } = useQuery({
@@ -747,33 +770,77 @@ export default function SystemSettingsPage() {
             {aiModels.length === 0 ? (
               <p className="px-4 py-6 text-sm text-gray-400 text-center">暂无已启用模型，请先添加提供商并查询模型</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium text-gray-600">显示名称</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-600">模型 ID</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-600">提供商</th>
-                    <th className="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {aiModels.map((m) => (
-                    <tr key={m.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5 font-medium text-gray-900">{m.displayName}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{m.modelId}</td>
-                      <td className="px-4 py-2.5 text-gray-500">{m.providerName}</td>
-                      <td className="px-4 py-2.5">
+              <div className="divide-y divide-gray-100">
+                {aiModels.map((m) => (
+                  <div key={m.id}>
+                    <div className="flex items-center px-4 py-2.5 hover:bg-gray-50">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-gray-900 text-sm">{m.displayName}</span>
+                        <span className="ml-2 font-mono text-xs text-gray-400">{m.modelId}</span>
+                        <span className="ml-2 text-xs text-gray-400">· {m.providerName}</span>
+                      </div>
+                      <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            if (testModelId === m.id) {
+                              setTestModelId(null); setTestResult(null); setTestError(null)
+                            } else {
+                              setTestModelId(m.id); setTestResult(null); setTestError(null)
+                            }
+                          }}
+                          className={`text-xs font-medium ${testModelId === m.id ? 'text-gray-400' : 'text-primary-600 hover:text-primary-800'}`}
+                        >
+                          {testModelId === m.id ? '收起' : '测试'}
+                        </button>
+                        <span className="text-gray-300">|</span>
                         <button
                           onClick={() => { if (confirm(`确认移除模型「${m.displayName}」？`)) removeModel.mutate(m.id) }}
                           className="text-xs text-red-500 hover:text-red-700"
                         >
                           移除
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+
+                    {/* 测试面板 */}
+                    {testModelId === m.id && (
+                      <div className="px-4 pb-4 pt-2 bg-gray-50 border-t border-gray-100 space-y-3">
+                        <div className="flex gap-2">
+                          <input
+                            className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            value={testPrompt}
+                            onChange={(e) => setTestPrompt(e.target.value)}
+                            placeholder="输入测试消息..."
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !testLoading) runTest(m.id) }}
+                          />
+                          <Button
+                            size="sm"
+                            loading={testLoading}
+                            disabled={!testPrompt.trim()}
+                            onClick={() => runTest(m.id)}
+                          >
+                            发送
+                          </Button>
+                        </div>
+                        {testLoading && (
+                          <p className="text-xs text-gray-400">请求中...</p>
+                        )}
+                        {testError && (
+                          <div className="rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                            {testError}
+                          </div>
+                        )}
+                        {testResult && (
+                          <div className="rounded bg-white border border-gray-200 px-3 py-2 space-y-1">
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap">{testResult.reply}</p>
+                            <p className="text-xs text-gray-400">响应时间：{testResult.latencyMs} ms</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
