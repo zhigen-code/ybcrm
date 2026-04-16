@@ -149,7 +149,10 @@ aiConfigRoutes.get('/providers/:id/available-models', async (c) => {
   }
 
   // OpenAI 或兼容接口
-  const baseUrl = (provider.base_url?.replace(/\/$/, '') || 'https://api.openai.com') + '/v1'
+  // base_url 应含完整路径（如 https://api.openai.com/v1），直接追加 /models
+  const rawBase = provider.base_url?.replace(/\/$/, '') || 'https://api.openai.com/v1'
+  // 兼容旧数据：若 base_url 不含 /v1 结尾，自动补上（如用户填的是 https://api.openai.com）
+  const baseUrl = rawBase.endsWith('/v1') ? rawBase : `${rawBase}/v1`
   try {
     const res = await fetch(`${baseUrl}/models`, {
       headers: { Authorization: `Bearer ${provider.api_key}` },

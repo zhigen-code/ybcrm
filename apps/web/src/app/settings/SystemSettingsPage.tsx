@@ -88,6 +88,7 @@ export default function SystemSettingsPage() {
   const [loadingModelsFor, setLoadingModelsFor] = useState<string | null>(null)
   const [modelsProviderId, setModelsProviderId] = useState<string | null>(null)
   const [modelsError, setModelsError] = useState<string | null>(null)
+  const [manualModel, setManualModel] = useState({ modelId: '', displayName: '' })
 
   // 团队列表
   const { data: teams, isLoading: teamsLoading } = useQuery({
@@ -582,10 +583,10 @@ export default function SystemSettingsPage() {
                     value={aiProviderForm.apiKey}
                     onChange={(e) => setAiProviderForm((f) => ({ ...f, apiKey: e.target.value }))}
                   />
-                  {aiProviderForm.providerType === 'custom' && (
+                  {aiProviderForm.providerType !== 'anthropic' && (
                     <Input
-                      label="Base URL"
-                      placeholder="https://your-api.com"
+                      label={aiProviderForm.providerType === 'openai' ? 'Base URL（可选，留空用官方地址）' : 'Base URL'}
+                      placeholder="https://your-api.com/v1"
                       value={aiProviderForm.baseUrl}
                       onChange={(e) => setAiProviderForm((f) => ({ ...f, baseUrl: e.target.value }))}
                     />
@@ -657,11 +658,50 @@ export default function SystemSettingsPage() {
                 <h2 className="font-semibold text-gray-800 text-sm">
                   可用模型 — {aiProviders.find((p) => p.id === modelsProviderId)?.name}
                 </h2>
-                <button onClick={() => { setModelsProviderId(null); setAvailableModels(null) }}
+                <button onClick={() => { setModelsProviderId(null); setAvailableModels(null); setModelsError(null) }}
                   className="text-xs text-gray-400 hover:text-gray-600">关闭</button>
               </div>
+
               {modelsError ? (
-                <p className="px-4 py-4 text-sm text-red-500">{modelsError}</p>
+                <div className="px-4 py-4 space-y-3">
+                  <p className="text-sm text-red-500">{modelsError}</p>
+                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
+                    <p className="text-xs font-medium text-gray-600">该提供商不支持自动查询模型，请手动输入模型 ID：</p>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">模型 ID</label>
+                        <input
+                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          placeholder="如 @cf/meta/llama-3.1-8b-instruct"
+                          value={manualModel.modelId}
+                          onChange={(e) => setManualModel((m) => ({ ...m, modelId: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">显示名称</label>
+                        <input
+                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          placeholder="如 Llama 3.1 8B"
+                          value={manualModel.displayName}
+                          onChange={(e) => setManualModel((m) => ({ ...m, displayName: e.target.value }))}
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={!manualModel.modelId || !manualModel.displayName || enableModel.isPending}
+                        loading={enableModel.isPending}
+                        onClick={() => {
+                          enableModel.mutate(
+                            { providerId: modelsProviderId!, modelId: manualModel.modelId, displayName: manualModel.displayName },
+                            { onSuccess: () => setManualModel({ modelId: '', displayName: '' }) },
+                          )
+                        }}
+                      >
+                        添加
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               ) : !availableModels ? (
                 <p className="px-4 py-4 text-sm text-gray-400">加载中...</p>
               ) : (
