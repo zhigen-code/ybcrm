@@ -55,4 +55,4 @@ jobs:
         working-directory: apps/web
         env:
           CLOUDFLARE_ACCOUNT_ID: 31e3e7b5940076dd1813afe9c32a408d
-        run: npx wrangler pages deploy dist --project-name crm-web --commit-message "deploy ${{ github.sha }}"
+        run: npx wrangler pages deploy dist --project-name crm-web --branch main --commit-message "deploy ${{ github.sha }}"
