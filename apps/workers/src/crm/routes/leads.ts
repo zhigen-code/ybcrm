@@ -21,6 +21,14 @@ function parseLead(row: Record<string, unknown>) {
   return lead
 }
 
+// GET /api/leads/sources — 返回去重的来源列表（用于前端自动补全）
+leadsRoutes.get('/sources', async (c) => {
+  const rows = await c.env.DB.prepare(
+    "SELECT DISTINCT source FROM leads WHERE source IS NOT NULL AND source != '' ORDER BY source ASC",
+  ).all<{ source: string }>()
+  return c.json({ data: rows.results.map((r) => r.source) })
+})
+
 // GET /api/leads
 leadsRoutes.get('/', async (c) => {
   const { userId, role, teamId } = c.get('jwtPayload')

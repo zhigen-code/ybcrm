@@ -11,6 +11,7 @@ import { Badge } from '@/shared/components/Badge'
 import { Modal } from '@/shared/components/Modal'
 import { Select } from '@/shared/components/Select'
 import { Textarea } from '@/shared/components/Textarea'
+import { Combobox } from '@/shared/components/Combobox'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { formatDate } from '@/shared/utils/format'
@@ -40,6 +41,12 @@ export default function LeadsPage() {
   const canToggleMine = user?.role !== 'sales'
 
   const { options: leadStatusOpts } = useOptionGroup('lead_status')
+  const { data: sourcesData } = useQuery({
+    queryKey: ['lead-sources'],
+    queryFn: () => crmApi.get<{ data: string[] }>('/leads/sources').then((r) => r.data),
+  })
+  const sourceOptions = sourcesData?.data ?? []
+
   const { data: servicesData } = useQuery({
     queryKey: ['services'],
     queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data),
@@ -290,7 +297,14 @@ export default function LeadsPage() {
       {showCreate && (
         <Modal title="新建线索" onClose={() => { setShowCreate(false); reset() }}>
           <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-3">
-            <Input label="来源" error={errors.source?.message} {...register('source')} />
+            <Combobox
+              label="来源"
+              error={errors.source?.message}
+              value={watch('source') ?? ''}
+              onChange={(v) => setValue('source', v, { shouldValidate: true })}
+              options={sourceOptions}
+              placeholder="输入或选择已有来源..."
+            />
             <Input label="姓名" error={errors.name?.message} {...register('name')} />
             <Input label="联系方式" error={errors.contactInfo?.message} {...register('contactInfo')} />
             <div>
