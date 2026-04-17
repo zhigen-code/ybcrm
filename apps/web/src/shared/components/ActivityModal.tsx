@@ -25,7 +25,7 @@ export interface ActivitySubmitData {
   description?: string | undefined
   activityDate: string
   attachmentKeys: ActivityAttachment[]
-  policyFields?: Record<string, unknown>
+  policyFields?: Record<string, unknown> | undefined
 }
 
 interface ActivityModalProps {
