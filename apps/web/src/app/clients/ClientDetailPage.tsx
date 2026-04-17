@@ -195,7 +195,7 @@ export default function ClientDetailPage() {
                     <span className="text-xs text-gray-400">{formatDate(act.activityDate)}</span>
                   </div>
                   {act.description && (
-                    <p className="mt-1 text-gray-700">{act.description}</p>
+                    <p className="mt-1 text-gray-700 whitespace-pre-line">{act.description}</p>
                   )}
                   <AttachmentList attachments={act.attachments ?? []} />
                 </div>

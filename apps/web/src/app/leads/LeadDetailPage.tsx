@@ -304,7 +304,7 @@ export default function LeadDetailPage() {
                   {getOptionLabel(activityTypeOpts, act.activityType)}
                 </span>
                 <div className="flex-1">
-                  <p className="text-gray-700">{act.description ?? '（无描述）'}</p>
+                  <p className="text-gray-700 whitespace-pre-line">{act.description ?? '（无描述）'}</p>
                   <p className="mt-0.5 text-xs text-gray-400">
                     {act.userName ?? '—'} · {formatDate(act.activityDate)}
                   </p>
