@@ -153,8 +153,8 @@ export function ActivityModal({
     >
       <div className="space-y-3">
         {/* 跟进类型和时间置顶，统一 h-8 高度 */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="min-w-0">
+        <div className="flex gap-2">
+          <div className="flex-1 min-w-0">
             <label className="block text-xs text-gray-500 mb-1">跟进类型</label>
             <select
               className="w-full h-8 rounded-md border border-gray-300 bg-white px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -165,11 +165,11 @@ export function ActivityModal({
               ))}
             </select>
           </div>
-          <div className="min-w-0">
+          <div className="flex-none">
             <label className="block text-xs text-gray-500 mb-1">时间</label>
             <input
               type="datetime-local"
-              className="w-full h-8 rounded-md border border-gray-300 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="h-8 rounded-md border border-gray-300 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
               {...register('activityDate')}
             />
             {errors.activityDate?.message && (
