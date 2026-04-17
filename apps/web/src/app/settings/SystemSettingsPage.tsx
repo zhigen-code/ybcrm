@@ -64,8 +64,22 @@ function ColorPicker({ value, onChange }: { value: Color; onChange: (c: Color) =
 const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户' }
 const FIELD_LABELS: Record<string, string> = { status: '状态', contractStatus: '合同状态' }
 
+const STATUS_VALUE_LABELS: Record<string, string> = {
+  New: '新线索', Contacted: '已联系', Qualified: '已确认', Converted: '已转化', Lost: '已丢失',
+}
+
 function FieldPoliciesPanel() {
   const queryClient = useQueryClient()
+  const [showAdd, setShowAdd] = useState(false)
+  const [addForm, setAddForm] = useState({
+    entityType: 'lead',
+    triggerField: 'status',
+    triggerValue: '',
+    requireActivity: true,
+    activityContentRequired: false,
+    contentPresets: '',
+    requiredFields: '',
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-field-policies'],
@@ -73,12 +87,43 @@ function FieldPoliciesPanel() {
       crmApi.get<{ data: FieldPolicy[] }>('/admin/field-policies').then((r) => r.data.data),
   })
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-field-policies'] })
+    queryClient.invalidateQueries({ queryKey: ['field-policies'] })
+  }
+
   const toggle = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       crmApi.put(`/admin/field-policies/${id}`, { isActive }),
+    onSuccess: invalidate,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/admin/field-policies/${id}`),
+    onSuccess: invalidate,
+  })
+
+  const addMutation = useMutation({
+    mutationFn: () => {
+      const presets = addForm.contentPresets
+        ? addForm.contentPresets.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+        : []
+      const policyConfig = {
+        requireActivity: addForm.requireActivity,
+        activityContentRequired: addForm.activityContentRequired,
+        ...(presets.length ? { contentPresets: presets } : {}),
+      }
+      return crmApi.post('/admin/field-policies', {
+        entityType: addForm.entityType,
+        triggerField: addForm.triggerField,
+        triggerValue: addForm.triggerValue,
+        policyConfig,
+      })
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-field-policies'] })
-      queryClient.invalidateQueries({ queryKey: ['field-policies'] })
+      invalidate()
+      setShowAdd(false)
+      setAddForm({ entityType: 'lead', triggerField: 'status', triggerValue: '', requireActivity: true, activityContentRequired: false, contentPresets: '', requiredFields: '' })
     },
   })
 
@@ -87,7 +132,7 @@ function FieldPoliciesPanel() {
   const formatPolicyConfig = (p: FieldPolicy) => {
     const cfg = p.policyConfig
     const parts: string[] = []
-    if (cfg.requireActivity) parts.push('要求填写跟进记录')
+    if (cfg.requireActivity) parts.push('要求跟进记录')
     if (cfg.activityContentRequired) parts.push('内容必填')
     if (cfg.contentPresets?.length) parts.push(`快选：${cfg.contentPresets.join(' / ')}`)
     if (cfg.requiredFields?.length) parts.push(`必填：${cfg.requiredFields.map((f) => f.label).join('、')}`)
@@ -96,48 +141,140 @@ function FieldPoliciesPanel() {
 
   return (
     <div>
-      <p className="mb-4 text-sm text-gray-500">
-        当线索/客户的字段变更为指定值时，弹出跟进记录弹窗并要求填写额外信息，策略校验通过后才允许保存变更。
-      </p>
-      <div className="rounded-lg border bg-white overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">对象</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">触发条件</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">策略要求</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {data?.map((p) => (
-              <tr key={p.id} className={p.isActive ? '' : 'opacity-50'}>
-                <td className="px-4 py-3 text-gray-700">{ENTITY_LABELS[p.entityType] ?? p.entityType}</td>
-                <td className="px-4 py-3 text-gray-600">
-                  {FIELD_LABELS[p.triggerField] ?? p.triggerField}
-                  <span className="mx-1 text-gray-400">→</span>
-                  <span className="font-medium">{p.triggerValue}</span>
-                </td>
-                <td className="px-4 py-3 text-gray-500 text-xs max-w-xs">{formatPolicyConfig(p)}</td>
-                <td className="px-4 py-3">
-                  <Badge variant={p.isActive ? 'green' : 'gray'}>
-                    {p.isActive ? '启用' : '禁用'}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => toggle.mutate({ id: p.id, isActive: !p.isActive })}
-                    className="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    {p.isActive ? '禁用' : '启用'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-gray-500">状态变更时强制填写跟进记录或指定字段，校验通过后才允许保存。</p>
+        <Button size="sm" onClick={() => setShowAdd(true)}>+ 新建策略</Button>
       </div>
+
+      <div className="rounded-lg border bg-white overflow-hidden">
+        {(!data || data.length === 0) ? (
+          <p className="py-8 text-center text-sm text-gray-400">暂无策略</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">对象</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">触发条件</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">策略要求</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.map((p) => (
+                <tr key={p.id} className={p.isActive ? '' : 'opacity-50'}>
+                  <td className="px-4 py-3 text-gray-700">{ENTITY_LABELS[p.entityType] ?? p.entityType}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {FIELD_LABELS[p.triggerField] ?? p.triggerField}
+                    <span className="mx-1 text-gray-400">→</span>
+                    <span className="font-medium">{STATUS_VALUE_LABELS[p.triggerValue] ?? p.triggerValue}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 text-xs max-w-xs">{formatPolicyConfig(p)}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={p.isActive ? 'green' : 'gray'}>
+                      {p.isActive ? '启用' : '禁用'}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 justify-end">
+                      <button
+                        onClick={() => toggle.mutate({ id: p.id, isActive: !p.isActive })}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        {p.isActive ? '禁用' : '启用'}
+                      </button>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        onClick={() => { if (confirm('确认删除此策略？')) deleteMutation.mutate(p.id) }}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showAdd && (
+        <Modal
+          title="新建字段策略"
+          onClose={() => setShowAdd(false)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setShowAdd(false)}>取消</Button>
+              <Button
+                loading={addMutation.isPending}
+                disabled={!addForm.triggerValue.trim()}
+                onClick={() => addMutation.mutate()}
+              >
+                创建
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">适用对象</label>
+              <select
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={addForm.entityType}
+                onChange={(e) => setAddForm((f) => ({ ...f, entityType: e.target.value }))}
+              >
+                <option value="lead">线索</option>
+                <option value="client">客户</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">触发字段</label>
+              <select
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={addForm.triggerField}
+                onChange={(e) => setAddForm((f) => ({ ...f, triggerField: e.target.value }))}
+              >
+                <option value="status">状态</option>
+                <option value="contractStatus">合同状态</option>
+              </select>
+            </div>
+            <Input
+              label="触发值（字段变为此值时触发）"
+              placeholder="如 Lost、Contacted"
+              value={addForm.triggerValue}
+              onChange={(e) => setAddForm((f) => ({ ...f, triggerValue: e.target.value }))}
+            />
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={addForm.requireActivity}
+                  onChange={(e) => setAddForm((f) => ({ ...f, requireActivity: e.target.checked }))}
+                  className="rounded border-gray-300"
+                />
+                要求填写跟进记录
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={addForm.activityContentRequired}
+                  onChange={(e) => setAddForm((f) => ({ ...f, activityContentRequired: e.target.checked }))}
+                  className="rounded border-gray-300"
+                />
+                跟进内容必填
+              </label>
+            </div>
+            <Input
+              label="快选预设（逗号分隔，可选）"
+              placeholder="如 电话未接通,已加微信未回"
+              value={addForm.contentPresets}
+              onChange={(e) => setAddForm((f) => ({ ...f, contentPresets: e.target.value }))}
+            />
+            <p className="text-xs text-gray-400">注：「必填字段」（丢失原因/下次联系时间等）需通过迁移脚本配置</p>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

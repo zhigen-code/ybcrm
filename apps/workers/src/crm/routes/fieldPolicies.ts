@@ -3,8 +3,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { requireAuth, requireAdmin } from '../middleware/auth'
 import { toCamel } from '../../shared/db'
 
-export const fieldPoliciesRoutes = new Hono<{ Bindings: Env }>()
-
 function parsePolicy(row: Record<string, unknown>) {
   const p = toCamel(row) as Record<string, unknown>
   if (typeof p.policyConfig === 'string') {
@@ -13,7 +11,9 @@ function parsePolicy(row: Record<string, unknown>) {
   return p
 }
 
-// ── 公开接口（前端拉取活跃策略，按 entityType 筛选）──────────────────────────
+// ── 公开接口：/api/field-policies ────────────────────────────────────────────
+export const fieldPoliciesRoutes = new Hono<{ Bindings: Env }>()
+
 fieldPoliciesRoutes.get('/', async (c) => {
   const entityType = c.req.query('entityType')
   const sql = entityType
@@ -25,12 +25,13 @@ fieldPoliciesRoutes.get('/', async (c) => {
   return c.json({ data: rows.results.map(parsePolicy) })
 })
 
-// ── Admin 接口 ────────────────────────────────────────────────────────────────
-fieldPoliciesRoutes.use('/admin', requireAuth, requireAdmin)
-fieldPoliciesRoutes.use('/admin/*', requireAuth, requireAdmin)
+// ── Admin 接口：/api/admin/field-policies ────────────────────────────────────
+export const fieldPoliciesAdminRoutes = new Hono<{ Bindings: Env }>()
+
+fieldPoliciesAdminRoutes.use('*', requireAuth, requireAdmin)
 
 // 查询全部（含禁用）
-fieldPoliciesRoutes.get('/admin', async (c) => {
+fieldPoliciesAdminRoutes.get('/', async (c) => {
   const rows = await c.env.DB.prepare(
     'SELECT * FROM field_policies ORDER BY entity_type, trigger_field, trigger_value',
   ).all<Record<string, unknown>>()
@@ -38,7 +39,7 @@ fieldPoliciesRoutes.get('/admin', async (c) => {
 })
 
 // 新建
-fieldPoliciesRoutes.post('/admin', async (c) => {
+fieldPoliciesAdminRoutes.post('/', async (c) => {
   const body = await c.req.json<{
     entityType: string; triggerField: string; triggerValue: string; policyConfig: unknown
   }>()
@@ -49,8 +50,8 @@ fieldPoliciesRoutes.post('/admin', async (c) => {
   return c.json({ data: { id } }, 201)
 })
 
-// 修改
-fieldPoliciesRoutes.put('/admin/:id', async (c) => {
+// 修改（启禁用）
+fieldPoliciesAdminRoutes.put('/:id', async (c) => {
   const { id } = c.req.param()
   const body = await c.req.json<{ isActive?: boolean; policyConfig?: unknown }>()
   const updates: string[] = []
@@ -64,7 +65,7 @@ fieldPoliciesRoutes.put('/admin/:id', async (c) => {
 })
 
 // 删除
-fieldPoliciesRoutes.delete('/admin/:id', async (c) => {
+fieldPoliciesAdminRoutes.delete('/:id', async (c) => {
   const { id } = c.req.param()
   await c.env.DB.prepare('DELETE FROM field_policies WHERE id = ?').bind(id).run()
   return c.json({ data: { id } })
