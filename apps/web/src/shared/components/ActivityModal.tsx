@@ -39,7 +39,9 @@ function formatSize(bytes: number) {
 }
 
 export function ActivityModal({ title, onClose, onSubmit, loading }: ActivityModalProps) {
-  const { options: activityTypeOpts } = useOptionGroup('activity_type')
+  const { options: allActivityTypeOpts } = useOptionGroup('activity_type')
+  // 系统类型仅由后端写入，不在用户手动选择列表中显示
+  const activityTypeOpts = allActivityTypeOpts.filter((o) => o.value !== 'System')
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')

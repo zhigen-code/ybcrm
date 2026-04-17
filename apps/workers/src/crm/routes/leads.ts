@@ -214,8 +214,8 @@ leadsRoutes.put(
     if (changes.length > 0) {
       await c.env.DB.prepare(
         `INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date)
-         VALUES (?, ?, ?, 'Note', ?, CURRENT_TIMESTAMP)`,
-      ).bind(uuidv4(), id, userId, `【系统】${changes.join('；')}`).run()
+         VALUES (?, ?, ?, 'System', ?, CURRENT_TIMESTAMP)`,
+      ).bind(uuidv4(), id, userId, changes.join('；')).run()
     }
 
     const updated = await c.env.DB.prepare(

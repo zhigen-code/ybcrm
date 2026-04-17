@@ -153,7 +153,7 @@ clientsRoutes.post(
       const activityId = uuidv4()
       await c.env.DB.prepare(
         `INSERT INTO sales_activities (id, client_id, lead_id, user_id, activity_type, description, activity_date)
-         VALUES (?, ?, ?, ?, 'Note', '【系统】线索已转化为客户', CURRENT_TIMESTAMP)`,
+         VALUES (?, ?, ?, ?, 'System', '线索已转化为客户', CURRENT_TIMESTAMP)`,
       ).bind(activityId, id, body.leadId, userId).run()
     }
 
@@ -238,8 +238,8 @@ clientsRoutes.put(
     if (changes.length > 0) {
       await c.env.DB.prepare(
         `INSERT INTO sales_activities (id, client_id, user_id, activity_type, description, activity_date)
-         VALUES (?, ?, ?, 'Note', ?, CURRENT_TIMESTAMP)`,
-      ).bind(uuidv4(), id, userId, `【系统】${changes.join('；')}`).run()
+         VALUES (?, ?, ?, 'System', ?, CURRENT_TIMESTAMP)`,
+      ).bind(uuidv4(), id, userId, changes.join('；')).run()
     }
 
     const updated = await c.env.DB.prepare(

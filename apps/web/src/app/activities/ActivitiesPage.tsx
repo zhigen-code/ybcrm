@@ -10,11 +10,12 @@ import { Pagination } from '@/shared/components/Pagination'
 import { formatDate } from '@/shared/utils/format'
 import type { SalesActivity } from '@/shared/types'
 
-const typeConfig: Record<string, { label: string; variant: 'blue' | 'green' | 'yellow' | 'gray' }> = {
+const typeConfig: Record<string, { label: string; variant: 'blue' | 'green' | 'yellow' | 'gray' | 'purple' | 'red' }> = {
   Call:    { label: '电话', variant: 'blue' },
   Meeting: { label: '会面', variant: 'green' },
   Email:   { label: '邮件', variant: 'yellow' },
   Note:    { label: '备注', variant: 'gray' },
+  System:  { label: '系统', variant: 'gray' },
 }
 
 const PAGE_SIZE = 20
