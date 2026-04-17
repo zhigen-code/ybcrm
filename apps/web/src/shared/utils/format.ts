@@ -1,8 +1,18 @@
-import { format, formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 
+let _timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+export function setAppTimezone(tz: string) {
+  _timezone = tz
+}
+
 export function formatDate(date: string | Date) {
-  return format(new Date(date), 'yyyy-MM-dd HH:mm', { locale: zhCN })
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: _timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(date)).replace(/\//g, '-')
 }
 
 export function formatRelativeTime(date: string | Date) {

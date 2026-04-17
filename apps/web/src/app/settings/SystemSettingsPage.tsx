@@ -501,8 +501,25 @@ const RULE_DESCRIPTIONS: Record<string, string> = {
   region_match: '优先分配给所在区域与线索来源地区匹配的销售人员',
 }
 
+const COMMON_TIMEZONES = [
+  { value: 'Asia/Shanghai',    label: '中国标准时间 (UTC+8)' },
+  { value: 'Asia/Hong_Kong',   label: '香港时间 (UTC+8)' },
+  { value: 'Asia/Taipei',      label: '台湾时间 (UTC+8)' },
+  { value: 'Asia/Singapore',   label: '新加坡时间 (UTC+8)' },
+  { value: 'Asia/Tokyo',       label: '日本标准时间 (UTC+9)' },
+  { value: 'Asia/Seoul',       label: '韩国标准时间 (UTC+9)' },
+  { value: 'America/New_York', label: '美国东部时间 (UTC-5/-4)' },
+  { value: 'America/Chicago',  label: '美国中部时间 (UTC-6/-5)' },
+  { value: 'America/Denver',   label: '美国山地时间 (UTC-7/-6)' },
+  { value: 'America/Los_Angeles', label: '美国太平洋时间 (UTC-8/-7)' },
+  { value: 'Europe/London',    label: '英国时间 (UTC+0/+1)' },
+  { value: 'Europe/Paris',     label: '欧洲中部时间 (UTC+1/+2)' },
+  { value: 'UTC',              label: 'UTC' },
+]
+
 const schema = z.object({
   system_name:     z.string().min(1, '请填写系统名称'),
+  timezone:        z.string(),
   smtp_host:       z.string(),
   smtp_port:       z.string(),
   smtp_secure:     z.string(),
@@ -687,7 +704,7 @@ export default function SystemSettingsPage() {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SettingsForm>({
     resolver: zodResolver(schema),
     defaultValues: {
-      system_name: '', smtp_host: '', smtp_port: '465',
+      system_name: '', timezone: 'Asia/Shanghai', smtp_host: '', smtp_port: '465',
       smtp_secure: 'true', smtp_user: '', smtp_password: '', smtp_from_email: '', smtp_from_name: '',
     },
   })
@@ -742,6 +759,18 @@ export default function SystemSettingsPage() {
                   error={errors.system_name?.message}
                   {...register('system_name')}
                 />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">时区</label>
+                  <select
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    {...register('timezone')}
+                  >
+                    {COMMON_TIMEZONES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-400">影响系统中所有时间的显示方式</p>
+                </div>
               </div>
             </div>
           )}

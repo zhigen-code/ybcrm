@@ -62,10 +62,16 @@ app.route('/api/options', optionsRoutes)
 
 // 公开接口（无需登录）
 app.get('/api/public/settings', async (c) => {
-  const result = await c.env.DB.prepare(
-    "SELECT value FROM system_settings WHERE key = 'system_name'",
-  ).first<{ value: string }>()
-  return c.json({ data: { systemName: result?.value ?? '辅助生殖 CRM' } })
+  const rows = await c.env.DB.prepare(
+    "SELECT key, value FROM system_settings WHERE key IN ('system_name', 'timezone')",
+  ).all<{ key: string; value: string }>()
+  const map = Object.fromEntries(rows.results.map((r) => [r.key, r.value]))
+  return c.json({
+    data: {
+      systemName: map['system_name'] ?? '辅助生殖 CRM',
+      timezone: map['timezone'] ?? 'Asia/Shanghai',
+    },
+  })
 })
 
 // 外部 API（API Key 鉴权，允许所有 origin）

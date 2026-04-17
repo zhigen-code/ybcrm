@@ -5,6 +5,7 @@ import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 import { Button } from '@/shared/components/Button'
 import { cn } from '@/shared/utils/cn'
 import { crmApi } from '@/shared/utils/request'
+import { setAppTimezone } from '@/shared/utils/format'
 
 const navItems = [
   { to: '/app/leads', label: '线索管理' },
@@ -31,11 +32,14 @@ export default function CrmLayout() {
 
   const { data: publicSettings } = useQuery({
     queryKey: ['public-settings'],
-    queryFn: () => crmApi.get<{ data: { systemName: string } }>('/public/settings').then((r) => r.data.data),
+    queryFn: () => crmApi.get<{ data: { systemName: string; timezone: string } }>('/public/settings').then((r) => r.data.data),
     staleTime: 1000 * 60 * 60,
   })
   const systemName = publicSettings?.systemName ?? 'CRM'
   useEffect(() => { document.title = systemName }, [systemName])
+  useEffect(() => {
+    if (publicSettings?.timezone) setAppTimezone(publicSettings.timezone)
+  }, [publicSettings?.timezone])
 
   const allNavItems =
     user?.role === 'admin' ? [...navItems, ...adminNavItems] : navItems
