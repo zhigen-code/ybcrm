@@ -4,7 +4,7 @@ import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Badge } from '@/shared/components/Badge'
 import { formatDate } from '@/shared/utils/format'
-import { useOptionGroup, getOptionLabel } from '@/shared/hooks/useOptions'
+import { useOptionGroup, getOptionLabel, useOptions } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { AttachmentList } from '@/shared/components/AttachmentList'
@@ -25,11 +25,13 @@ export default function LeadDetailPage() {
   const [pendingPolicy, setPendingPolicy] = useState<FieldPolicyConfig | null>(null)
 
   const { getPolicy } = useFieldPolicies('lead')
+  const [transitionError, setTransitionError] = useState<string | null>(null)
 
   const canAssign = me?.role === 'admin' || me?.role === 'operations'
 
   const { options: leadStatusOpts } = useOptionGroup('lead_status')
   const { options: activityTypeOpts } = useOptionGroup('activity_type')
+  const { data: allOptions } = useOptions()
 
   const { data: lead } = useQuery({
     queryKey: ['lead', id],
@@ -75,6 +77,11 @@ export default function LeadDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['activities', 'lead', id] })
       setPendingStatus(null)
       setPendingPolicy(null)
+      setTransitionError(null)
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setTransitionError(msg ?? '操作失败，请重试')
     },
   })
 
@@ -241,6 +248,24 @@ export default function LeadDetailPage() {
           <p className="mt-3 text-sm text-gray-600 bg-gray-50 rounded p-3">{lead.notes}</p>
         )}
 
+        {/* 状态附加字段 */}
+        {(lead.lostReason || lead.nextContactDate) && (
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            {lead.lostReason && (
+              <span className="text-gray-600">
+                丢失原因：<span className="font-medium text-red-600">
+                  {getOptionLabel(allOptions?.['lost_reason'] ?? [], lead.lostReason) || lead.lostReason}
+                </span>
+              </span>
+            )}
+            {lead.nextContactDate && (
+              <span className="text-gray-600">
+                下次联系：<span className="font-medium text-gray-900">{formatDate(lead.nextContactDate)}</span>
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
           <span>创建人：{lead.createdByName ?? '—'}</span>
           <span>创建于 {formatDate(lead.createdAt)}</span>
@@ -305,9 +330,10 @@ export default function LeadDetailPage() {
       {pendingStatus && pendingPolicy && (
         <ActivityModal
           title={`变更为「${getOptionLabel(leadStatusOpts, pendingStatus)}」— 请填写跟进记录`}
-          onClose={() => { setPendingStatus(null); setPendingPolicy(null) }}
+          onClose={() => { setPendingStatus(null); setPendingPolicy(null); setTransitionError(null) }}
           loading={statusTransition.isPending}
           policyConfig={pendingPolicy}
+          serverError={transitionError ?? undefined}
           initialPolicyValues={
             pendingStatus === 'Qualified'
               ? { intendedServices: lead.intendedServices ?? [] }

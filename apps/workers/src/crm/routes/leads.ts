@@ -286,9 +286,25 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
     params.push(JSON.stringify(svcs), svcs[0] ?? '')
   }
   params.push(id)
-  await c.env.DB.prepare(`UPDATE leads SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run()
 
-  // 维护 current_leads_count
+  // 写入用户跟进记录
+  const actId = uuidv4()
+  const nextContactDate = (body.fields?.nextContactDate as string | undefined) ?? null
+
+  // 用 D1 batch 保证状态更新与跟进记录写入的原子性
+  const batchStmts = [
+    c.env.DB.prepare(`UPDATE leads SET ${updates.join(', ')} WHERE id = ?`).bind(...params),
+    nextContactDate
+      ? c.env.DB.prepare(
+          'INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date, next_contact_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ).bind(actId, id, userId, body.activity.activityType, body.activity.description ?? null, body.activity.activityDate, nextContactDate)
+      : c.env.DB.prepare(
+          'INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date) VALUES (?, ?, ?, ?, ?, ?)',
+        ).bind(actId, id, userId, body.activity.activityType, body.activity.description ?? null, body.activity.activityDate),
+  ]
+  await c.env.DB.batch(batchStmts)
+
+  // 维护 current_leads_count（非关键，单独执行）
   const TERMINAL = ['Converted', 'Lost']
   if (!TERMINAL.includes(lead.status) && TERMINAL.includes(body.targetStatus) && lead.assigned_to_userId) {
     await c.env.DB.prepare(
@@ -296,26 +312,13 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
     ).bind(lead.assigned_to_userId).run()
   }
 
-  // 写入用户跟进记录
-  const actId = uuidv4()
-  await c.env.DB.prepare(
-    `INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date, next_contact_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).bind(
-    actId, id, userId,
-    body.activity.activityType,
-    body.activity.description ?? null,
-    body.activity.activityDate,
-    (body.fields?.nextContactDate as string | undefined) ?? null,
-  ).run()
-
-  // 处理附件
-  for (const att of body.activity.attachmentKeys ?? []) {
-    await c.env.DB.prepare(
-      `INSERT INTO activity_attachments (id, activity_id, name, file_key, size, mime_type, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(uuidv4(), actId, att.name, att.key, att.size ?? null, att.mimeType ?? null, userId).run()
-  }
+  // 处理附件（批量写入）
+  const attStmts = (body.activity.attachmentKeys ?? []).map((att) =>
+    c.env.DB.prepare(
+      'INSERT INTO activity_attachments (id, activity_id, name, file_key, size, mime_type, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    ).bind(uuidv4(), actId, att.name, att.key, att.size ?? null, att.mimeType ?? null, userId),
+  )
+  if (attStmts.length > 0) await c.env.DB.batch(attStmts)
 
   const result = await c.env.DB.prepare(`${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ?`).bind(id).first()
   return c.json({ data: parseLead(result as Record<string, unknown>) })

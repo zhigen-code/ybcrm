@@ -35,6 +35,7 @@ interface ActivityModalProps {
   loading: boolean
   policyConfig?: FieldPolicyConfig | null
   initialPolicyValues?: Record<string, unknown>
+  serverError?: string | undefined
 }
 
 function formatSize(bytes: number) {
@@ -44,7 +45,7 @@ function formatSize(bytes: number) {
 }
 
 export function ActivityModal({
-  title, onClose, onSubmit, loading, policyConfig, initialPolicyValues,
+  title, onClose, onSubmit, loading, policyConfig, initialPolicyValues, serverError,
 }: ActivityModalProps) {
   const { options: allActivityTypeOpts } = useOptionGroup('activity_type')
   const activityTypeOpts = allActivityTypeOpts.filter((o) => o.value !== 'System')
@@ -260,8 +261,8 @@ export function ActivityModal({
           </div>
         )}
 
-        {policyError && (
-          <p className="text-sm text-red-500">{policyError}</p>
+        {(policyError || serverError) && (
+          <p className="text-sm text-red-500">{policyError || serverError}</p>
         )}
 
         {/* 文件上传 */}

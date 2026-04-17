@@ -44,6 +44,8 @@ export interface Lead {
   intendedServices: string[]
   status: LeadStatus
   notes: string | null
+  lostReason: string | null
+  nextContactDate: string | null
   assignedToUserId: string | null
   assignedToTeamId: string | null
   assignedToName: string | null
