@@ -249,16 +249,16 @@ export default function LeadDetailPage() {
         )}
 
         {/* 状态附加字段 */}
-        {(lead.lostReason || lead.nextContactDate) && (
+        {((lead.status === 'Lost' && lead.lostReason) || (lead.status === 'Qualified' && lead.nextContactDate)) && (
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-            {lead.lostReason && (
+            {lead.status === 'Lost' && lead.lostReason && (
               <span className="text-gray-600">
                 丢失原因：<span className="font-medium text-red-600">
-                  {getOptionLabel(allOptions?.['lost_reason'] ?? [], lead.lostReason) || lead.lostReason}
+                  {getOptionLabel(allOptions?.['lost_reason'] ?? [], lead.lostReason)}
                 </span>
               </span>
             )}
-            {lead.nextContactDate && (
+            {lead.status === 'Qualified' && lead.nextContactDate && (
               <span className="text-gray-600">
                 下次联系：<span className="font-medium text-gray-900">{formatDate(lead.nextContactDate)}</span>
               </span>
