@@ -152,7 +152,31 @@ export function ActivityModal({
       }
     >
       <div className="space-y-3">
-        {/* 策略要求的主要内容区域优先展示 */}
+        {/* 跟进类型和时间置顶，统一 h-8 高度 */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">跟进类型</label>
+            <select
+              className="w-full h-8 rounded-md border border-gray-300 bg-white px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+              {...register('activityType')}
+            >
+              {toSelectOptions(activityTypeOpts).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">时间</label>
+            <input
+              type="datetime-local"
+              className="w-full h-8 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+              {...register('activityDate')}
+            />
+            {errors.activityDate?.message && (
+              <p className="mt-0.5 text-xs text-red-600">{errors.activityDate.message}</p>
+            )}
+          </div>
+        </div>
 
         {/* 快选预设 */}
         {(policyConfig?.contentPresets?.length ?? 0) > 0 && (
@@ -182,32 +206,6 @@ export function ActivityModal({
           placeholder="记录本次跟进的要点..."
           {...register('description')}
         />
-
-        {/* 跟进类型和时间：低频字段，并排紧凑显示 */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">跟进类型</label>
-            <select
-              className="w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-              {...register('activityType')}
-            >
-              {toSelectOptions(activityTypeOpts).map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">时间</label>
-            <input
-              type="datetime-local"
-              className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-              {...register('activityDate')}
-            />
-            {errors.activityDate?.message && (
-              <p className="mt-0.5 text-xs text-red-600">{errors.activityDate.message}</p>
-            )}
-          </div>
-        </div>
 
         {/* 策略要求的额外字段 */}
         {(policyConfig?.requiredFields?.length ?? 0) > 0 && (
