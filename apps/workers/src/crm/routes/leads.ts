@@ -255,24 +255,40 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
     "SELECT policy_config FROM field_policies WHERE entity_type='lead' AND trigger_field='status' AND trigger_value=? AND is_active=1",
   ).bind(body.targetStatus).first<{ policy_config: string }>()
 
+  // 解析策略配置（校验 + 后续构建描述用）
+  let policyCfg: {
+    requireActivity?: boolean; activityContentRequired?: boolean
+    requiredFields?: { field: string; label: string; type?: string }[]
+  } | null = null
   if (policy) {
-    const cfg = JSON.parse(policy.policy_config) as {
-      requireActivity?: boolean; activityContentRequired?: boolean
-      requiredFields?: { field: string; label: string }[]
-    }
-    if (cfg.requireActivity && !body.activity) {
+    policyCfg = JSON.parse(policy.policy_config)
+    if (policyCfg!.requireActivity && !body.activity) {
       throw new HTTPException(422, { message: '请填写跟进记录' })
     }
-    if (cfg.activityContentRequired && !body.activity?.description?.trim()) {
+    if (policyCfg!.activityContentRequired && !body.activity?.description?.trim()) {
       throw new HTTPException(422, { message: '请填写跟进内容' })
     }
-    for (const rf of cfg.requiredFields ?? []) {
+    for (const rf of policyCfg!.requiredFields ?? []) {
       const val = body.fields?.[rf.field]
       if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
         throw new HTTPException(422, { message: `请填写${rf.label}` })
       }
     }
   }
+
+  // 把策略字段值拼入跟进记录描述，让跟进列表信息完整
+  const fieldLines: string[] = []
+  for (const rf of policyCfg?.requiredFields ?? []) {
+    const val = body.fields?.[rf.field]
+    if (val === undefined || val === null || val === '') continue
+    if (Array.isArray(val)) {
+      fieldLines.push(`${rf.label}：${(val as string[]).join('、')}`)
+    } else {
+      fieldLines.push(`${rf.label}：${val}`)
+    }
+  }
+  const userDesc = body.activity?.description?.trim() ?? ''
+  const finalDescription = [userDesc, ...fieldLines].filter(Boolean).join('\n') || null
 
   // 更新线索状态 + 策略字段
   const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP']
@@ -297,10 +313,10 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
     nextContactDate
       ? c.env.DB.prepare(
           'INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date, next_contact_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ).bind(actId, id, userId, body.activity.activityType, body.activity.description ?? null, body.activity.activityDate, nextContactDate)
+        ).bind(actId, id, userId, body.activity.activityType, finalDescription, body.activity.activityDate, nextContactDate)
       : c.env.DB.prepare(
           'INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date) VALUES (?, ?, ?, ?, ?, ?)',
-        ).bind(actId, id, userId, body.activity.activityType, body.activity.description ?? null, body.activity.activityDate),
+        ).bind(actId, id, userId, body.activity.activityType, finalDescription, body.activity.activityDate),
   ]
   await c.env.DB.batch(batchStmts)
 
