@@ -10,6 +10,7 @@ import { Select } from './Select'
 import { Textarea } from './Textarea'
 import { Input } from './Input'
 import { useOptionGroup, useOptions, toSelectOptions } from '@/shared/hooks/useOptions'
+import { nowForInput } from '@/shared/utils/format'
 import type { ActivityAttachment } from '@/shared/types'
 import type { FieldPolicyConfig } from '@/shared/hooks/useFieldPolicies'
 
@@ -72,7 +73,7 @@ export function ActivityModal({
     resolver: zodResolver(schema),
     defaultValues: {
       activityType: activityTypeOpts[0]?.value ?? '',
-      activityDate: new Date().toISOString().slice(0, 16),
+      activityDate: nowForInput(),
     },
   })
 
