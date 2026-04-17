@@ -50,14 +50,20 @@ fieldPoliciesAdminRoutes.post('/', async (c) => {
   return c.json({ data: { id } }, 201)
 })
 
-// 修改（启禁用）
+// 修改
 fieldPoliciesAdminRoutes.put('/:id', async (c) => {
   const { id } = c.req.param()
-  const body = await c.req.json<{ isActive?: boolean; policyConfig?: unknown }>()
+  const body = await c.req.json<{
+    isActive?: boolean; policyConfig?: unknown;
+    entityType?: string; triggerField?: string; triggerValue?: string
+  }>()
   const updates: string[] = []
   const params: unknown[] = []
-  if (body.isActive !== undefined) { updates.push('is_active = ?'); params.push(body.isActive ? 1 : 0) }
-  if (body.policyConfig !== undefined) { updates.push('policy_config = ?'); params.push(JSON.stringify(body.policyConfig)) }
+  if (body.isActive !== undefined)     { updates.push('is_active = ?');      params.push(body.isActive ? 1 : 0) }
+  if (body.policyConfig !== undefined) { updates.push('policy_config = ?');  params.push(JSON.stringify(body.policyConfig)) }
+  if (body.entityType !== undefined)   { updates.push('entity_type = ?');    params.push(body.entityType) }
+  if (body.triggerField !== undefined) { updates.push('trigger_field = ?');  params.push(body.triggerField) }
+  if (body.triggerValue !== undefined) { updates.push('trigger_value = ?');  params.push(body.triggerValue) }
   if (!updates.length) return c.json({ message: '无可更新字段' }, 400)
   params.push(id)
   await c.env.DB.prepare(`UPDATE field_policies SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run()

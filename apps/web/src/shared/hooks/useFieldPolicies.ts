@@ -4,7 +4,7 @@ import { crmApi } from '@/shared/utils/request'
 export interface PolicyRequiredField {
   field: string
   label: string
-  type: 'select' | 'datetime' | 'services'
+  type: 'select' | 'datetime' | 'services' | 'text'
   optionGroup?: string
 }
 
