@@ -9,6 +9,8 @@ import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { AttachmentList } from '@/shared/components/AttachmentList'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
+import { useFieldPolicies } from '@/shared/hooks/useFieldPolicies'
+import type { FieldPolicyConfig } from '@/shared/hooks/useFieldPolicies'
 import type { Lead, LeadStatus, SalesActivity, User } from '@/shared/types'
 import { useState } from 'react'
 
@@ -19,6 +21,10 @@ export default function LeadDetailPage() {
   const { user: me } = useCrmAuth()
   const [showActivity, setShowActivity] = useState(false)
   const [assigningUserId, setAssigningUserId] = useState<string | null | undefined>(undefined)
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null)
+  const [pendingPolicy, setPendingPolicy] = useState<FieldPolicyConfig | null>(null)
+
+  const { getPolicy } = useFieldPolicies('lead')
 
   const canAssign = me?.role === 'admin' || me?.role === 'operations'
 
@@ -51,6 +57,36 @@ export default function LeadDetailPage() {
     mutationFn: (status: LeadStatus) => crmApi.put(`/leads/${id}`, { status }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lead', id] }),
   })
+
+  const statusTransition = useMutation({
+    mutationFn: (body: { targetStatus: string; activity: ActivitySubmitData }) =>
+      crmApi.post(`/leads/${id}/status-transition`, {
+        targetStatus: body.targetStatus,
+        activity: {
+          activityType: body.activity.activityType,
+          description: body.activity.description,
+          activityDate: body.activity.activityDate,
+          attachmentKeys: body.activity.attachmentKeys,
+        },
+        fields: body.activity.policyFields,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead', id] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'lead', id] })
+      setPendingStatus(null)
+      setPendingPolicy(null)
+    },
+  })
+
+  const handleStatusClick = (status: string) => {
+    const policy = getPolicy('status', status)
+    if (policy?.requireActivity) {
+      setPendingStatus(status)
+      setPendingPolicy(policy)
+    } else {
+      updateStatus.mutate(status as LeadStatus)
+    }
+  }
 
   const assignLead = useMutation({
     mutationFn: (assignedToUserId: string | null) =>
@@ -140,7 +176,7 @@ export default function LeadDetailPage() {
               {leadStatusOpts.filter((o) => o.value !== 'Converted').map((o) => (
                 <button
                   key={o.value}
-                  onClick={() => updateStatus.mutate(o.value as LeadStatus)}
+                  onClick={() => handleStatusClick(o.value)}
                   className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                     lead.status === o.value
                       ? 'bg-primary-600 text-white'
@@ -262,6 +298,24 @@ export default function LeadDetailPage() {
           onClose={() => setShowActivity(false)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
+        />
+      )}
+
+      {/* 字段策略触发的跟进弹窗 */}
+      {pendingStatus && pendingPolicy && (
+        <ActivityModal
+          title={`变更为「${getOptionLabel(leadStatusOpts, pendingStatus)}」— 请填写跟进记录`}
+          onClose={() => { setPendingStatus(null); setPendingPolicy(null) }}
+          loading={statusTransition.isPending}
+          policyConfig={pendingPolicy}
+          initialPolicyValues={
+            pendingStatus === 'Qualified'
+              ? { intendedServices: lead.intendedServices ?? [] }
+              : {}
+          }
+          onSubmit={(d) =>
+            statusTransition.mutate({ targetStatus: pendingStatus, activity: d })
+          }
         />
       )}
     </div>

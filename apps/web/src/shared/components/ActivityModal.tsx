@@ -2,14 +2,16 @@ import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useQuery } from '@tanstack/react-query'
 import { crmApi } from '@/shared/utils/request'
 import { Modal } from './Modal'
 import { Button } from './Button'
 import { Select } from './Select'
 import { Textarea } from './Textarea'
 import { Input } from './Input'
-import { useOptionGroup, toSelectOptions } from '@/shared/hooks/useOptions'
+import { useOptionGroup, useOptions, toSelectOptions } from '@/shared/hooks/useOptions'
 import type { ActivityAttachment } from '@/shared/types'
+import type { FieldPolicyConfig } from '@/shared/hooks/useFieldPolicies'
 
 const schema = z.object({
   activityType: z.string().min(1, '请选择跟进类型'),
@@ -23,6 +25,7 @@ export interface ActivitySubmitData {
   description?: string | undefined
   activityDate: string
   attachmentKeys: ActivityAttachment[]
+  policyFields?: Record<string, unknown>
 }
 
 interface ActivityModalProps {
@@ -30,6 +33,8 @@ interface ActivityModalProps {
   onClose: () => void
   onSubmit: (data: ActivitySubmitData) => void
   loading: boolean
+  policyConfig?: FieldPolicyConfig | null
+  initialPolicyValues?: Record<string, unknown>
 }
 
 function formatSize(bytes: number) {
@@ -38,22 +43,44 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-export function ActivityModal({ title, onClose, onSubmit, loading }: ActivityModalProps) {
+export function ActivityModal({
+  title, onClose, onSubmit, loading, policyConfig, initialPolicyValues,
+}: ActivityModalProps) {
   const { options: allActivityTypeOpts } = useOptionGroup('activity_type')
-  // 系统类型仅由后端写入，不在用户手动选择列表中显示
   const activityTypeOpts = allActivityTypeOpts.filter((o) => o.value !== 'System')
+  const { data: allOptions } = useOptions()
+
+  const hasServicesField = policyConfig?.requiredFields?.some((f) => f.type === 'services') ?? false
+  const { data: servicesData } = useQuery({
+    queryKey: ['services'],
+    queryFn: () =>
+      crmApi.get<{ data: { id: string; name: string }[] }>('/services').then((r) => r.data.data),
+    enabled: hasServicesField,
+    staleTime: 1000 * 60 * 5,
+  })
+  const services = servicesData ?? []
+
+  const [policyFields, setPolicyFields] = useState<Record<string, unknown>>(initialPolicyValues ?? {})
+  const [policyError, setPolicyError] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       activityType: activityTypeOpts[0]?.value ?? '',
       activityDate: new Date().toISOString().slice(0, 16),
     },
   })
+
+  const description = watch('description')
+
+  const setPolicyField = (field: string, value: unknown) => {
+    setPolicyFields((prev) => ({ ...prev, [field]: value }))
+    setPolicyError('')
+  }
 
   const addFiles = (incoming: FileList | null) => {
     if (!incoming) return
@@ -66,9 +93,21 @@ export function ActivityModal({ title, onClose, onSubmit, loading }: ActivityMod
   }
 
   const handleSave = handleSubmit(async (formData) => {
+    // 校验策略必填字段
+    if (policyConfig?.activityContentRequired && !formData.description?.trim()) {
+      setPolicyError('请填写跟进内容')
+      return
+    }
+    for (const rf of policyConfig?.requiredFields ?? []) {
+      const val = policyFields[rf.field]
+      if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+        setPolicyError(`请填写${rf.label}`)
+        return
+      }
+    }
+
     setUploadError('')
     let attachmentKeys: ActivityAttachment[] = []
-
     if (files.length > 0) {
       setUploading(true)
       try {
@@ -89,7 +128,11 @@ export function ActivityModal({ title, onClose, onSubmit, loading }: ActivityMod
       setUploading(false)
     }
 
-    onSubmit({ ...formData, attachmentKeys })
+    onSubmit({
+      ...formData,
+      attachmentKeys,
+      policyFields: Object.keys(policyFields).length > 0 ? policyFields : undefined,
+    })
   })
 
   const busy = uploading || loading
@@ -113,8 +156,32 @@ export function ActivityModal({ title, onClose, onSubmit, loading }: ActivityMod
           options={toSelectOptions(activityTypeOpts)}
           {...register('activityType')}
         />
+
+        {/* 快选预设 */}
+        {(policyConfig?.contentPresets?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs text-gray-500">快速选择</p>
+            <div className="flex flex-wrap gap-1.5">
+              {policyConfig!.contentPresets!.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setValue('description', preset)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                    description === preset
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Textarea
-          label="内容"
+          label={policyConfig?.activityContentRequired ? '内容（必填）' : '内容'}
           placeholder="记录本次跟进的要点..."
           {...register('description')}
         />
@@ -124,6 +191,78 @@ export function ActivityModal({ title, onClose, onSubmit, loading }: ActivityMod
           error={errors.activityDate?.message}
           {...register('activityDate')}
         />
+
+        {/* 策略要求的额外字段 */}
+        {(policyConfig?.requiredFields?.length ?? 0) > 0 && (
+          <div className="border-t pt-3 space-y-3">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">必填信息</p>
+            {policyConfig!.requiredFields!.map((rf) => {
+              if (rf.type === 'select' && rf.optionGroup) {
+                const opts = allOptions?.[rf.optionGroup] ?? []
+                return (
+                  <div key={rf.field}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{rf.label}</label>
+                    <select
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      value={(policyFields[rf.field] as string) ?? ''}
+                      onChange={(e) => setPolicyField(rf.field, e.target.value)}
+                    >
+                      <option value="">请选择...</option>
+                      {toSelectOptions(opts).map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              }
+              if (rf.type === 'datetime') {
+                return (
+                  <Input
+                    key={rf.field}
+                    type="datetime-local"
+                    label={rf.label}
+                    value={(policyFields[rf.field] as string) ?? ''}
+                    onChange={(e) => setPolicyField(rf.field, e.target.value)}
+                  />
+                )
+              }
+              if (rf.type === 'services') {
+                const selected = (policyFields[rf.field] as string[]) ?? []
+                return (
+                  <div key={rf.field}>
+                    <p className="text-sm font-medium text-gray-700 mb-1.5">{rf.label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {services.map((svc) => (
+                        <button
+                          key={svc.id}
+                          type="button"
+                          onClick={() => {
+                            const next = selected.includes(svc.name)
+                              ? selected.filter((s) => s !== svc.name)
+                              : [...selected, svc.name]
+                            setPolicyField(rf.field, next)
+                          }}
+                          className={`rounded-full px-3 py-1 text-sm font-medium border transition-colors ${
+                            selected.includes(svc.name)
+                              ? 'bg-primary-600 text-white border-primary-600'
+                              : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
+                          }`}
+                        >
+                          {svc.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })}
+          </div>
+        )}
+
+        {policyError && (
+          <p className="text-sm text-red-500">{policyError}</p>
+        )}
 
         {/* 文件上传 */}
         <div>
@@ -170,7 +309,6 @@ export function ActivityModal({ title, onClose, onSubmit, loading }: ActivityMod
               ))}
             </ul>
           )}
-
           {uploadError && <p className="mt-1 text-xs text-red-500">{uploadError}</p>}
         </div>
       </div>

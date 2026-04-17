@@ -11,6 +11,7 @@ import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
 import type { Team } from '@/shared/types'
 import type { OptionItem } from '@/shared/hooks/useOptions'
+import type { FieldPolicy } from '@/shared/hooks/useFieldPolicies'
 
 // ─── 选项配置相关常量和组件 ───────────────────────────────────────────────────
 
@@ -54,6 +55,89 @@ function ColorPicker({ value, onChange }: { value: Color; onChange: (c: Color) =
           title={c}
         />
       ))}
+    </div>
+  )
+}
+
+// ─── 字段策略管理面板 ─────────────────────────────────────────────────────────
+
+const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户' }
+const FIELD_LABELS: Record<string, string> = { status: '状态', contractStatus: '合同状态' }
+
+function FieldPoliciesPanel() {
+  const queryClient = useQueryClient()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-field-policies'],
+    queryFn: () =>
+      crmApi.get<{ data: FieldPolicy[] }>('/admin/field-policies').then((r) => r.data.data),
+  })
+
+  const toggle = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      crmApi.put(`/admin/field-policies/${id}`, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-field-policies'] })
+      queryClient.invalidateQueries({ queryKey: ['field-policies'] })
+    },
+  })
+
+  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+
+  const formatPolicyConfig = (p: FieldPolicy) => {
+    const cfg = p.policyConfig
+    const parts: string[] = []
+    if (cfg.requireActivity) parts.push('要求填写跟进记录')
+    if (cfg.activityContentRequired) parts.push('内容必填')
+    if (cfg.contentPresets?.length) parts.push(`快选：${cfg.contentPresets.join(' / ')}`)
+    if (cfg.requiredFields?.length) parts.push(`必填：${cfg.requiredFields.map((f) => f.label).join('、')}`)
+    return parts.join('；') || '—'
+  }
+
+  return (
+    <div>
+      <p className="mb-4 text-sm text-gray-500">
+        当线索/客户的字段变更为指定值时，弹出跟进记录弹窗并要求填写额外信息，策略校验通过后才允许保存变更。
+      </p>
+      <div className="rounded-lg border bg-white overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">对象</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">触发条件</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">策略要求</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {data?.map((p) => (
+              <tr key={p.id} className={p.isActive ? '' : 'opacity-50'}>
+                <td className="px-4 py-3 text-gray-700">{ENTITY_LABELS[p.entityType] ?? p.entityType}</td>
+                <td className="px-4 py-3 text-gray-600">
+                  {FIELD_LABELS[p.triggerField] ?? p.triggerField}
+                  <span className="mx-1 text-gray-400">→</span>
+                  <span className="font-medium">{p.triggerValue}</span>
+                </td>
+                <td className="px-4 py-3 text-gray-500 text-xs max-w-xs">{formatPolicyConfig(p)}</td>
+                <td className="px-4 py-3">
+                  <Badge variant={p.isActive ? 'green' : 'gray'}>
+                    {p.isActive ? '启用' : '禁用'}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => toggle.mutate({ id: p.id, isActive: !p.isActive })}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    {p.isActive ? '禁用' : '启用'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -301,6 +385,7 @@ const TABS = [
   { key: 'assignment', label: '自动分配' },
   { key: 'ai',         label: 'AI 配置' },
   { key: 'options',    label: '选项配置' },
+  { key: 'policies',   label: '字段策略' },
 ] as const
 type TabKey = typeof TABS[number]['key']
 
@@ -556,7 +641,7 @@ export default function SystemSettingsPage() {
             </div>
           )}
 
-          {activeTab !== 'teams' && activeTab !== 'assignment' && activeTab !== 'ai' && activeTab !== 'options' && (
+          {activeTab !== 'teams' && activeTab !== 'assignment' && activeTab !== 'ai' && activeTab !== 'options' && activeTab !== 'policies' && (
             <div className="flex items-center gap-3 mt-4">
               <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
                 保存设置
@@ -831,6 +916,9 @@ export default function SystemSettingsPage() {
           />
         </div>
       )}
+
+      {/* 字段策略 */}
+      {activeTab === 'policies' && <FieldPoliciesPanel />}
 
       {/* AI 配置 */}
       {activeTab === 'ai' && (

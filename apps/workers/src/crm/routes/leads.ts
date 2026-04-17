@@ -224,3 +224,99 @@ leadsRoutes.put(
     return c.json({ data: parseLead(updated as Record<string, unknown>) })
   },
 )
+
+// POST /api/leads/:id/status-transition
+// 带字段策略校验的状态变更：同时写跟进记录 + 更新状态/策略字段
+leadsRoutes.post('/:id/status-transition', async (c) => {
+  const id = c.req.param('id')
+  const { role, userId } = c.get('jwtPayload')
+  const body = await c.req.json<{
+    targetStatus: string
+    activity: {
+      activityType: string
+      description?: string
+      activityDate: string
+      attachmentKeys?: { key: string; name: string; size?: number; mimeType?: string }[]
+    }
+    fields?: Record<string, unknown>
+  }>()
+
+  const lead = await c.env.DB.prepare('SELECT * FROM leads WHERE id = ?').bind(id).first<{
+    assigned_to_userId: string | null; status: string; intended_services: string
+  }>()
+  if (!lead) throw new HTTPException(404, { message: '线索不存在' })
+  if (lead.status === 'Converted') throw new HTTPException(403, { message: '线索已转化，不可修改' })
+  if (role === 'sales' && lead.assigned_to_userId !== userId) {
+    throw new HTTPException(403, { message: '无权操作此线索' })
+  }
+
+  // 校验字段策略
+  const policy = await c.env.DB.prepare(
+    "SELECT policy_config FROM field_policies WHERE entity_type='lead' AND trigger_field='status' AND trigger_value=? AND is_active=1",
+  ).bind(body.targetStatus).first<{ policy_config: string }>()
+
+  if (policy) {
+    const cfg = JSON.parse(policy.policy_config) as {
+      requireActivity?: boolean; activityContentRequired?: boolean
+      requiredFields?: { field: string; label: string }[]
+    }
+    if (cfg.requireActivity && !body.activity) {
+      throw new HTTPException(422, { message: '请填写跟进记录' })
+    }
+    if (cfg.activityContentRequired && !body.activity?.description?.trim()) {
+      throw new HTTPException(422, { message: '请填写跟进内容' })
+    }
+    for (const rf of cfg.requiredFields ?? []) {
+      const val = body.fields?.[rf.field]
+      if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+        throw new HTTPException(422, { message: `请填写${rf.label}` })
+      }
+    }
+  }
+
+  // 更新线索状态 + 策略字段
+  const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP']
+  const params: unknown[] = [body.targetStatus]
+
+  if (body.fields?.lostReason) { updates.push('lost_reason = ?'); params.push(body.fields.lostReason) }
+  if (body.fields?.nextContactDate) { updates.push('next_contact_date = ?'); params.push(body.fields.nextContactDate) }
+  if (body.fields?.intendedServices) {
+    const svcs = body.fields.intendedServices as string[]
+    updates.push('intended_services = ?', 'intended_service = ?')
+    params.push(JSON.stringify(svcs), svcs[0] ?? '')
+  }
+  params.push(id)
+  await c.env.DB.prepare(`UPDATE leads SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run()
+
+  // 维护 current_leads_count
+  const TERMINAL = ['Converted', 'Lost']
+  if (!TERMINAL.includes(lead.status) && TERMINAL.includes(body.targetStatus) && lead.assigned_to_userId) {
+    await c.env.DB.prepare(
+      'UPDATE users SET current_leads_count = MAX(0, current_leads_count - 1) WHERE id = ?',
+    ).bind(lead.assigned_to_userId).run()
+  }
+
+  // 写入用户跟进记录
+  const actId = uuidv4()
+  await c.env.DB.prepare(
+    `INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date, next_contact_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(
+    actId, id, userId,
+    body.activity.activityType,
+    body.activity.description ?? null,
+    body.activity.activityDate,
+    (body.fields?.nextContactDate as string | undefined) ?? null,
+  ).run()
+
+  // 处理附件
+  for (const att of body.activity.attachmentKeys ?? []) {
+    await c.env.DB.prepare(
+      `INSERT INTO activity_attachments (id, activity_id, name, file_key, size, mime_type, uploaded_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(uuidv4(), actId, att.name, att.key, att.size ?? null, att.mimeType ?? null, userId).run()
+  }
+
+  const result = await c.env.DB.prepare(`${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ?`).bind(id).first()
+  return c.json({ data: parseLead(result as Record<string, unknown>) })
+})

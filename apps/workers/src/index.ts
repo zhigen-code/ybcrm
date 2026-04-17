@@ -21,6 +21,7 @@ import { optionsRoutes } from './crm/routes/options'
 import { apiKeysRoutes } from './crm/routes/apiKeys'
 import { assignmentRulesRoutes } from './crm/routes/assignmentRules'
 import { aiConfigRoutes } from './crm/routes/aiConfig'
+import { fieldPoliciesRoutes } from './crm/routes/fieldPolicies'
 import { requireApiKey } from './crm/middleware/apiKeyAuth'
 
 // 客户门户路由
@@ -114,6 +115,7 @@ app.route('/api/admin/options', optionsRoutes)
 app.route('/api/admin/assignment-rules', assignmentRulesRoutes)
 app.route('/api/admin/ai', aiConfigRoutes)
 app.route('/api/auth/api-keys', apiKeysRoutes)
+app.route('/api/field-policies', fieldPoliciesRoutes)
 
 // 客户门户 API（/api/client/*）
 app.route('/api/client/auth', portalAuthRoutes)
