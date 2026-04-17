@@ -55,11 +55,11 @@ export function ActivityModal({
   const { data: servicesData } = useQuery({
     queryKey: ['services'],
     queryFn: () =>
-      crmApi.get<{ data: { id: string; name: string }[] }>('/services').then((r) => r.data.data),
+      crmApi.get<{ data: { id: string; name: string }[] }>('/services').then((r) => r.data),
     enabled: hasServicesField,
     staleTime: 1000 * 60 * 5,
   })
-  const services = servicesData ?? []
+  const services = servicesData?.data ?? []
 
   const [policyFields, setPolicyFields] = useState<Record<string, unknown>>(initialPolicyValues ?? {})
   const [policyError, setPolicyError] = useState('')
