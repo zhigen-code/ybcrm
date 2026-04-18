@@ -1164,7 +1164,6 @@ const TABS = [
   { key: 'assignment', label: '自动分配' },
   { key: 'ai',         label: 'AI 配置' },
   { key: 'options',    label: '选项配置' },
-  { key: 'teams',      label: '团队管理' },
   { key: 'policies',   label: '工作流' },
 ] as const
 type TabKey = typeof TABS[number]['key']
@@ -1219,7 +1218,7 @@ export default function SystemSettingsPage() {
   const { data: teams, isLoading: teamsLoading } = useQuery({
     queryKey: ['teams'],
     queryFn: () => crmApi.get<{ data: Team[] }>('/teams').then((r) => r.data.data),
-    enabled: activeTab === 'teams',
+    enabled: activeTab === 'options' && activeGroup === 'teams',
   })
 
   // AI 提供商 & 模型
@@ -1446,131 +1445,40 @@ export default function SystemSettingsPage() {
         </div>
       </form>
 
-      {/* 团队管理（独立于 form，避免嵌套表单） */}
-      {activeTab === 'teams' && (
-        <div className="max-w-2xl">
-          <div className="rounded-lg border bg-white overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-              <span className="text-sm font-medium text-gray-700">团队列表</span>
-              <Button size="sm" onClick={() => { setShowAdd(true); addForm.reset() }}>
-                + 新建团队
-              </Button>
-            </div>
-
-            {teamsLoading ? (
-              <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
-            ) : !teams?.length ? (
-              <div className="py-8 text-center text-sm text-gray-400">暂无团队</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">团队名称</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">区域</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {teams.map((team) => (
-                    <tr key={team.id}>
-                      <td className="px-4 py-3 font-medium text-gray-900">{team.name}</td>
-                      <td className="px-4 py-3 text-gray-500">{team.region ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 justify-end">
-                          <button
-                            onClick={() => openEdit(team)}
-                            className="text-xs text-primary-600 hover:text-primary-800"
-                          >
-                            编辑
-                          </button>
-                          <span className="text-gray-300">|</span>
-                          <button
-                            onClick={() => {
-                              if (confirm(`确认删除团队「${team.name}」？成员将被移出该团队。`)) {
-                                deleteTeam.mutate(team.id)
-                              }
-                            }}
-                            className="text-xs text-red-500 hover:text-red-700"
-                          >
-                            删除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+      {/* 团队编辑 / 新建弹窗（挂在顶层，供选项配置子 Tab 使用） */}
+      {editTarget && (
+        <Modal
+          title={`编辑团队：${editTarget.name}`}
+          onClose={() => setEditTarget(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
+              <Button loading={updateTeam.isPending} onClick={teamForm.handleSubmit((d) => updateTeam.mutate({ id: editTarget.id, ...d }))}>保存</Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <Input label="团队名称" error={teamForm.formState.errors.name?.message} {...teamForm.register('name')} />
+            <Input label="区域（可选）" placeholder="如：华东、北京" {...teamForm.register('region')} />
           </div>
-
-          {/* 编辑弹窗 */}
-          {editTarget && (
-            <Modal
-              title={`编辑团队：${editTarget.name}`}
-              onClose={() => setEditTarget(null)}
-              footer={
-                <>
-                  <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
-                  <Button
-                    loading={updateTeam.isPending}
-                    onClick={teamForm.handleSubmit((d) =>
-                      updateTeam.mutate({ id: editTarget.id, ...d })
-                    )}
-                  >
-                    保存
-                  </Button>
-                </>
-              }
-            >
-              <div className="space-y-3">
-                <Input
-                  label="团队名称"
-                  error={teamForm.formState.errors.name?.message}
-                  {...teamForm.register('name')}
-                />
-                <Input
-                  label="区域（可选）"
-                  placeholder="如：华东、北京"
-                  {...teamForm.register('region')}
-                />
-              </div>
-            </Modal>
-          )}
-
-          {/* 新建弹窗 */}
-          {showAdd && (
-            <Modal
-              title="新建团队"
-              onClose={() => { setShowAdd(false); addForm.reset() }}
-              footer={
-                <>
-                  <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset() }}>
-                    取消
-                  </Button>
-                  <Button
-                    loading={addTeam.isPending}
-                    onClick={addForm.handleSubmit((d) => addTeam.mutate(d))}
-                  >
-                    创建
-                  </Button>
-                </>
-              }
-            >
-              <div className="space-y-3">
-                <Input
-                  label="团队名称"
-                  error={addForm.formState.errors.name?.message}
-                  {...addForm.register('name')}
-                />
-                <Input
-                  label="区域（可选）"
-                  placeholder="如：华东、北京"
-                  {...addForm.register('region')}
-                />
-              </div>
-            </Modal>
-          )}
-        </div>
+        </Modal>
+      )}
+      {showAdd && (
+        <Modal
+          title="新建团队"
+          onClose={() => { setShowAdd(false); addForm.reset() }}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset() }}>取消</Button>
+              <Button loading={addTeam.isPending} onClick={addForm.handleSubmit((d) => addTeam.mutate(d))}>创建</Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <Input label="团队名称" error={addForm.formState.errors.name?.message} {...addForm.register('name')} />
+            <Input label="区域（可选）" placeholder="如：华东、北京" {...addForm.register('region')} />
+          </div>
+        </Modal>
       )}
 
       {/* 自动分配（独立于 form） */}
@@ -1702,12 +1610,68 @@ export default function SystemSettingsPage() {
                 {g.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setActiveGroup('teams')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeGroup === 'teams'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              团队管理
+            </button>
           </div>
-          <OptionGroupPanel
-            key={activeGroup}
-            groupKey={activeGroup}
-            noAdd={OPTION_GROUPS.find((g) => g.key === activeGroup)?.noAdd ?? false}
-          />
+
+          {activeGroup === 'teams' ? (
+            <div className="max-w-2xl">
+              <div className="rounded-lg border bg-white overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                  <span className="text-sm font-medium text-gray-700">团队列表</span>
+                  <Button size="sm" onClick={() => { setShowAdd(true); addForm.reset() }}>+ 新建团队</Button>
+                </div>
+                {teamsLoading ? (
+                  <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+                ) : !teams?.length ? (
+                  <div className="py-8 text-center text-sm text-gray-400">暂无团队</div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">团队名称</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">区域</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {teams.map((team) => (
+                        <tr key={team.id}>
+                          <td className="px-4 py-3 font-medium text-gray-900">{team.name}</td>
+                          <td className="px-4 py-3 text-gray-500">{team.region ?? '—'}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2 justify-end">
+                              <button onClick={() => openEdit(team)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+                              <span className="text-gray-300">|</span>
+                              <button
+                                onClick={() => { if (confirm(`确认删除团队「${team.name}」？成员将被移出该团队。`)) deleteTeam.mutate(team.id) }}
+                                className="text-xs text-red-500 hover:text-red-700"
+                              >删除</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          ) : (
+            <OptionGroupPanel
+              key={activeGroup}
+              groupKey={activeGroup}
+              noAdd={OPTION_GROUPS.find((g) => g.key === activeGroup)?.noAdd ?? false}
+            />
+          )}
         </div>
       )}
 
