@@ -2,9 +2,17 @@ import { toCamel } from '../../shared/db'
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
+// 定时触发的匹配条件
+type ScheduledCondition =
+  | 'date_is_today'      // 日期字段 = 今天
+  | 'date_overdue'       // 日期字段 < 今天（已过期）
+  | 'no_activity_days'   // 最近 N 天内无跟进记录
+
+
 type WfTrigger =
-  | { type: 'field_change'; field: string; to: string }
+  | { type: 'field_change'; field: string; to: string }   // to='*' 表示任意值
   | { type: 'on_create' }
+  | { type: 'scheduled'; condition: ScheduledCondition; field?: string; days?: number }
 
 type WfAction =
   | { type: 'require_activity'; contentRequired: boolean; contentPresets?: string[] }
@@ -146,7 +154,8 @@ function matchesTrigger(
 ): boolean {
   if (wfTrigger.type !== event.type) return false
   if (event.type === 'field_change' && wfTrigger.type === 'field_change') {
-    return wfTrigger.field === event.field && wfTrigger.to === event.to
+    if (wfTrigger.field !== event.field) return false
+    return wfTrigger.to === '*' || wfTrigger.to === event.to
   }
   return true
 }
@@ -262,6 +271,126 @@ export async function executeWorkflowsForTrigger(
       } catch (err) {
         console.error(`[workflow] action ${action.type} failed in workflow ${row.id}:`, err)
       }
+    }
+  }
+}
+
+// ── 定时工作流（Cron 每日执行）────────────────────────────────────────────────
+
+export async function executeScheduledWorkflows(db: D1Database, env: Env): Promise<void> {
+  // 读取系统时区
+  const tzRow = await db.prepare("SELECT value FROM system_settings WHERE key = 'timezone'")
+    .first<{ value: string }>()
+  const timezone = tzRow?.value ?? 'Asia/Shanghai'
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: timezone }) // YYYY-MM-DD
+
+  // 查询所有启用的 scheduled 工作流
+  const { results: scheduledRows } = await db.prepare(
+    "SELECT id, entity_type, trigger, actions, is_active FROM workflows WHERE is_active = 1",
+  ).all<StoredWorkflow>()
+
+  const scheduledWorkflows = scheduledRows
+    .map((row) => ({ row, ...parseWorkflow(row) }))
+    .filter(({ trigger }) => trigger.type === 'scheduled')
+
+  if (!scheduledWorkflows.length) return
+
+  for (const { row, trigger, actions } of scheduledWorkflows) {
+    if (trigger.type !== 'scheduled') continue
+    const { condition, field, days } = trigger
+    const entityType = row.entity_type as 'lead' | 'client'
+    const table  = entityType === 'lead' ? 'leads' : 'clients'
+    const fieldMap = FIELD_TO_COLUMN[entityType] ?? {}
+
+    try {
+      let entityIds: string[] = []
+
+      if (condition === 'date_is_today' && field) {
+        const col = fieldMap[field]
+        if (!col) continue
+        const { results } = await db.prepare(
+          `SELECT id FROM ${table} WHERE DATE(${col}) = ?`,
+        ).bind(today).all<{ id: string }>()
+        entityIds = results.map((r) => r.id)
+
+      } else if (condition === 'date_overdue' && field) {
+        const col = fieldMap[field]
+        if (!col) continue
+        const { results } = await db.prepare(
+          `SELECT id FROM ${table} WHERE ${col} IS NOT NULL AND DATE(${col}) < ?`,
+        ).bind(today).all<{ id: string }>()
+        entityIds = results.map((r) => r.id)
+
+      } else if (condition === 'no_activity_days' && days != null && days > 0) {
+        // 找出最近 N 天内没有跟进记录的实体
+        const col = entityType === 'lead' ? 'lead_id' : 'client_id'
+        const { results } = await db.prepare(
+          `SELECT e.id FROM ${table} e
+           WHERE NOT EXISTS (
+             SELECT 1 FROM sales_activities a
+             WHERE a.${col} = e.id
+               AND a.activity_type != 'System'
+               AND a.activity_date >= DATE(?, '-${days} days')
+           )`,
+        ).bind(today).all<{ id: string }>()
+        entityIds = results.map((r) => r.id)
+      }
+
+      // 对每个匹配实体执行动作
+      for (const entityId of entityIds) {
+        try {
+          let entityData: Record<string, unknown> = {}
+          if (entityType === 'lead') {
+            const raw = await db.prepare(
+              `SELECT l.*, u.name as assigned_to_name, u.email as assigned_to_email
+               FROM leads l LEFT JOIN users u ON l.assigned_to_userId = u.id WHERE l.id = ?`,
+            ).bind(entityId).first<Record<string, unknown>>()
+            entityData = raw ? (toCamel(raw) as Record<string, unknown>) : {}
+          } else {
+            const raw = await db.prepare(
+              `SELECT c.*, u.name as assigned_sales_name, u.email as assigned_sales_email
+               FROM clients c LEFT JOIN users u ON c.assigned_sales_userId = u.id WHERE c.id = ?`,
+            ).bind(entityId).first<Record<string, unknown>>()
+            entityData = raw ? (toCamel(raw) as Record<string, unknown>) : {}
+          }
+
+          const ctx = buildContext(entityData, buildTimeVars(timezone))
+
+          for (const action of actions) {
+            try {
+              if (action.type === 'set_field') {
+                const col = fieldMap[action.field]
+                if (!col) continue
+                const value = interpolate(action.value, ctx)
+                await db.prepare(`UPDATE ${table} SET ${col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+                  .bind(value, entityId).run()
+                ctx[action.field] = value
+              } else if (action.type === 'webhook') {
+                const url  = interpolate(action.url,  ctx)
+                const body = interpolate(action.body, ctx)
+                await fetch(url, {
+                  method: action.method ?? 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  ...(action.method !== 'GET' ? { body } : {}),
+                })
+              } else if (action.type === 'send_email') {
+                await sendEmail(
+                  env,
+                  interpolate(action.to,      ctx),
+                  interpolate(action.subject,  ctx),
+                  interpolate(action.body,     ctx),
+                )
+              }
+            } catch (err) {
+              console.error(`[workflow/scheduled] action ${action.type} failed for ${entityId}:`, err)
+            }
+          }
+        } catch (err) {
+          console.error(`[workflow/scheduled] entity ${entityId} failed:`, err)
+        }
+      }
+    } catch (err) {
+      console.error(`[workflow/scheduled] workflow ${row.id} failed:`, err)
     }
   }
 }

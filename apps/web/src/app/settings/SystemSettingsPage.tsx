@@ -73,7 +73,8 @@ interface EntityField {
 
 type ReqField = { field: string; label: string; type: 'datetime' | 'select' | 'services' | 'text'; optionGroup?: string }
 
-type WfTriggerType = 'field_change' | 'on_create'
+type WfTriggerType = 'field_change' | 'on_create' | 'scheduled'
+type ScheduledCondition = 'date_is_today' | 'date_overdue' | 'no_activity_days'
 
 type WfActionForm =
   | { type: 'require_activity'; contentRequired: boolean; contentPresets: string }
@@ -86,19 +87,30 @@ type WorkflowForm = {
   name: string
   entityType: string
   triggerType: WfTriggerType
-  triggerField: string   // field_change only
-  triggerValue: string   // field_change only
+  triggerField: string          // field_change / scheduled(date_*) only
+  triggerValue: string          // field_change only（'*' = 任意值）
+  scheduledCondition: ScheduledCondition
+  scheduledDays: number         // no_activity_days only
   actions: WfActionForm[]
 }
 
 const EMPTY_WORKFLOW: WorkflowForm = {
   name: '', entityType: 'lead', triggerType: 'field_change',
-  triggerField: '', triggerValue: '', actions: [],
+  triggerField: '', triggerValue: '',
+  scheduledCondition: 'date_is_today', scheduledDays: 7,
+  actions: [],
 }
 
 const TRIGGER_TYPES: { type: WfTriggerType; label: string; desc: string }[] = [
   { type: 'field_change', label: '字段变更', desc: '指定字段值变更为目标值时触发' },
   { type: 'on_create',    label: '新建时',   desc: '线索或客户被新建时自动触发' },
+  { type: 'scheduled',    label: '定时触发', desc: '每天定时检查，满足条件的实体自动执行' },
+]
+
+const SCHEDULED_CONDITIONS: { value: ScheduledCondition; label: string; needsField: boolean; needsDays: boolean }[] = [
+  { value: 'date_is_today',    label: '日期字段 = 今天',      needsField: true,  needsDays: false },
+  { value: 'date_overdue',     label: '日期字段已过期（< 今天）', needsField: true,  needsDays: false },
+  { value: 'no_activity_days', label: '超过 N 天未跟进',       needsField: false, needsDays: true  },
 ]
 
 const ACTION_TYPES: { type: WfActionForm['type']; label: string; supported: boolean }[] = [
@@ -119,6 +131,15 @@ const ACTION_LABELS: Record<WfActionForm['type'], string> = {
 
 function buildTrigger(f: WorkflowForm) {
   if (f.triggerType === 'on_create') return { type: 'on_create' as const }
+  if (f.triggerType === 'scheduled') {
+    const cond = f.scheduledCondition
+    return {
+      type: 'scheduled' as const,
+      condition: cond,
+      ...(SCHEDULED_CONDITIONS.find((c) => c.value === cond)?.needsField ? { field: f.triggerField } : {}),
+      ...(cond === 'no_activity_days' ? { days: f.scheduledDays } : {}),
+    }
+  }
   return { type: 'field_change' as const, field: f.triggerField, to: f.triggerValue }
 }
 
@@ -126,7 +147,9 @@ function buildWorkflowPayload(f: WorkflowForm) {
   const entityLabel = f.entityType === 'lead' ? '线索' : '客户'
   const triggerDesc = f.triggerType === 'on_create'
     ? '新建时'
-    : `${f.triggerField} → ${f.triggerValue}`
+    : f.triggerType === 'scheduled'
+    ? `定时·${SCHEDULED_CONDITIONS.find((c) => c.value === f.scheduledCondition)?.label ?? f.scheduledCondition}`
+    : `${f.triggerField} → ${f.triggerValue === '*' ? '任意值' : f.triggerValue}`
   const name = f.name.trim() || `${entityLabel} · ${triggerDesc}`
   return {
     name,
@@ -146,7 +169,10 @@ function buildWorkflowPayload(f: WorkflowForm) {
 }
 
 function formFromWorkflow(w: Workflow): WorkflowForm {
-  const triggerType: WfTriggerType = w.trigger.type === 'on_create' ? 'on_create' : 'field_change'
+  const t = w.trigger as Record<string, unknown>
+  const triggerType: WfTriggerType =
+    t.type === 'on_create' ? 'on_create' :
+    t.type === 'scheduled' ? 'scheduled' : 'field_change'
   const actions: WfActionForm[] = w.actions.map((a) => {
     if (a.type === 'require_activity') return { type: 'require_activity', contentRequired: a.contentRequired, contentPresets: a.contentPresets?.join(',') ?? '' }
     if (a.type === 'require_fields')   return { type: 'require_fields',   fields: a.fields as ReqField[] }
@@ -158,8 +184,10 @@ function formFromWorkflow(w: Workflow): WorkflowForm {
     name: w.name,
     entityType: w.entityType,
     triggerType,
-    triggerField: w.trigger.type === 'field_change' ? w.trigger.field : '',
-    triggerValue: w.trigger.type === 'field_change' ? w.trigger.to   : '',
+    triggerField: (t.field as string) ?? '',
+    triggerValue: t.type === 'field_change' ? (t.to as string) ?? '' : '',
+    scheduledCondition: (t.condition as ScheduledCondition) ?? 'date_is_today',
+    scheduledDays: (t.days as number) ?? 7,
     actions,
   }
 }
@@ -260,7 +288,15 @@ function WorkflowFormModal({
     patchAction(idx, { fields: next })
   }
 
-  const triggerReady = form.triggerType === 'on_create' || (form.triggerField && form.triggerValue)
+  const scheduledCondDef = SCHEDULED_CONDITIONS.find((c) => c.value === form.scheduledCondition)
+  const dateFields = entityFields.filter((f) => f.type === 'datetime')
+  const triggerReady =
+    form.triggerType === 'on_create' ||
+    (form.triggerType === 'field_change' && !!form.triggerField && !!form.triggerValue) ||
+    (form.triggerType === 'scheduled' && (
+      (!scheduledCondDef?.needsField || !!form.triggerField) &&
+      (!scheduledCondDef?.needsDays  || form.scheduledDays > 0)
+    ))
   const canSave = triggerReady && form.actions.length > 0
 
   const sel = 'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500'
@@ -297,7 +333,7 @@ function WorkflowFormModal({
             {/* 触发类型卡片选择 */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">触发类型</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {TRIGGER_TYPES.map((tt) => (
                   <button
                     key={tt.type}
@@ -318,7 +354,7 @@ function WorkflowFormModal({
               </div>
             </div>
 
-            {/* 字段变更专属：触发字段 + 触发值 */}
+            {/* 字段变更专属 */}
             {form.triggerType === 'field_change' && (
               <>
                 <div>
@@ -333,15 +369,57 @@ function WorkflowFormModal({
                   {triggerValueOptions.length > 0 ? (
                     <select className={sel} value={form.triggerValue} onChange={(e) => set({ triggerValue: e.target.value })}>
                       <option value="">请选择...</option>
+                      <option value="*">— 任意值（字段发生变更即触发）—</option>
                       {triggerValueOptions.map((o: OptionItem) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
                   ) : (
-                    <input className={inp} placeholder="输入触发值" value={form.triggerValue}
-                      onChange={(e) => set({ triggerValue: e.target.value })} />
+                    <input className={inp} placeholder="输入触发值，或留空匹配任意值" value={form.triggerValue}
+                      onChange={(e) => set({ triggerValue: e.target.value || '*' })} />
+                  )}
+                  {form.triggerValue === '*' && (
+                    <p className="text-xs text-amber-600 mt-1">字段值发生任何变化时均会触发</p>
                   )}
                 </div>
+              </>
+            )}
+
+            {/* 定时触发专属 */}
+            {form.triggerType === 'scheduled' && (
+              <>
+                <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
+                  每天 09:00（北京时间）自动扫描，对满足条件的实体执行动作
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">触发条件</label>
+                  <select className={sel} value={form.scheduledCondition}
+                    onChange={(e) => set({ scheduledCondition: e.target.value as ScheduledCondition, triggerField: '' })}>
+                    {SCHEDULED_CONDITIONS.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {scheduledCondDef?.needsField && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">日期字段</label>
+                    <select className={sel} value={form.triggerField} onChange={(e) => set({ triggerField: e.target.value })}>
+                      <option value="">请选择...</option>
+                      {dateFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
+                    </select>
+                  </div>
+                )}
+                {scheduledCondDef?.needsDays && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">天数阈值</label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" min={1} max={365} className={`${inp} w-24`}
+                        value={form.scheduledDays}
+                        onChange={(e) => set({ scheduledDays: Math.max(1, Number(e.target.value)) })} />
+                      <span className="text-sm text-gray-500">天内无跟进记录时触发</span>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

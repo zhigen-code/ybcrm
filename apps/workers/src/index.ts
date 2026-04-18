@@ -25,6 +25,7 @@ import { workflowsRoutes, workflowsAdminRoutes } from './crm/routes/workflows'
 import { actionTemplatesAdminRoutes } from './crm/routes/actionTemplates'
 import { entitySchemaRoutes } from './crm/routes/entitySchema'
 import { requireApiKey } from './crm/middleware/apiKeyAuth'
+import { executeScheduledWorkflows } from './crm/workflow/executor'
 
 // 客户门户路由
 import { portalAuthRoutes } from './portal/routes/auth'
@@ -144,10 +145,16 @@ app.onError((err, c) => {
 
 app.notFound((c) => c.json({ message: '接口不存在' }, 404))
 
-// 同时导出 fetch handler（HTTP 请求）和 queue handler（异步队列）
+// 同时导出 fetch handler（HTTP 请求）、queue handler（异步队列）和 scheduled（Cron）
 export default {
   fetch: app.fetch,
   async queue(batch: MessageBatch<{ leadId: string }>, env: Env): Promise<void> {
     await handleLeadAssignmentBatch(batch, env)
+  },
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      executeScheduledWorkflows(env.DB, env)
+        .catch((err) => console.error('[workflow/scheduled] cron error:', err)),
+    )
   },
 }

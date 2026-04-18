@@ -249,12 +249,20 @@ clientsRoutes.put(
       ).bind(uuidv4(), id, userId, changes.join('；')).run()
     }
 
-    // 触发 field_change 工作流
-    if (body.contractStatus != null && body.contractStatus !== existing.contract_status) {
-      c.executionCtx.waitUntil(
-        executeWorkflowsForTrigger(c.env.DB, c.env, 'client', id, { type: 'field_change', field: 'contractStatus', to: body.contractStatus })
-          .catch((err) => console.error('[workflow] field_change client contractStatus error:', err)),
-      )
+    // 触发 field_change 工作流（所有变更字段）
+    const fieldChangeTriggers: Array<{ field: string; oldVal: unknown; newVal: unknown }> = [
+      { field: 'contractStatus',     oldVal: existing.contract_status,      newVal: body.contractStatus },
+      { field: 'assignedSalesUserId',oldVal: existing.assigned_sales_userId, newVal: body.assignedSalesUserId },
+      { field: 'name',               oldVal: existing.name,                  newVal: body.name },
+      { field: 'phone',              oldVal: existing.phone,                  newVal: body.phone },
+    ]
+    for (const { field, oldVal, newVal } of fieldChangeTriggers) {
+      if (newVal !== undefined && newVal !== null && newVal !== oldVal) {
+        c.executionCtx.waitUntil(
+          executeWorkflowsForTrigger(c.env.DB, c.env, 'client', id, { type: 'field_change', field, to: String(newVal) })
+            .catch((err) => console.error(`[workflow] field_change client ${field} error:`, err)),
+        )
+      }
     }
 
     const updated = await c.env.DB.prepare(

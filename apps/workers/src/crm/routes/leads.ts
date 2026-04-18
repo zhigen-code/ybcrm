@@ -146,6 +146,7 @@ leadsRoutes.put(
     const lead = await c.env.DB.prepare('SELECT * FROM leads WHERE id = ?').bind(id).first<{
       assigned_to_userId: string | null; status: string; notes: string | null
       contact_info: string; assigned_to_teamId: string | null; intended_services: string
+      source: string | null; lost_reason: string | null; next_contact_date: string | null
     }>()
     if (!lead) throw new HTTPException(404, { message: '线索不存在' })
 
@@ -225,12 +226,18 @@ leadsRoutes.put(
       ).bind(uuidv4(), id, userId, changes.join('；')).run()
     }
 
-    // 触发 field_change 工作流
-    if (body.status !== undefined && body.status !== lead.status) {
-      c.executionCtx.waitUntil(
-        executeWorkflowsForTrigger(c.env.DB, c.env, 'lead', id, { type: 'field_change', field: 'status', to: body.status })
-          .catch((err) => console.error('[workflow] field_change lead status error:', err)),
-      )
+    // 触发 field_change 工作流（所有变更字段）
+    const fieldChangeTriggers: Array<{ field: string; oldVal: unknown; newVal: unknown }> = [
+      { field: 'status',           oldVal: lead.status,             newVal: body.status },
+      { field: 'assignedToUserId', oldVal: lead.assigned_to_userId, newVal: body.assignedToUserId },
+    ]
+    for (const { field, oldVal, newVal } of fieldChangeTriggers) {
+      if (newVal !== undefined && newVal !== null && newVal !== oldVal) {
+        c.executionCtx.waitUntil(
+          executeWorkflowsForTrigger(c.env.DB, c.env, 'lead', id, { type: 'field_change', field, to: String(newVal) })
+            .catch((err) => console.error(`[workflow] field_change lead ${field} error:`, err)),
+        )
+      }
     }
 
     const updated = await c.env.DB.prepare(
@@ -351,11 +358,18 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
   )
   if (attStmts.length > 0) await c.env.DB.batch(attStmts)
 
-  // 触发 field_change 工作流（状态变更）
-  c.executionCtx.waitUntil(
-    executeWorkflowsForTrigger(c.env.DB, c.env, 'lead', id, { type: 'field_change', field: 'status', to: body.targetStatus })
-      .catch((err) => console.error('[workflow] field_change lead status-transition error:', err)),
-  )
+  // 触发 field_change 工作流
+  const transitionTriggers: Array<{ field: string; newVal: unknown }> = [
+    { field: 'status', newVal: body.targetStatus },
+    ...(body.fields?.lostReason      ? [{ field: 'lostReason',      newVal: body.fields.lostReason }]      : []),
+    ...(body.fields?.nextContactDate  ? [{ field: 'nextContactDate',  newVal: body.fields.nextContactDate }]  : []),
+  ]
+  for (const { field, newVal } of transitionTriggers) {
+    c.executionCtx.waitUntil(
+      executeWorkflowsForTrigger(c.env.DB, c.env, 'lead', id, { type: 'field_change', field, to: String(newVal) })
+        .catch((err) => console.error(`[workflow] field_change lead status-transition ${field} error:`, err)),
+    )
+  }
 
   const result = await c.env.DB.prepare(`${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ?`).bind(id).first()
   return c.json({ data: parseLead(result as Record<string, unknown>) })

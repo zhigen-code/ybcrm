@@ -234,7 +234,12 @@ function SectionIntro() {
             {
               trigger: '字段变更',
               badge: 'field_change',
-              desc: '指定字段变更为特定值时触发，如「状态 → 已确认」、「合同状态 → 已签署」。可为同一字段配置多个工作流，对应不同目标值。',
+              desc: '指定字段变更为特定值时触发，如「状态 → 已确认」、「负责人变更 → 任意值」。支持选择「任意值」，字段发生任何变化时均触发。',
+            },
+            {
+              trigger: '定时触发',
+              badge: 'scheduled',
+              desc: '每天 09:00（北京时间）自动扫描全量数据，对满足条件的实体执行动作。支持：日期字段 = 今天、日期字段已过期、超过 N 天未跟进。',
             },
           ].map(({ trigger, badge, desc }) => (
             <div key={trigger} className="flex gap-4 px-4 py-4">
