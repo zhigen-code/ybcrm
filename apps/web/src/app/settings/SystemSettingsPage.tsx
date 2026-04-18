@@ -827,9 +827,382 @@ function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]
   )
 }
 
+// ── 工作流使用文档 ─────────────────────────────────────────────────────────────
+
+const DOCS_ACTION_EXAMPLES: Array<{
+  type: string
+  label: string
+  icon: string
+  desc: string
+  example: string
+  notes?: string[]
+}> = [
+  {
+    type: 'set_field',
+    label: '自动赋值字段',
+    icon: '✏️',
+    desc: '满足触发条件时，自动将某个字段设置为指定值。可以使用模板变量。',
+    example: '触发：线索状态变为「已确认」\n字段：下次联系日期\n值：{{tomorrow}}',
+    notes: [
+      '赋值按动作列表顺序依次执行，前一个动作的结果可被后续动作使用',
+      '字段值中可以使用模板变量，如 {{today}}、{{name}} 等',
+    ],
+  },
+  {
+    type: 'send_email',
+    label: '发送邮件',
+    icon: '📧',
+    desc: '触发时向指定邮箱发送通知邮件。收件人、主题、正文均支持模板变量。',
+    example: '收件人：{{assignedToEmail}}\n主题：新线索提醒：{{name}}\n正文：你好，\n\n线索 {{name}} ({{contactInfo}}) 已分配给你。\n\n来源：{{source}}\n意向服务：{{intendedServices}}\n\n请在 {{tomorrow}} 前完成首次跟进。',
+    notes: [
+      '邮件通过 SendGrid 发送，需在环境变量中配置 SENDGRID_API_KEY',
+      '收件人支持写死邮箱或使用 {{assignedToEmail}} / {{assignedSalesEmail}} 动态获取',
+      '正文建议保持简洁，纯文本格式',
+    ],
+  },
+  {
+    type: 'webhook',
+    label: 'Webhook 通知',
+    icon: '🔗',
+    desc: '触发时向外部系统发送 HTTP 请求，URL 和 Body 均支持模板变量。',
+    example: 'URL：https://hooks.example.com/crm\n方法：POST\nBody：{\n  "event": "lead_confirmed",\n  "name": "{{name}}",\n  "phone": "{{contactInfo}}",\n  "assignee": "{{assignedToName}}",\n  "date": "{{today}}"\n}',
+    notes: [
+      'Body 应为合法 JSON，字符串值中可嵌入 {{变量}}',
+      '请求带 Content-Type: application/json 头',
+      'GET 请求不发送 Body',
+    ],
+  },
+  {
+    type: 'require_activity',
+    label: '要求跟进记录',
+    icon: '📝',
+    desc: '在前端拦截用户操作，要求先添加跟进记录才能完成状态变更。',
+    example: '触发：线索状态变为「丢失」\n要求填写原因：是\n预设选项：客户无意向、价格不合适、已选其他机构',
+    notes: [
+      '仅在前端生效，后端不做校验',
+      '预设选项用英文逗号分隔',
+    ],
+  },
+  {
+    type: 'require_fields',
+    label: '强制填写字段',
+    icon: '📋',
+    desc: '要求用户在完成操作前必须填写指定字段。',
+    example: '触发：线索状态变为「已确认」\n必填字段：下次联系日期、意向服务',
+    notes: ['仅在前端生效，后端不做校验'],
+  },
+]
+
+function WorkflowDocsPanel() {
+  const [activeSection, setActiveSection] = useState<'intro' | 'vars' | 'actions' | 'tips'>('intro')
+  const [varEntity, setVarEntity] = useState<'lead' | 'client' | 'time'>('lead')
+
+  const sections = [
+    { key: 'intro',   label: '工作流概述' },
+    { key: 'vars',    label: '模板变量' },
+    { key: 'actions', label: '动作类型' },
+    { key: 'tips',    label: '注意事项' },
+  ] as const
+
+  const sectionClass = 'prose prose-sm max-w-none'
+
+  const varGroups = {
+    lead: TEMPLATE_VAR_GROUPS.find((g) => g.entityType === 'lead')!,
+    client: TEMPLATE_VAR_GROUPS.find((g) => g.entityType === 'client')!,
+    time: TEMPLATE_VAR_GROUPS.find((g) => g.entityType === null)!,
+  }
+
+  return (
+    <div className="flex gap-6 min-h-[480px]">
+      {/* 侧边导航 */}
+      <nav className="flex-none w-32 space-y-0.5 pt-1">
+        {sections.map(({ key, label }) => (
+          <button key={key} onClick={() => setActiveSection(key)}
+            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+              activeSection === key
+                ? 'bg-primary-50 text-primary-700 font-medium'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {/* 内容区 */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* 工作流概述 */}
+        {activeSection === 'intro' && (
+          <div className={sectionClass}>
+            <h3 className="text-base font-semibold text-gray-900 mb-3">工作流概述</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              工作流让系统在满足特定条件时自动执行一系列动作，减少手动操作、保证流程一致性。
+            </p>
+
+            <div className="rounded-lg border border-gray-200 overflow-hidden mb-4">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">执行流程</p>
+              </div>
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  {[
+                    { step: '1', title: '触发', desc: '新建实体 / 字段变更为指定值', color: 'bg-blue-100 text-blue-700' },
+                    { step: '2', title: '匹配', desc: '系统查找所有启用的工作流，逐一匹配触发条件', color: 'bg-yellow-100 text-yellow-700' },
+                    { step: '3', title: '执行', desc: '按动作列表顺序依次执行，前一动作结果可传递给后续动作', color: 'bg-green-100 text-green-700' },
+                  ].map(({ step, title, desc, color }) => (
+                    <div key={step} className="flex-1 text-center">
+                      <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold mb-2 ${color}`}>{step}</div>
+                      <p className="text-sm font-medium text-gray-800">{title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 overflow-hidden mb-4">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">触发类型</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {[
+                  { trigger: '新建时', desc: '实体（线索/客户）被创建时立即触发，适合发送欢迎通知、初始化字段。' },
+                  { trigger: '字段变更', desc: '指定字段变更为特定值时触发，如「状态 → 已确认」、「合同状态 → 已签」。' },
+                ].map(({ trigger, desc }) => (
+                  <div key={trigger} className="flex gap-3 px-4 py-3">
+                    <code className="flex-none text-xs bg-gray-100 rounded px-2 py-0.5 text-gray-700 h-fit">{trigger}</code>
+                    <p className="text-sm text-gray-600">{desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-medium text-amber-800 mb-1">执行时机</p>
+              <p className="text-sm text-amber-700">
+                动作在后台异步执行（fire-and-forget），不影响前端操作响应速度。
+                <code className="mx-1 text-xs bg-amber-100 rounded px-1">set_field</code>
+                类动作对数据库的修改会实时生效，但前端页面需刷新后才能看到更新结果。
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 模板变量 */}
+        {activeSection === 'vars' && (
+          <div className={sectionClass}>
+            <h3 className="text-base font-semibold text-gray-900 mb-1">模板变量</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              在邮件主题/正文、Webhook Body、自动赋值等文本框中，使用
+              <code className="mx-1 text-xs bg-gray-100 border border-gray-200 rounded px-1 text-primary-700">{'{{变量名}}'}</code>
+              引用动态数据。未识别的变量名会原样保留，不会被替换为空。
+            </p>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 mb-4 flex gap-4 flex-wrap">
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">基础用法</p>
+                <code className="text-sm text-primary-700">{'你好，{{name}}'}</code>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">带命名空间（等效）</p>
+                <code className="text-sm text-primary-700">{'{{lead.name}} / {{client.name}}'}</code>
+              </div>
+            </div>
+
+            {/* 实体切换 */}
+            <div className="flex gap-1 mb-3 border-b border-gray-200">
+              {([['lead', '线索字段'], ['client', '客户字段'], ['time', '时间变量']] as const).map(([key, label]) => (
+                <button key={key} onClick={() => setVarEntity(key)}
+                  className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    varEntity === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 w-48">变量</th>
+                    <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600">说明</th>
+                    {varEntity === 'time' && <th className="text-left px-4 py-2 text-xs font-semibold text-gray-600 w-36">示例值</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {varGroups[varEntity].vars.map((v) => (
+                    <tr key={v.key} className="hover:bg-gray-50">
+                      <td className="px-4 py-2.5">
+                        <code className="text-xs text-primary-700 bg-primary-50 border border-primary-100 rounded px-1.5 py-0.5">
+                          {`{{${v.key}}}`}
+                        </code>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-600 text-xs">{v.desc}</td>
+                      {varEntity === 'time' && (
+                        <td className="px-4 py-2.5">
+                          <code className="text-xs text-gray-500">
+                            {v.key === 'now' ? '2026-04-18 14:30'
+                              : v.key === 'today' ? '2026-04-18'
+                              : v.key === 'tomorrow' ? '2026-04-19'
+                              : v.key === 'yesterday' ? '2026-04-17'
+                              : v.key === 'weekStart' ? '2026-04-13'
+                              : v.key === 'weekEnd' ? '2026-04-19'
+                              : v.key === 'monthStart' ? '2026-04-01'
+                              : '2026-04-30'}
+                          </code>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {varEntity === 'time' && (
+              <p className="text-xs text-gray-500 mt-2">
+                时间变量基于系统设置中的时区计算（默认 Asia/Shanghai）。本周以周一为第一天。
+              </p>
+            )}
+            {varEntity === 'lead' && (
+              <p className="text-xs text-gray-500 mt-2">
+                <code className="text-primary-700">assignedToName</code> / <code className="text-primary-700">assignedToEmail</code> 来自关联用户表，其余字段直接读取线索记录。
+              </p>
+            )}
+            {varEntity === 'client' && (
+              <p className="text-xs text-gray-500 mt-2">
+                <code className="text-primary-700">assignedSalesName</code> / <code className="text-primary-700">assignedSalesEmail</code> 来自关联用户表。
+                <code className="text-primary-700 mx-1">servicePlans</code> 为数组，多项时以顿号（、）分隔。
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 动作类型 */}
+        {activeSection === 'actions' && (
+          <div className={sectionClass}>
+            <h3 className="text-base font-semibold text-gray-900 mb-3">动作类型详解</h3>
+            <div className="space-y-4">
+              {DOCS_ACTION_EXAMPLES.map((item) => (
+                <div key={item.type} className="rounded-lg border border-gray-200 overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                    <span className="text-base">{item.icon}</span>
+                    <span className="font-medium text-gray-800 text-sm">{item.label}</span>
+                    <code className="ml-auto text-xs bg-gray-200 text-gray-600 rounded px-1.5 py-0.5">{item.type}</code>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <p className="text-sm text-gray-600">{item.desc}</p>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">配置示例</p>
+                      <pre className="bg-gray-900 text-green-300 rounded-md p-3 text-xs font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">{item.example}</pre>
+                    </div>
+                    {item.notes && item.notes.length > 0 && (
+                      <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2">
+                        <p className="text-xs font-semibold text-blue-700 mb-1">注意</p>
+                        <ul className="space-y-0.5">
+                          {item.notes.map((note, i) => (
+                            <li key={i} className="text-xs text-blue-700 flex gap-1.5">
+                              <span className="flex-none">·</span>
+                              <span>{note}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 注意事项 */}
+        {activeSection === 'tips' && (
+          <div className={sectionClass}>
+            <h3 className="text-base font-semibold text-gray-900 mb-3">注意事项</h3>
+            <div className="space-y-4">
+              {[
+                {
+                  title: '动作执行顺序',
+                  color: 'border-blue-200 bg-blue-50',
+                  titleColor: 'text-blue-800',
+                  textColor: 'text-blue-700',
+                  items: [
+                    '同一工作流内的动作按列表顺序串行执行',
+                    'set_field 执行后，新值立刻可被后续动作的模板变量读取',
+                    '一个动作失败不会阻止后续动作执行（每个动作独立 try-catch）',
+                  ],
+                },
+                {
+                  title: '邮件发送',
+                  color: 'border-green-200 bg-green-50',
+                  titleColor: 'text-green-800',
+                  textColor: 'text-green-700',
+                  items: [
+                    '发件服务使用 SendGrid，需在 Cloudflare Workers 环境变量中配置 SENDGRID_API_KEY',
+                    '未配置 SENDGRID_API_KEY 时，发送邮件动作静默跳过，不报错',
+                    '发件人固定为 noreply@irfc.cn（辅助生殖 CRM）',
+                    '邮件为纯文本格式，正文中的换行会被保留',
+                  ],
+                },
+                {
+                  title: '变量未匹配时的行为',
+                  color: 'border-yellow-200 bg-yellow-50',
+                  titleColor: 'text-yellow-800',
+                  textColor: 'text-yellow-700',
+                  items: [
+                    '使用了不存在的变量名（如 {{xyz}}），系统会原样保留 {{xyz}}，不替换为空字符串',
+                    '这样便于排查配置错误，避免静默地发出含空白的错误通知',
+                    '字段值为 null 时，该变量不会出现在上下文中，引用它同样会原样保留',
+                  ],
+                },
+                {
+                  title: '触发时机与前端刷新',
+                  color: 'border-purple-200 bg-purple-50',
+                  titleColor: 'text-purple-800',
+                  textColor: 'text-purple-700',
+                  items: [
+                    '工作流在后台异步执行，前端操作不会等待工作流完成',
+                    'set_field 写入数据库后，前端页面需手动刷新才能看到最新值',
+                    '要求跟进（require_activity）和强制填写（require_fields）仅在前端拦截，后端 API 不校验',
+                    '如需在前端即时响应工作流结果，可在动作完成后刷新数据',
+                  ],
+                },
+                {
+                  title: 'Webhook 安全',
+                  color: 'border-red-200 bg-red-50',
+                  titleColor: 'text-red-800',
+                  textColor: 'text-red-700',
+                  items: [
+                    'Webhook URL 支持模板变量，但请确保 URL 来自可信来源，避免 SSRF 风险',
+                    '暂不支持请求签名或 HMAC 验证，接收端建议自行校验请求来源 IP 或添加 token 参数',
+                    'Body 中的变量插值发生在发送前，敏感数据（如密码）不应通过变量传递',
+                  ],
+                },
+              ].map(({ title, color, titleColor, textColor, items }) => (
+                <div key={title} className={`rounded-lg border p-4 ${color}`}>
+                  <p className={`text-sm font-semibold mb-2 ${titleColor}`}>{title}</p>
+                  <ul className="space-y-1">
+                    {items.map((item, i) => (
+                      <li key={i} className={`text-sm flex gap-2 ${textColor}`}>
+                        <span className="flex-none mt-0.5">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnabled: boolean; onSettingsSaved: () => void }) {
   const queryClient = useQueryClient()
-  const [subTab, setSubTab] = useState<'workflows' | 'templates' | 'assignment'>('workflows')
+  const [subTab, setSubTab] = useState<'workflows' | 'templates' | 'assignment' | 'docs'>('workflows')
   const [showAdd, setShowAdd] = useState(false)
   const [editTarget, setEditTarget] = useState<Workflow | null>(null)
 
@@ -913,7 +1286,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
     <div>
       {/* 子 Tab */}
       <div className="flex gap-1 mb-4 border-b border-gray-200">
-        {([['workflows', '工作流'], ['templates', '动作库'], ['assignment', '自动分配']] as const).map(([key, label]) => (
+        {([['workflows', '工作流'], ['templates', '动作库'], ['assignment', '自动分配'], ['docs', '使用文档']] as const).map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               subTab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -925,6 +1298,9 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
 
       {/* 动作库子 Tab */}
       {subTab === 'templates' && <ActionTemplatesPanel schema={schema} />}
+
+      {/* 使用文档子 Tab */}
+      {subTab === 'docs' && <WorkflowDocsPanel />}
 
       {/* 自动分配子 Tab */}
       {subTab === 'assignment' && (
