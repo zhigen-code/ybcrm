@@ -424,17 +424,20 @@ function WorkflowFormModal({
               </div>
             ))}
 
-            {/* 添加动作：动作库 + 新建 */}
-            <div className="space-y-2 pt-1">
-              {/* 从动作库选择 */}
-              {availableTemplates.length > 0 && (
-                <div className="relative">
+            {/* 从动作库添加 */}
+            <div className="relative pt-1">
+              {availableTemplates.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">
+                  动作库暂无可用模板，请先在「动作库」Tab 中创建。
+                </p>
+              ) : (
+                <>
                   <button type="button" onClick={() => setShowTemplatePicker((v) => !v)}
                     className="inline-flex items-center gap-1.5 rounded-md border border-primary-500 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100 transition-colors">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    从动作库加载
+                    从动作库添加
                   </button>
                   {showTemplatePicker && (
                     <div className="absolute left-0 top-8 z-10 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
@@ -450,22 +453,8 @@ function WorkflowFormModal({
                       ))}
                     </div>
                   )}
-                </div>
+                </>
               )}
-
-              {/* 手动添加 */}
-              <div className="flex flex-wrap gap-2">
-                {ACTION_TYPES.map((at) => (
-                  <button key={at.type} type="button" onClick={() => addAction(at.type)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 transition-colors">
-                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    {at.label}
-                    {!at.supported && <span className="text-gray-400">（待开发）</span>}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* 工作流名称 */}
