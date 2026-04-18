@@ -316,12 +316,10 @@ function WorkflowFormModal({
     >
       <div className="space-y-4">
 
-        {/* ① 触发器 */}
+        {/* ① 触发器：选择事件类型 */}
         <div className="rounded-lg border border-gray-200 p-4">
-          <SectionHeader step="1" title="触发器" desc="满足何种事件时启动此工作流" />
+          <SectionHeader step="1" title="触发器" desc="选择启动此工作流的事件类型" />
           <div className="space-y-3 pl-9">
-
-            {/* 适用对象 */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">适用对象</label>
               <select className={sel} value={form.entityType} onChange={(e) => handleEntityChange(e.target.value)}>
@@ -329,53 +327,56 @@ function WorkflowFormModal({
                 <option value="client">客户</option>
               </select>
             </div>
-
-            {/* 触发类型卡片选择 */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">触发类型</label>
               <div className="grid grid-cols-3 gap-2">
                 {TRIGGER_TYPES.map((tt) => (
-                  <button
-                    key={tt.type}
-                    type="button"
-                    onClick={() => handleTriggerTypeChange(tt.type)}
+                  <button key={tt.type} type="button" onClick={() => handleTriggerTypeChange(tt.type)}
                     className={`rounded-md border px-3 py-2.5 text-left transition-colors ${
-                      form.triggerType === tt.type
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <p className={`text-sm font-medium ${form.triggerType === tt.type ? 'text-primary-700' : 'text-gray-700'}`}>
-                      {tt.label}
-                    </p>
+                      form.triggerType === tt.type ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                    <p className={`text-sm font-medium ${form.triggerType === tt.type ? 'text-primary-700' : 'text-gray-700'}`}>{tt.label}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{tt.desc}</p>
                   </button>
                 ))}
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* 字段变更专属 */}
+        {/* ② 条件：根据触发类型配置具体匹配规则 */}
+        <div className="rounded-lg border border-gray-200 p-4">
+          <SectionHeader step="2" title="条件" desc="触发后需满足以下条件才会执行动作" />
+          <div className="space-y-3 pl-9">
+
+            {/* 新建时：无需条件 */}
+            {form.triggerType === 'on_create' && (
+              <p className="text-sm text-gray-400 italic">新建时立即触发，无需额外条件</p>
+            )}
+
+            {/* 字段变更：选字段 + 目标值 */}
             {form.triggerType === 'field_change' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">触发字段</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">监听字段</label>
                   <select className={sel} value={form.triggerField} onChange={(e) => handleTriggerFieldChange(e.target.value)}>
                     <option value="">请选择...</option>
                     {entityFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">变更为（触发值）</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">变更为</label>
                   {triggerValueOptions.length > 0 ? (
                     <select className={sel} value={form.triggerValue} onChange={(e) => set({ triggerValue: e.target.value })}>
                       <option value="">请选择...</option>
-                      <option value="*">— 任意值（字段发生变更即触发）—</option>
+                      <option value="*">— 任意值（发生变更即触发）—</option>
                       {triggerValueOptions.map((o: OptionItem) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
                   ) : (
-                    <input className={inp} placeholder="输入触发值，或留空匹配任意值" value={form.triggerValue}
+                    <input className={inp} placeholder="输入目标值，或留空匹配任意值"
+                      value={form.triggerValue === '*' ? '' : form.triggerValue}
                       onChange={(e) => set({ triggerValue: e.target.value || '*' })} />
                   )}
                   {form.triggerValue === '*' && (
@@ -385,14 +386,14 @@ function WorkflowFormModal({
               </>
             )}
 
-            {/* 定时触发专属 */}
+            {/* 定时触发：扫描条件 */}
             {form.triggerType === 'scheduled' && (
               <>
                 <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
-                  每天 09:00（北京时间）自动扫描，对满足条件的实体执行动作
+                  每天 09:00（北京时间）自动扫描全量数据，对满足条件的实体执行动作
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">触发条件</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">匹配条件</label>
                   <select className={sel} value={form.scheduledCondition}
                     onChange={(e) => set({ scheduledCondition: e.target.value as ScheduledCondition, triggerField: '' })}>
                     {SCHEDULED_CONDITIONS.map((c) => (
@@ -423,12 +424,6 @@ function WorkflowFormModal({
               </>
             )}
           </div>
-        </div>
-
-        {/* ② 条件（预留） */}
-        <div className="rounded-lg border border-dashed border-gray-200 p-4">
-          <SectionHeader step="2" title="条件（可选）" desc="满足条件才执行动作，留空则始终执行" />
-          <p className="pl-9 text-xs text-gray-400 italic">暂未开放，触发后将始终执行所有动作</p>
         </div>
 
         {/* ③ 动作 */}
