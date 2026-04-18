@@ -19,15 +19,16 @@ function parseWorkflow(row: Record<string, unknown>) {
   return w
 }
 
-export type WorkflowTrigger = {
-  type: 'field_change'
-  field: string
-  to: string
-}
+export type WorkflowTrigger =
+  | { type: 'field_change'; field: string; to: string }
+  | { type: 'on_create' }
 
 export type WorkflowAction =
   | { type: 'require_activity'; contentRequired: boolean; contentPresets?: string[] }
-  | { type: 'require_fields'; fields: Array<{ field: string; label: string; type: string; optionGroup?: string }> }
+  | { type: 'require_fields';   fields: Array<{ field: string; label: string; type: string; optionGroup?: string }> }
+  | { type: 'set_field';        field: string; label: string; value: string }
+  | { type: 'send_email';       to: string; subject: string; body: string }
+  | { type: 'webhook';          url: string; method: string; body: string }
 
 export interface Workflow {
   id: string
