@@ -1161,10 +1161,10 @@ type Settings = Record<string, string>
 
 const TABS = [
   { key: 'basic',      label: '基本配置' },
-  { key: 'teams',      label: '团队管理' },
   { key: 'assignment', label: '自动分配' },
   { key: 'ai',         label: 'AI 配置' },
   { key: 'options',    label: '选项配置' },
+  { key: 'teams',      label: '团队管理' },
   { key: 'policies',   label: '工作流' },
 ] as const
 type TabKey = typeof TABS[number]['key']
