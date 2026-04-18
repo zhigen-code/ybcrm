@@ -13,6 +13,7 @@ const navItems = [
   { to: '/app/activities', label: '销售活动' },
   { to: '/app/services', label: '服务管理' },
   { to: '/app/partners', label: '合作伙伴' },
+  { to: '/app/docs', label: '文档' },
 ]
 
 const adminNavItems = [
