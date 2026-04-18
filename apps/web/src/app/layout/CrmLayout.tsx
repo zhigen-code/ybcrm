@@ -13,7 +13,6 @@ const navItems = [
   { to: '/app/activities', label: '销售活动' },
   { to: '/app/services', label: '服务管理' },
   { to: '/app/partners', label: '合作伙伴' },
-  { to: '/app/docs', label: '文档' },
 ]
 
 const adminNavItems = [
@@ -42,8 +41,11 @@ export default function CrmLayout() {
     if (publicSettings?.timezone) setAppTimezone(publicSettings.timezone)
   }, [publicSettings?.timezone])
 
+  const docsItem = { to: '/app/docs', label: '文档' }
   const allNavItems =
-    user?.role === 'admin' ? [...navItems, ...adminNavItems] : navItems
+    user?.role === 'admin'
+      ? [...navItems, ...adminNavItems, docsItem]
+      : [...navItems, docsItem]
 
   const Sidebar = ({ onNavClick }: { onNavClick?: () => void }) => (
     <>
