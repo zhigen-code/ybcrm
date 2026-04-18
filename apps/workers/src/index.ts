@@ -22,6 +22,7 @@ import { apiKeysRoutes } from './crm/routes/apiKeys'
 import { assignmentRulesRoutes } from './crm/routes/assignmentRules'
 import { aiConfigRoutes } from './crm/routes/aiConfig'
 import { workflowsRoutes, workflowsAdminRoutes } from './crm/routes/workflows'
+import { actionTemplatesAdminRoutes } from './crm/routes/actionTemplates'
 import { entitySchemaRoutes } from './crm/routes/entitySchema'
 import { requireApiKey } from './crm/middleware/apiKeyAuth'
 
@@ -124,6 +125,7 @@ app.route('/api/admin/ai', aiConfigRoutes)
 app.route('/api/auth/api-keys', apiKeysRoutes)
 app.route('/api/workflows', workflowsRoutes)
 app.route('/api/admin/workflows', workflowsAdminRoutes)
+app.route('/api/admin/action-templates', actionTemplatesAdminRoutes)
 app.route('/api/admin/entity-schema', entitySchemaRoutes)
 
 // 客户门户 API（/api/client/*）

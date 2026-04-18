@@ -200,7 +200,16 @@ function WorkflowFormModal({
 }) {
   const [form, setForm] = useState<WorkflowForm>(initial)
   const set = (patch: Partial<WorkflowForm>) => setForm((f) => ({ ...f, ...patch }))
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const { data: allOptions } = useOptions()
+  const { data: templates } = useQuery({
+    queryKey: ['admin-action-templates'],
+    queryFn: () => crmApi.get<{ data: ActionTemplate[] }>('/admin/action-templates').then((r) => r.data.data),
+    staleTime: 1000 * 60 * 5,
+  })
+  const availableTemplates = (templates ?? []).filter(
+    (t) => t.isActive && String(t.config['entityType'] ?? 'lead') === form.entityType,
+  )
 
   const entityFields: EntityField[] = schemaProp?.[form.entityType] ?? []
   const triggerFieldDef = entityFields.find((f) => f.field === form.triggerField)
@@ -219,7 +228,6 @@ function WorkflowFormModal({
   const hasAction = (type: WfActionForm['type']) => form.actions.some((a) => a.type === type)
 
   const addAction = (type: WfActionForm['type']) => {
-    if (hasAction(type)) return
     const defaults: Record<WfActionForm['type'], WfActionForm> = {
       require_activity: { type: 'require_activity', contentRequired: false, contentPresets: '' },
       require_fields:   { type: 'require_fields',   fields: [] },
@@ -228,6 +236,11 @@ function WorkflowFormModal({
       webhook:          { type: 'webhook',          url: '', method: 'POST', body: '{}' },
     }
     set({ actions: [...form.actions, defaults[type]] })
+  }
+
+  const addFromTemplate = (t: ActionTemplate) => {
+    set({ actions: [...form.actions, templateToAction(t)] })
+    setShowTemplatePicker(false)
   }
 
   const removeAction = (idx: number) =>
@@ -398,95 +411,61 @@ function WorkflowFormModal({
                     </div>
                   )}
 
-                  {/* 自动赋值字段 */}
-                  {action.type === 'set_field' && (
-                    <>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">目标字段</label>
-                        <select className={sel} value={action.field}
-                          onChange={(e) => {
-                            const ef = entityFields.find((f) => f.field === e.target.value)
-                            patchAction(idx, { field: e.target.value, label: ef?.label ?? '', value: '' })
-                          }}>
-                          <option value="">请选择...</option>
-                          {entityFields.filter((f) => !f.triggerOnly).map((ef) => (
-                            <option key={ef.field} value={ef.field}>{ef.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">设为值</label>
-                        <input className={inp} placeholder="目标值"
-                          value={action.value} onChange={(e) => patchAction(idx, { value: e.target.value })} />
-                      </div>
-                      <p className="text-xs text-amber-500">⚠ 此动作执行逻辑待开发，配置将被保存但暂不生效</p>
-                    </>
-                  )}
-
-                  {/* 发送邮件 */}
-                  {action.type === 'send_email' && (
-                    <>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">收件人</label>
-                        <input className={inp} placeholder="support@example.com 或变量 {{assignee.email}}"
-                          value={action.to} onChange={(e) => patchAction(idx, { to: e.target.value })} />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">主题</label>
-                        <input className={inp} placeholder="如：新线索通知 - {{lead.name}}"
-                          value={action.subject} onChange={(e) => patchAction(idx, { subject: e.target.value })} />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">正文</label>
-                        <textarea className={ta} rows={3} placeholder="支持变量 {{lead.name}}、{{lead.status}} 等"
-                          value={action.body} onChange={(e) => patchAction(idx, { body: e.target.value })} />
-                      </div>
-                      <p className="text-xs text-amber-500">⚠ 此动作执行逻辑待开发，配置将被保存但暂不生效</p>
-                    </>
-                  )}
-
-                  {/* Webhook */}
-                  {action.type === 'webhook' && (
-                    <>
-                      <div className="flex gap-2">
-                        <div className="flex-none w-24">
-                          <label className="block text-xs text-gray-500 mb-1">方法</label>
-                          <select className={sel} value={action.method}
-                            onChange={(e) => patchAction(idx, { method: e.target.value })}>
-                            <option value="POST">POST</option>
-                            <option value="GET">GET</option>
-                          </select>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <label className="block text-xs text-gray-500 mb-1">URL</label>
-                          <input className={inp} placeholder="https://your-service.com/webhook"
-                            value={action.url} onChange={(e) => patchAction(idx, { url: e.target.value })} />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Body（JSON，支持变量 {'{{lead.id}}'}）</label>
-                        <textarea className={ta} rows={3}
-                          value={action.body} onChange={(e) => patchAction(idx, { body: e.target.value })} />
-                      </div>
-                      <p className="text-xs text-amber-500">⚠ 此动作执行逻辑待开发，配置将被保存但暂不生效</p>
-                    </>
+                  <ActionConfigEditor
+                    action={action}
+                    onChange={(p) => patchAction(idx, p)}
+                    requirableFields={requirableFields}
+                    entityFields={entityFields}
+                  />
+                  {!ACTION_TYPES.find((at) => at.type === action.type)?.supported && (
+                    <p className="mt-2 text-xs text-amber-500">⚠ 此动作执行逻辑待开发，配置将被保存但暂不生效</p>
                   )}
                 </div>
               </div>
             ))}
 
-            {/* 添加动作 */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {ACTION_TYPES.filter((at) => !hasAction(at.type)).map((at) => (
-                <button key={at.type} type="button" onClick={() => addAction(at.type)}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary-400 px-3 py-1.5 text-xs text-primary-600 hover:bg-primary-50 transition-colors">
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  {at.label}
-                  {!at.supported && <span className="ml-1 text-gray-400">（待开发）</span>}
-                </button>
-              ))}
+            {/* 添加动作：动作库 + 新建 */}
+            <div className="space-y-2 pt-1">
+              {/* 从动作库选择 */}
+              {availableTemplates.length > 0 && (
+                <div className="relative">
+                  <button type="button" onClick={() => setShowTemplatePicker((v) => !v)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-primary-500 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100 transition-colors">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    从动作库加载
+                  </button>
+                  {showTemplatePicker && (
+                    <div className="absolute left-0 top-8 z-10 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
+                      <p className="px-3 py-2 text-xs font-medium text-gray-500 border-b">选择动作模板</p>
+                      {availableTemplates.map((t) => (
+                        <button key={t.id} type="button" onClick={() => addFromTemplate(t)}
+                          className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors">
+                          <span className="flex-1">
+                            <span className="block text-sm text-gray-800">{t.name}</span>
+                            <span className="block text-xs text-gray-400">{ACTION_LABELS[t.type]}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 手动添加 */}
+              <div className="flex flex-wrap gap-2">
+                {ACTION_TYPES.map((at) => (
+                  <button key={at.type} type="button" onClick={() => addAction(at.type)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 transition-colors">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    {at.label}
+                    {!at.supported && <span className="text-gray-400">（待开发）</span>}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* 工作流名称 */}
@@ -506,8 +485,310 @@ function WorkflowFormModal({
   )
 }
 
+// ─── 动作模板 ──────────────────────────────────────────────────────────────────
+
+interface ActionTemplate {
+  id: string
+  name: string
+  type: WfActionForm['type']
+  config: Record<string, unknown>
+  isActive: number
+}
+
+function templateToAction(t: ActionTemplate): WfActionForm {
+  const c = t.config
+  switch (t.type) {
+    case 'require_activity': return { type: 'require_activity', contentRequired: !!c['contentRequired'], contentPresets: ((c['contentPresets'] as string[] | undefined) ?? []).join(',') }
+    case 'require_fields':   return { type: 'require_fields',   fields: (c['fields'] as ReqField[]) ?? [] }
+    case 'set_field':        return { type: 'set_field',        field: String(c['field'] ?? ''), label: String(c['label'] ?? ''), value: String(c['value'] ?? '') }
+    case 'send_email':       return { type: 'send_email',       to: String(c['to'] ?? ''), subject: String(c['subject'] ?? ''), body: String(c['body'] ?? '') }
+    case 'webhook':          return { type: 'webhook',          url: String(c['url'] ?? ''), method: (String(c['method'] ?? 'POST')) as 'POST' | 'GET', body: String(c['body'] ?? '{}') }
+  }
+}
+
+function actionFormToConfig(a: WfActionForm): Record<string, unknown> {
+  if (a.type === 'require_activity') {
+    const presets = a.contentPresets ? a.contentPresets.split(/[,，、]/).map((s) => s.trim()).filter(Boolean) : []
+    return { contentRequired: a.contentRequired, ...(presets.length ? { contentPresets: presets } : {}) }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { type, ...rest } = a
+  return rest as Record<string, unknown>
+}
+
+function ActionConfigEditor({
+  action, onChange, requirableFields, entityFields,
+}: {
+  action: WfActionForm
+  onChange: (patch: object) => void
+  requirableFields: EntityField[]
+  entityFields: EntityField[]
+}) {
+  const inp = 'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500'
+  const sel = 'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500'
+  const ta  = 'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none'
+
+  if (action.type === 'require_activity') return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <input type="checkbox" className="rounded border-gray-300" checked={action.contentRequired}
+          onChange={(e) => onChange({ contentRequired: e.target.checked })} />
+        跟进内容必填
+      </label>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">快选预设（逗号分隔）</label>
+        <input className={inp} placeholder="电话未接通,已加微信未回" value={action.contentPresets}
+          onChange={(e) => onChange({ contentPresets: e.target.value })} />
+      </div>
+    </div>
+  )
+
+  if (action.type === 'require_fields') return (
+    <div className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">
+      {requirableFields.length === 0
+        ? <p className="px-3 py-2 text-xs text-gray-400">暂无可选字段</p>
+        : requirableFields.map((ef) => {
+          const checked = action.fields.some((f) => f.field === ef.field)
+          return (
+            <label key={ef.field} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
+              <input type="checkbox" className="rounded border-gray-300" checked={checked}
+                onChange={(e) => {
+                  const nf: ReqField = { field: ef.field, label: ef.label, type: ef.type === 'user' ? 'text' : ef.type as ReqField['type'], ...(ef.optionGroup ? { optionGroup: ef.optionGroup } : {}) }
+                  const next = e.target.checked ? [...action.fields, nf] : action.fields.filter((f) => f.field !== ef.field)
+                  onChange({ fields: next })
+                }} />
+              <span className="flex-1 text-sm text-gray-700">{ef.label}</span>
+              <span className="text-xs text-gray-400">
+                {ef.type === 'select' ? '下拉' : ef.type === 'datetime' ? '日期时间' : ef.type === 'services' ? '意向服务' : '文本'}
+              </span>
+            </label>
+          )
+        })
+      }
+    </div>
+  )
+
+  if (action.type === 'set_field') return (
+    <div className="space-y-2">
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">目标字段</label>
+        <select className={sel} value={action.field}
+          onChange={(e) => { const ef = entityFields.find((f) => f.field === e.target.value); onChange({ field: e.target.value, label: ef?.label ?? '', value: '' }) }}>
+          <option value="">请选择...</option>
+          {entityFields.filter((f) => !f.triggerOnly).map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">设为值</label>
+        <input className={inp} placeholder="目标值" value={action.value} onChange={(e) => onChange({ value: e.target.value })} />
+      </div>
+    </div>
+  )
+
+  if (action.type === 'send_email') return (
+    <div className="space-y-2">
+      <div><label className="block text-xs text-gray-500 mb-1">收件人</label><input className={inp} placeholder="{{assignee.email}}" value={action.to} onChange={(e) => onChange({ to: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">主题</label><input className={inp} placeholder="通知：{{lead.name}}" value={action.subject} onChange={(e) => onChange({ subject: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">正文</label><textarea className={ta} rows={3} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+    </div>
+  )
+
+  if (action.type === 'webhook') return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <div className="flex-none w-24"><label className="block text-xs text-gray-500 mb-1">方法</label>
+          <select className={sel} value={action.method} onChange={(e) => onChange({ method: e.target.value })}>
+            <option value="POST">POST</option><option value="GET">GET</option>
+          </select></div>
+        <div className="flex-1 min-w-0"><label className="block text-xs text-gray-500 mb-1">URL</label><input className={inp} placeholder="https://..." value={action.url} onChange={(e) => onChange({ url: e.target.value })} /></div>
+      </div>
+      <div><label className="block text-xs text-gray-500 mb-1">Body（JSON）</label><textarea className={ta} rows={3} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+    </div>
+  )
+
+  return null
+}
+
+function ActionTemplateFormModal({
+  title, initial, onClose, onSave, saving, schema: schemaProp,
+}: {
+  title: string
+  initial: { name: string; type: WfActionForm['type']; action: WfActionForm; entityType: string }
+  onClose: () => void
+  onSave: (name: string, entityType: string, action: WfActionForm) => void
+  saving: boolean
+  schema: Record<string, EntityField[]> | undefined
+}) {
+  const [name, setName] = useState(initial.name)
+  const [entityType, setEntityType] = useState(initial.entityType)
+  const [action, setAction] = useState<WfActionForm>(initial.action)
+
+  const entityFields: EntityField[] = schemaProp?.[entityType] ?? []
+  const requirableFields = entityFields.filter((f) => !f.triggerOnly)
+
+  const handleTypeChange = (type: WfActionForm['type']) => {
+    const defaults: Record<WfActionForm['type'], WfActionForm> = {
+      require_activity: { type: 'require_activity', contentRequired: false, contentPresets: '' },
+      require_fields:   { type: 'require_fields',   fields: [] },
+      set_field:        { type: 'set_field',        field: '', label: '', value: '' },
+      send_email:       { type: 'send_email',       to: '', subject: '', body: '' },
+      webhook:          { type: 'webhook',          url: '', method: 'POST', body: '{}' },
+    }
+    setAction(defaults[type])
+  }
+
+  const canSave = name.trim()
+
+  return (
+    <Modal title={title} onClose={onClose} footer={
+      <><Button variant="secondary" onClick={onClose}>取消</Button>
+        <Button loading={saving} disabled={!canSave} onClick={() => onSave(name, entityType, action)}>保存</Button></>
+    }>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">模板名称</label>
+          <input className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="如：发送销售通知邮件" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">适用对象（影响可选字段）</label>
+          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+            value={entityType} onChange={(e) => { setEntityType(e.target.value); setAction((a) => {
+                      if (a.type === 'require_fields') return { type: 'require_fields', fields: [] }
+                      if (a.type === 'set_field') return { type: 'set_field', field: '', label: '', value: '' }
+                      return a
+                    }) }}>
+            <option value="lead">线索</option>
+            <option value="client">客户</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">动作类型</label>
+          <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+            value={action.type} onChange={(e) => handleTypeChange(e.target.value as WfActionForm['type'])}>
+            {ACTION_TYPES.map((at) => <option key={at.type} value={at.type}>{at.label}{!at.supported ? '（待开发）' : ''}</option>)}
+          </select>
+        </div>
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+          <ActionConfigEditor action={action} onChange={(p) => setAction((a) => ({ ...a, ...p } as WfActionForm))}
+            requirableFields={requirableFields} entityFields={entityFields} />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]> | undefined }) {
+  const queryClient = useQueryClient()
+  const [showAdd, setShowAdd] = useState(false)
+  const [editTarget, setEditTarget] = useState<ActionTemplate | null>(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-action-templates'],
+    queryFn: () => crmApi.get<{ data: ActionTemplate[] }>('/admin/action-templates').then((r) => r.data.data),
+  })
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-action-templates'] })
+
+  const addMutation = useMutation({
+    mutationFn: (body: { name: string; type: string; config: Record<string, unknown> }) =>
+      crmApi.post('/admin/action-templates', body),
+    onSuccess: () => { invalidate(); setShowAdd(false) },
+  })
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, ...body }: { id: string; name: string; type: string; config: Record<string, unknown> }) =>
+      crmApi.put(`/admin/action-templates/${id}`, body),
+    onSuccess: () => { invalidate(); setEditTarget(null) },
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      crmApi.put(`/admin/action-templates/${id}`, { isActive }),
+    onSuccess: invalidate,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/admin/action-templates/${id}`),
+    onSuccess: invalidate,
+  })
+
+  const handleSave = (name: string, entityType: string, action: WfActionForm) => {
+    const payload = { name, type: action.type, config: { entityType, ...actionFormToConfig(action) } }
+    if (editTarget) editMutation.mutate({ id: editTarget.id, ...payload })
+    else addMutation.mutate(payload)
+  }
+
+  const EMPTY_TEMPLATE = { name: '', type: 'require_activity' as WfActionForm['type'], action: { type: 'require_activity' as const, contentRequired: false, contentPresets: '' }, entityType: 'lead' }
+
+  const templateToInitial = (t: ActionTemplate) => ({
+    name: t.name,
+    type: t.type,
+    entityType: String(t.config['entityType'] ?? 'lead'),
+    action: templateToAction(t),
+  })
+
+  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-gray-500">预先定义好的动作配置，新建工作流时可直接加载，无需重复配置。</p>
+        <Button size="sm" onClick={() => setShowAdd(true)}>+ 新建模板</Button>
+      </div>
+
+      <div className="rounded-lg border bg-white overflow-hidden">
+        {(!data || data.length === 0) ? (
+          <p className="py-8 text-center text-sm text-gray-400">暂无动作模板</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">模板名称</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">动作类型</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {data.map((t) => (
+                <tr key={t.id} className={t.isActive ? '' : 'opacity-50'}>
+                  <td className="px-4 py-3 font-medium text-gray-800">{t.name}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{ACTION_LABELS[t.type]}</td>
+                  <td className="px-4 py-3"><Badge variant={t.isActive ? 'green' : 'gray'}>{t.isActive ? '启用' : '禁用'}</Badge></td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 justify-end">
+                      <button onClick={() => setEditTarget(t)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+                      <span className="text-gray-300">|</span>
+                      <button onClick={() => toggleMutation.mutate({ id: t.id, isActive: !t.isActive })} className="text-xs text-gray-500 hover:text-gray-700">{t.isActive ? '禁用' : '启用'}</button>
+                      <span className="text-gray-300">|</span>
+                      <button onClick={() => { if (confirm('确认删除此模板？')) deleteMutation.mutate(t.id) }} className="text-xs text-red-500 hover:text-red-700">删除</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showAdd && (
+        <ActionTemplateFormModal title="新建动作模板" initial={EMPTY_TEMPLATE}
+          onClose={() => setShowAdd(false)} onSave={handleSave}
+          saving={addMutation.isPending} schema={schema} />
+      )}
+      {editTarget && (
+        <ActionTemplateFormModal title="编辑动作模板" initial={templateToInitial(editTarget)}
+          onClose={() => setEditTarget(null)} onSave={handleSave}
+          saving={editMutation.isPending} schema={schema} />
+      )}
+    </div>
+  )
+}
+
 function WorkflowsPanel() {
   const queryClient = useQueryClient()
+  const [subTab, setSubTab] = useState<'workflows' | 'templates'>('workflows')
   const [showAdd, setShowAdd] = useState(false)
   const [editTarget, setEditTarget] = useState<Workflow | null>(null)
 
@@ -546,8 +827,6 @@ function WorkflowsPanel() {
     onSuccess: () => { invalidate(); setEditTarget(null) },
   })
 
-  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
-
   const formatActions = (w: Workflow) => {
     const parts: string[] = []
     for (const a of w.actions) {
@@ -571,14 +850,31 @@ function WorkflowsPanel() {
 
   return (
     <div>
+      {/* 子 Tab */}
+      <div className="flex gap-1 mb-4 border-b border-gray-200">
+        {([['workflows', '工作流'], ['templates', '动作库']] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setSubTab(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              subTab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* 动作库子 Tab */}
+      {subTab === 'templates' && <ActionTemplatesPanel schema={schema} />}
+
+      {/* 工作流子 Tab */}
+      {subTab === 'workflows' && <>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-500">字段变更时触发动作（要求跟进记录、强制填写字段等），校验通过后才允许保存。</p>
+        <p className="text-sm text-gray-500">配置触发器与动作，满足触发条件时自动执行。</p>
         <Button size="sm" onClick={() => setShowAdd(true)}>+ 新建工作流</Button>
       </div>
 
       <div className="rounded-lg border bg-white overflow-hidden">
         {(!data || data.length === 0) ? (
-          <p className="py-8 text-center text-sm text-gray-400">暂无策略</p>
+          <p className="py-8 text-center text-sm text-gray-400">暂无工作流</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
@@ -653,6 +949,7 @@ function WorkflowsPanel() {
           schema={schema}
         />
       )}
+      </>}
     </div>
   )
 }
