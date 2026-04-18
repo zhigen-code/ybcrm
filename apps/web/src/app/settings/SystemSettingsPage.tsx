@@ -60,7 +60,7 @@ function ColorPicker({ value, onChange }: { value: Color; onChange: (c: Color) =
   )
 }
 
-// ─── 字段策略管理面板 ─────────────────────────────────────────────────────────
+// ─── 工作流管理面板 ───────────────────────────────────────────────────────────
 
 const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户' }
 
@@ -74,56 +74,65 @@ interface EntityField {
 
 type ReqField = { field: string; label: string; type: 'datetime' | 'select' | 'services' | 'text'; optionGroup?: string }
 
-type PolicyForm = {
+type WfActionForm =
+  | { type: 'require_activity'; contentRequired: boolean; contentPresets: string }
+  | { type: 'require_fields'; fields: ReqField[] }
+
+type WorkflowForm = {
+  name: string
   entityType: string
   triggerField: string
   triggerValue: string
-  requireActivity: boolean
-  activityContentRequired: boolean
-  contentPresets: string
-  requiredFields: ReqField[]
+  actions: WfActionForm[]
 }
 
-const EMPTY_FORM: PolicyForm = {
-  entityType: 'lead', triggerField: '', triggerValue: '',
-  requireActivity: true, activityContentRequired: false,
-  contentPresets: '', requiredFields: [],
+const EMPTY_WORKFLOW: WorkflowForm = {
+  name: '', entityType: 'lead', triggerField: '', triggerValue: '', actions: [],
 }
 
-function buildWorkflowPayload(f: PolicyForm) {
-  const presets = f.contentPresets
-    ? f.contentPresets.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
-    : []
-  const actions = []
-  if (f.requireActivity) {
-    actions.push({
-      type: 'require_activity',
-      contentRequired: f.activityContentRequired,
-      ...(presets.length ? { contentPresets: presets } : {}),
-    })
-  }
-  if (f.requiredFields.length) {
-    actions.push({ type: 'require_fields', fields: f.requiredFields })
-  }
+const ACTION_TYPES: { type: WfActionForm['type']; label: string; desc: string }[] = [
+  { type: 'require_activity', label: '要求跟进记录', desc: '保存前必须填写跟进记录' },
+  { type: 'require_fields',   label: '强制填写字段', desc: '保存前必须填写指定字段' },
+]
+
+function buildWorkflowPayload(f: WorkflowForm) {
+  const name = f.name.trim() || `${f.entityType === 'lead' ? '线索' : '客户'} · ${f.triggerField} → ${f.triggerValue}`
   return {
-    name: `${f.triggerField} → ${f.triggerValue}`,
+    name,
     entityType: f.entityType,
     trigger: { type: 'field_change', field: f.triggerField, to: f.triggerValue },
-    actions,
+    conditions: [],
+    actions: f.actions.map((a) => {
+      if (a.type === 'require_activity') {
+        const presets = a.contentPresets
+          ? a.contentPresets.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+          : []
+        return { type: 'require_activity', contentRequired: a.contentRequired, ...(presets.length ? { contentPresets: presets } : {}) }
+      }
+      return a
+    }),
   }
 }
 
-function formFromWorkflow(w: Workflow): PolicyForm {
+function formFromWorkflow(w: Workflow): WorkflowForm {
   const actAction = w.actions.find((a) => a.type === 'require_activity')
   const fieldsAction = w.actions.find((a) => a.type === 'require_fields')
   return {
+    name: w.name,
     entityType: w.entityType,
     triggerField: w.trigger.field,
     triggerValue: w.trigger.to,
-    requireActivity: !!actAction,
-    activityContentRequired: actAction?.type === 'require_activity' ? actAction.contentRequired : false,
-    contentPresets: actAction?.type === 'require_activity' ? (actAction.contentPresets?.join(',') ?? '') : '',
-    requiredFields: fieldsAction?.type === 'require_fields' ? (fieldsAction.fields as ReqField[]) : [],
+    actions: [
+      ...(actAction && actAction.type === 'require_activity' ? [{
+        type: 'require_activity' as const,
+        contentRequired: actAction.contentRequired,
+        contentPresets: actAction.contentPresets?.join(',') ?? '',
+      }] : []),
+      ...(fieldsAction && fieldsAction.type === 'require_fields' ? [{
+        type: 'require_fields' as const,
+        fields: fieldsAction.fields as ReqField[],
+      }] : []),
+    ],
   }
 }
 
@@ -136,53 +145,82 @@ function useEntitySchema() {
   })
 }
 
-function PolicyFormModal({
-  title, initial, onClose, onSave, saving,
+function SectionHeader({ step, title, desc }: { step: string; title: string; desc?: string }) {
+  return (
+    <div className="flex items-start gap-3 mb-3">
+      <span className="flex-none w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+        {step}
+      </span>
+      <div>
+        <p className="text-sm font-semibold text-gray-800">{title}</p>
+        {desc && <p className="text-xs text-gray-400">{desc}</p>}
+      </div>
+    </div>
+  )
+}
+
+function WorkflowFormModal({
+  title, initial, onClose, onSave, saving, schema: schemaProp,
 }: {
   title: string
-  initial: PolicyForm
+  initial: WorkflowForm
   onClose: () => void
-  onSave: (f: PolicyForm) => void
+  onSave: (f: WorkflowForm) => void
   saving: boolean
+  schema: Record<string, EntityField[]> | undefined
 }) {
-  const [form, setForm] = useState<PolicyForm>(initial)
-  const set = (patch: Partial<PolicyForm>) => setForm((f) => ({ ...f, ...patch }))
-
-  const { data: schema } = useEntitySchema()
+  const [form, setForm] = useState<WorkflowForm>(initial)
+  const set = (patch: Partial<WorkflowForm>) => setForm((f) => ({ ...f, ...patch }))
   const { data: allOptions } = useOptions()
 
-  const entityFields: EntityField[] = schema?.[form.entityType] ?? []
+  const entityFields: EntityField[] = schemaProp?.[form.entityType] ?? []
   const triggerFieldDef = entityFields.find((f) => f.field === form.triggerField)
   const triggerValueOptions = triggerFieldDef?.optionGroup
     ? (allOptions?.[triggerFieldDef.optionGroup] ?? [])
     : []
-
-  // 非 triggerOnly 的字段可作为必填字段
   const requirableFields = entityFields.filter((f) => !f.triggerOnly)
-  const requiredFieldIds = new Set(form.requiredFields.map((f) => f.field))
-
-  const toggleRequired = (ef: EntityField, checked: boolean) => {
-    if (checked) {
-      const newReqField: ReqField = {
-        field: ef.field,
-        label: ef.label,
-        type: ef.type === 'user' ? 'text' : ef.type as ReqField['type'],
-        ...(ef.optionGroup ? { optionGroup: ef.optionGroup } : {}),
-      }
-      set({ requiredFields: [...form.requiredFields, newReqField] })
-    } else {
-      set({ requiredFields: form.requiredFields.filter((f) => f.field !== ef.field) })
-    }
-  }
 
   const handleEntityChange = (entityType: string) => {
-    const firstField = schema?.[entityType]?.[0]?.field ?? ''
-    set({ entityType, triggerField: firstField, triggerValue: '', requiredFields: [] })
+    set({ entityType, triggerField: '', triggerValue: '', actions: [] })
   }
-
   const handleTriggerFieldChange = (field: string) => {
     set({ triggerField: field, triggerValue: '' })
   }
+
+  const hasAction = (type: WfActionForm['type']) => form.actions.some((a) => a.type === type)
+
+  const addAction = (type: WfActionForm['type']) => {
+    if (hasAction(type)) return
+    if (type === 'require_activity') {
+      set({ actions: [...form.actions, { type: 'require_activity', contentRequired: false, contentPresets: '' }] })
+    } else {
+      set({ actions: [...form.actions, { type: 'require_fields', fields: [] }] })
+    }
+  }
+
+  const removeAction = (idx: number) => {
+    set({ actions: form.actions.filter((_, i) => i !== idx) })
+  }
+
+  const patchAction = (idx: number, patch: Partial<WfActionForm>) => {
+    set({ actions: form.actions.map((a, i) => i === idx ? { ...a, ...patch } as WfActionForm : a) })
+  }
+
+  const toggleReqField = (idx: number, ef: EntityField, checked: boolean) => {
+    const action = form.actions[idx]
+    if (action?.type !== 'require_fields') return
+    const newField: ReqField = {
+      field: ef.field, label: ef.label,
+      type: ef.type === 'user' ? 'text' : ef.type as ReqField['type'],
+      ...(ef.optionGroup ? { optionGroup: ef.optionGroup } : {}),
+    }
+    const next = checked
+      ? [...action.fields, newField]
+      : action.fields.filter((f) => f.field !== ef.field)
+    patchAction(idx, { fields: next } as Partial<WfActionForm>)
+  }
+
+  const canSave = form.triggerValue.trim() && form.actions.length > 0
 
   return (
     <Modal
@@ -191,116 +229,190 @@ function PolicyFormModal({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>取消</Button>
-          <Button loading={saving} disabled={!form.triggerValue.trim()} onClick={() => onSave(form)}>
-            保存
-          </Button>
+          <Button loading={saving} disabled={!canSave} onClick={() => onSave(form)}>保存</Button>
         </>
       }
     >
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">适用对象</label>
-            <select
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={form.entityType}
-              onChange={(e) => handleEntityChange(e.target.value)}
-            >
-              <option value="lead">线索</option>
-              <option value="client">客户</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">触发字段</label>
-            <select
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={form.triggerField}
-              onChange={(e) => handleTriggerFieldChange(e.target.value)}
-            >
-              <option value="">请选择...</option>
-              {entityFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
-            </select>
-          </div>
-        </div>
+      <div className="space-y-5">
 
-        {/* 触发值：有 optionGroup 时用下拉，否则文本 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">触发值</label>
-          {triggerValueOptions.length > 0 ? (
-            <select
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={form.triggerValue}
-              onChange={(e) => set({ triggerValue: e.target.value })}
-            >
-              <option value="">请选择...</option>
-              {triggerValueOptions.map((o: OptionItem) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          ) : (
-            <input
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              placeholder="输入触发值"
-              value={form.triggerValue}
-              onChange={(e) => set({ triggerValue: e.target.value })}
-            />
-          )}
-        </div>
-
-        <div className="border-t pt-3">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">触发后动作</p>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.requireActivity}
-                onChange={(e) => set({ requireActivity: e.target.checked })}
-                className="rounded border-gray-300"
-              />
-              要求填写跟进记录
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.activityContentRequired}
-                onChange={(e) => set({ activityContentRequired: e.target.checked })}
-                className="rounded border-gray-300"
-                disabled={!form.requireActivity}
-              />
-              <span className={form.requireActivity ? '' : 'text-gray-400'}>跟进内容必填</span>
-            </label>
-          </div>
-        </div>
-
-        <Input
-          label="快选预设（逗号分隔，可选）"
-          placeholder="如 电话未接通,已加微信未回"
-          value={form.contentPresets}
-          onChange={(e) => set({ contentPresets: e.target.value })}
-        />
-
-        {/* 必填字段：从 entity schema 动态渲染 */}
-        {requirableFields.length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">强制填写字段</p>
-            <div className="rounded-md border border-gray-200 divide-y divide-gray-100">
-              {requirableFields.map((ef) => (
-                <label key={ef.field} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
-                  <input
-                    type="checkbox"
-                    checked={requiredFieldIds.has(ef.field)}
-                    onChange={(e) => toggleRequired(ef, e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="flex-1 text-sm text-gray-700">{ef.label}</span>
-                  <span className="text-xs text-gray-400">
-                    {ef.type === 'select' ? '下拉' : ef.type === 'datetime' ? '日期时间' : ef.type === 'services' ? '意向服务' : '文本'}
-                  </span>
-                </label>
-              ))}
+        {/* ① 触发器 */}
+        <div className="rounded-lg border border-gray-200 p-4">
+          <SectionHeader step="1" title="触发器" desc="当什么事件发生时执行此工作流" />
+          <div className="space-y-3 pl-9">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">触发类型</label>
+              <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                <svg className="h-4 w-4 text-primary-500 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                字段变更
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">适用对象</label>
+                <select
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={form.entityType}
+                  onChange={(e) => handleEntityChange(e.target.value)}
+                >
+                  <option value="lead">线索</option>
+                  <option value="client">客户</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">触发字段</label>
+                <select
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={form.triggerField}
+                  onChange={(e) => handleTriggerFieldChange(e.target.value)}
+                >
+                  <option value="">请选择...</option>
+                  {entityFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">变更为（触发值）</label>
+              {triggerValueOptions.length > 0 ? (
+                <select
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={form.triggerValue}
+                  onChange={(e) => set({ triggerValue: e.target.value })}
+                >
+                  <option value="">请选择...</option>
+                  {triggerValueOptions.map((o: OptionItem) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="输入触发值"
+                  value={form.triggerValue}
+                  onChange={(e) => set({ triggerValue: e.target.value })}
+                />
+              )}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* ② 条件（预留） */}
+        <div className="rounded-lg border border-dashed border-gray-200 p-4">
+          <SectionHeader step="2" title="条件（可选）" desc="满足条件才执行动作，留空则始终执行" />
+          <div className="pl-9">
+            <p className="text-xs text-gray-400 italic">暂未开放，当前工作流触发后始终执行所有动作</p>
+          </div>
+        </div>
+
+        {/* ③ 动作 */}
+        <div className="rounded-lg border border-gray-200 p-4">
+          <SectionHeader step="3" title="动作" desc="触发后依次执行以下动作" />
+          <div className="pl-9 space-y-3">
+            {form.actions.length === 0 && (
+              <p className="text-xs text-gray-400">暂无动作，请点击下方添加</p>
+            )}
+
+            {form.actions.map((action, idx) => (
+              <div key={idx} className="rounded-md border border-gray-200 bg-gray-50">
+                {/* 动作卡头 */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+                  <span className="text-xs font-semibold text-gray-700">
+                    {action.type === 'require_activity' ? '要求跟进记录' : '强制填写字段'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeAction(idx)}
+                    className="text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* 动作配置 */}
+                <div className="px-3 py-3 space-y-2">
+                  {action.type === 'require_activity' && (
+                    <>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={action.contentRequired}
+                          onChange={(e) => patchAction(idx, { contentRequired: e.target.checked } as Partial<WfActionForm>)}
+                          className="rounded border-gray-300"
+                        />
+                        跟进内容必填
+                      </label>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">快选预设（逗号分隔，可选）</label>
+                        <input
+                          className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          placeholder="如：电话未接通,已加微信未回"
+                          value={action.contentPresets}
+                          onChange={(e) => patchAction(idx, { contentPresets: e.target.value } as Partial<WfActionForm>)}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {action.type === 'require_fields' && requirableFields.length > 0 && (
+                    <div className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">
+                      {requirableFields.map((ef) => {
+                        const checked = action.fields.some((f) => f.field === ef.field)
+                        return (
+                          <label key={ef.field} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => toggleReqField(idx, ef, e.target.checked)}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="flex-1 text-sm text-gray-700">{ef.label}</span>
+                            <span className="text-xs text-gray-400">
+                              {ef.type === 'select' ? '下拉' : ef.type === 'datetime' ? '日期时间' : ef.type === 'services' ? '意向服务' : '文本'}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* 添加动作下拉区 */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {ACTION_TYPES.filter((at) => !hasAction(at.type)).map((at) => (
+                <button
+                  key={at.type}
+                  type="button"
+                  onClick={() => addAction(at.type)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary-400 px-3 py-1.5 text-xs text-primary-600 hover:bg-primary-50 transition-colors"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  {at.label}
+                </button>
+              ))}
+              {ACTION_TYPES.every((at) => hasAction(at.type)) && (
+                <p className="text-xs text-gray-400 italic">所有动作类型已添加</p>
+              )}
+            </div>
+
+            {/* 工作流名称（可选覆盖自动名称） */}
+            <div className="pt-2 border-t border-gray-100">
+              <label className="block text-xs text-gray-500 mb-1">工作流名称（可选，留空自动生成）</label>
+              <input
+                className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder={`线索 · ${form.triggerField || '字段'} → ${form.triggerValue || '值'}`}
+                value={form.name}
+                onChange={(e) => set({ name: e.target.value })}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </Modal>
   )
@@ -336,12 +448,12 @@ function WorkflowsPanel() {
   })
 
   const addMutation = useMutation({
-    mutationFn: (f: PolicyForm) => crmApi.post('/admin/workflows', buildWorkflowPayload(f)),
+    mutationFn: (f: WorkflowForm) => crmApi.post('/admin/workflows', buildWorkflowPayload(f)),
     onSuccess: () => { invalidate(); setShowAdd(false) },
   })
 
   const editMutation = useMutation({
-    mutationFn: ({ id, f }: { id: string; f: PolicyForm }) =>
+    mutationFn: ({ id, f }: { id: string; f: WorkflowForm }) =>
       crmApi.put(`/admin/workflows/${id}`, buildWorkflowPayload(f)),
     onSuccess: () => { invalidate(); setEditTarget(null) },
   })
@@ -431,22 +543,24 @@ function WorkflowsPanel() {
       </div>
 
       {showAdd && (
-        <PolicyFormModal
+        <WorkflowFormModal
           title="新建工作流"
-          initial={EMPTY_FORM}
+          initial={EMPTY_WORKFLOW}
           onClose={() => setShowAdd(false)}
           onSave={(f) => addMutation.mutate(f)}
           saving={addMutation.isPending}
+          schema={schema}
         />
       )}
 
       {editTarget && (
-        <PolicyFormModal
+        <WorkflowFormModal
           title="编辑工作流"
           initial={formFromWorkflow(editTarget)}
           onClose={() => setEditTarget(null)}
           onSave={(f) => editMutation.mutate({ id: editTarget.id, f })}
           saving={editMutation.isPending}
+          schema={schema}
         />
       )}
     </div>
