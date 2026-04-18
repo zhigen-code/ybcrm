@@ -1161,7 +1161,6 @@ type Settings = Record<string, string>
 
 const TABS = [
   { key: 'basic',      label: '基本配置' },
-  { key: 'smtp',       label: '邮件服务器' },
   { key: 'teams',      label: '团队管理' },
   { key: 'assignment', label: '自动分配' },
   { key: 'ai',         label: 'AI 配置' },
@@ -1379,62 +1378,64 @@ export default function SystemSettingsPage() {
       <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))}>
         <div className="max-w-2xl">
           {activeTab === 'basic' && (
-            <div className="rounded-lg border bg-white p-4 sm:p-6">
-              <div className="space-y-3">
-                <Input
-                  label="系统名称"
-                  error={errors.system_name?.message}
-                  {...register('system_name')}
-                />
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">时区</label>
-                  <select
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    {...register('timezone')}
-                  >
-                    {COMMON_TIMEZONES.map((tz) => (
-                      <option key={tz.value} value={tz.value}>{tz.label}</option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-400">影响系统中所有时间的显示方式</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'smtp' && (
-            <div className="rounded-lg border bg-white p-4 sm:p-6">
-              <p className="text-xs text-gray-500 mb-4">用于发送通知邮件、魔法链接等系统邮件</p>
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
-                    <Input label="SMTP 服务器" placeholder="smtp.example.com" {...register('smtp_host')} />
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-white p-4 sm:p-6">
+                <h2 className="text-sm font-semibold text-gray-700 mb-3">基本信息</h2>
+                <div className="space-y-3">
+                  <Input
+                    label="系统名称"
+                    error={errors.system_name?.message}
+                    {...register('system_name')}
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">时区</label>
+                    <select
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      {...register('timezone')}
+                    >
+                      {COMMON_TIMEZONES.map((tz) => (
+                        <option key={tz.value} value={tz.value}>{tz.label}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-400">影响系统中所有时间的显示方式</p>
                   </div>
-                  <Input label="端口" placeholder="465" {...register('smtp_port')} />
                 </div>
-                <Select
-                  label="加密方式"
-                  options={[
-                    { value: 'true', label: 'SSL/TLS（推荐）' },
-                    { value: 'false', label: '不加密' },
-                  ]}
-                  {...register('smtp_secure')}
-                />
-                <Input label="账号（用户名）" placeholder="your@email.com" {...register('smtp_user')} />
-                <Input
-                  label="密码 / 授权码"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                  {...register('smtp_password')}
-                />
-                <Input label="发件人邮箱" placeholder="noreply@example.com" {...register('smtp_from_email')} />
-                <Input label="发件人名称" placeholder="辅助生殖 CRM" {...register('smtp_from_name')} />
+              </div>
+
+              <div className="rounded-lg border bg-white p-4 sm:p-6">
+                <h2 className="text-sm font-semibold text-gray-700 mb-1">邮件服务器（SMTP）</h2>
+                <p className="text-xs text-gray-400 mb-3">用于发送通知邮件、魔法链接等系统邮件</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <Input label="SMTP 服务器" placeholder="smtp.example.com" {...register('smtp_host')} />
+                    </div>
+                    <Input label="端口" placeholder="465" {...register('smtp_port')} />
+                  </div>
+                  <Select
+                    label="加密方式"
+                    options={[
+                      { value: 'true', label: 'SSL/TLS（推荐）' },
+                      { value: 'false', label: '不加密' },
+                    ]}
+                    {...register('smtp_secure')}
+                  />
+                  <Input label="账号（用户名）" placeholder="your@email.com" {...register('smtp_user')} />
+                  <Input
+                    label="密码 / 授权码"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                    {...register('smtp_password')}
+                  />
+                  <Input label="发件人邮箱" placeholder="noreply@example.com" {...register('smtp_from_email')} />
+                  <Input label="发件人名称" placeholder="辅助生殖 CRM" {...register('smtp_from_name')} />
+                </div>
               </div>
             </div>
           )}
 
-          {activeTab !== 'teams' && activeTab !== 'assignment' && activeTab !== 'ai' && activeTab !== 'options' && activeTab !== 'policies' && (
+          {activeTab === 'basic' && (
             <div className="flex items-center gap-3 mt-4">
               <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
                 保存设置
