@@ -305,6 +305,8 @@ function FieldPoliciesPanel() {
       crmApi.get<{ data: FieldPolicy[] }>('/admin/field-policies').then((r) => r.data.data),
   })
 
+  const { data: schema } = useEntitySchema()
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-field-policies'] })
     queryClient.invalidateQueries({ queryKey: ['field-policies'] })
@@ -354,8 +356,6 @@ function FieldPoliciesPanel() {
     if (cfg.requiredFields?.length) parts.push(`必填：${cfg.requiredFields.map((f) => f.label).join('、')}`)
     return parts.join('；') || '—'
   }
-
-  const { data: schema } = useEntitySchema()
 
   const triggerLabel = (p: FieldPolicy) => {
     const fieldLabel = schema?.[p.entityType]?.find((f) => f.field === p.triggerField)?.label ?? p.triggerField

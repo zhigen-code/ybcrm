@@ -14,7 +14,6 @@ export interface EntityField {
 const BASE_SCHEMA: Record<string, EntityField[]> = {
   lead: [
     { field: 'status',           label: '线索状态',     type: 'select',   optionGroup: 'lead_status' },
-    { field: 'contractStatus',   label: '合同状态',     type: 'select',   optionGroup: 'contract_status' },
     { field: 'lostReason',       label: '丢失原因',     type: 'select',   optionGroup: 'lost_reason' },
     { field: 'source',           label: '来源',         type: 'text',     triggerOnly: true },
     { field: 'assignedToUserId', label: '负责人',       type: 'user',     triggerOnly: true },
