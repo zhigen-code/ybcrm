@@ -11,6 +11,7 @@ import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
 import type { Team } from '@/shared/types'
 import type { OptionItem } from '@/shared/hooks/useOptions'
+import { useOptions } from '@/shared/hooks/useOptions'
 import type { FieldPolicy } from '@/shared/hooks/useFieldPolicies'
 
 // ─── 选项配置相关常量和组件 ───────────────────────────────────────────────────
@@ -63,32 +64,15 @@ function ColorPicker({ value, onChange }: { value: Color; onChange: (c: Color) =
 
 const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户' }
 
-const TRIGGER_FIELDS: Record<string, { value: string; label: string }[]> = {
-  lead:   [
-    { value: 'status',         label: '线索状态' },
-    { value: 'contractStatus', label: '合同状态' },
-    { value: 'assignedUserId', label: '负责人变更' },
-    { value: 'source',         label: '来源' },
-  ],
-  client: [
-    { value: 'contractStatus', label: '合同状态' },
-    { value: 'status',         label: '客户状态' },
-  ],
+interface EntityField {
+  field: string
+  label: string
+  type: 'select' | 'datetime' | 'services' | 'text' | 'user'
+  optionGroup?: string
+  triggerOnly?: boolean
 }
 
-const LEAD_STATUS_OPTIONS = [
-  { value: 'New',       label: '新线索' },
-  { value: 'Contacted', label: '已联系' },
-  { value: 'Qualified', label: '已确认' },
-  { value: 'Converted', label: '已转化' },
-  { value: 'Lost',      label: '已丢失' },
-]
-
-const TRIGGER_VALUE_LABEL: Record<string, string> = {
-  New: '新线索', Contacted: '已联系', Qualified: '已确认', Converted: '已转化', Lost: '已丢失',
-}
-
-type ReqField = { field: string; label: string; type: 'datetime' | 'select' | 'services' | 'text'; optionGroup: string }
+type ReqField = { field: string; label: string; type: 'datetime' | 'select' | 'services' | 'text'; optionGroup?: string }
 
 type PolicyForm = {
   entityType: string
@@ -101,17 +85,10 @@ type PolicyForm = {
 }
 
 const EMPTY_FORM: PolicyForm = {
-  entityType: 'lead', triggerField: 'status', triggerValue: '',
+  entityType: 'lead', triggerField: '', triggerValue: '',
   requireActivity: true, activityContentRequired: false,
   contentPresets: '', requiredFields: [],
 }
-
-const OPTION_GROUP_OPTIONS = [
-  { value: 'lead_status',     label: '线索状态' },
-  { value: 'contract_status', label: '合同状态' },
-  { value: 'activity_type',   label: '跟进类型' },
-  { value: 'partner_type',    label: '合作伙伴类型' },
-]
 
 function buildPolicyConfig(f: PolicyForm) {
   const presets = f.contentPresets
@@ -138,105 +115,13 @@ function formFromPolicy(p: FieldPolicy): PolicyForm {
   }
 }
 
-function TriggerValueField({ entityType, triggerField, value, onChange }: {
-  entityType: string; triggerField: string; value: string; onChange: (v: string) => void
-}) {
-  if (triggerField === 'status' && entityType === 'lead') {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">触发值</label>
-        <select
-          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">请选择状态...</option>
-          {LEAD_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </div>
-    )
-  }
-  return (
-    <Input
-      label="触发值（字段变为此值时触发）"
-      placeholder="输入触发值，如 Lost、Contacted"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  )
-}
-
-function RequiredFieldsEditor({ fields, onChange }: { fields: ReqField[]; onChange: (fs: ReqField[]) => void }) {
-  const [newField, setNewField] = useState<ReqField>({ field: '', label: '', type: 'datetime', optionGroup: '' })
-
-  const add = () => {
-    if (!newField.field.trim() || !newField.label.trim()) return
-    onChange([...fields, { ...newField }])
-    setNewField({ field: '', label: '', type: 'datetime', optionGroup: '' })
-  }
-
-  const remove = (i: number) => onChange(fields.filter((_, idx) => idx !== i))
-
-  return (
-    <div>
-      <p className="text-sm font-medium text-gray-700 mb-2">必填字段</p>
-      {fields.length > 0 && (
-        <div className="mb-2 space-y-1">
-          {fields.map((f, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5 text-sm">
-              <span className="flex-1 text-gray-700">{f.label}</span>
-              <span className="text-xs text-gray-400">{f.type}{f.optionGroup ? ` / ${f.optionGroup}` : ''}</span>
-              <button type="button" onClick={() => remove(i)} className="text-gray-400 hover:text-red-500 text-xs">删除</button>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="rounded-md border border-dashed border-gray-300 p-3 space-y-2">
-        <p className="text-xs text-gray-400">添加必填字段</p>
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="字段 ID（如 lostReason）"
-            value={newField.field}
-            onChange={(e) => setNewField((f) => ({ ...f, field: e.target.value }))}
-          />
-          <input
-            className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="显示名称（如 丢失原因）"
-            value={newField.label}
-            onChange={(e) => setNewField((f) => ({ ...f, label: e.target.value }))}
-          />
-        </div>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1">
-            <select
-              className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-              value={newField.type}
-              onChange={(e) => setNewField((f) => ({ ...f, type: e.target.value as ReqField['type'], optionGroup: '' }))}
-            >
-              <option value="datetime">日期时间</option>
-              <option value="select">下拉选择</option>
-              <option value="services">意向服务</option>
-              <option value="text">文本</option>
-            </select>
-          </div>
-          {newField.type === 'select' && (
-            <div className="flex-1">
-              <select
-                className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                value={newField.optionGroup ?? ''}
-                onChange={(e) => setNewField((f) => ({ ...f, optionGroup: e.target.value }))}
-              >
-                <option value="">选择选项组...</option>
-                {OPTION_GROUP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-          )}
-          <Button size="sm" onClick={add} disabled={!newField.field.trim() || !newField.label.trim()}>添加</Button>
-        </div>
-      </div>
-    </div>
-  )
+function useEntitySchema() {
+  return useQuery({
+    queryKey: ['entity-schema'],
+    queryFn: () =>
+      crmApi.get<{ data: Record<string, EntityField[]> }>('/admin/entity-schema').then((r) => r.data.data),
+    staleTime: 1000 * 60 * 5,
+  })
 }
 
 function PolicyFormModal({
@@ -250,7 +135,42 @@ function PolicyFormModal({
 }) {
   const [form, setForm] = useState<PolicyForm>(initial)
   const set = (patch: Partial<PolicyForm>) => setForm((f) => ({ ...f, ...patch }))
-  const triggerFields = TRIGGER_FIELDS[form.entityType] ?? []
+
+  const { data: schema } = useEntitySchema()
+  const { data: allOptions } = useOptions()
+
+  const entityFields: EntityField[] = schema?.[form.entityType] ?? []
+  const triggerFieldDef = entityFields.find((f) => f.field === form.triggerField)
+  const triggerValueOptions = triggerFieldDef?.optionGroup
+    ? (allOptions?.[triggerFieldDef.optionGroup] ?? [])
+    : []
+
+  // 非 triggerOnly 的字段可作为必填字段
+  const requirableFields = entityFields.filter((f) => !f.triggerOnly)
+  const requiredFieldIds = new Set(form.requiredFields.map((f) => f.field))
+
+  const toggleRequired = (ef: EntityField, checked: boolean) => {
+    if (checked) {
+      const newReqField: ReqField = {
+        field: ef.field,
+        label: ef.label,
+        type: ef.type === 'user' ? 'text' : ef.type as ReqField['type'],
+        ...(ef.optionGroup ? { optionGroup: ef.optionGroup } : {}),
+      }
+      set({ requiredFields: [...form.requiredFields, newReqField] })
+    } else {
+      set({ requiredFields: form.requiredFields.filter((f) => f.field !== ef.field) })
+    }
+  }
+
+  const handleEntityChange = (entityType: string) => {
+    const firstField = schema?.[entityType]?.[0]?.field ?? ''
+    set({ entityType, triggerField: firstField, triggerValue: '', requiredFields: [] })
+  }
+
+  const handleTriggerFieldChange = (field: string) => {
+    set({ triggerField: field, triggerValue: '' })
+  }
 
   return (
     <Modal
@@ -272,7 +192,7 @@ function PolicyFormModal({
             <select
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               value={form.entityType}
-              onChange={(e) => set({ entityType: e.target.value, triggerField: TRIGGER_FIELDS[e.target.value]?.[0]?.value ?? 'status', triggerValue: '' })}
+              onChange={(e) => handleEntityChange(e.target.value)}
             >
               <option value="lead">线索</option>
               <option value="client">客户</option>
@@ -283,19 +203,37 @@ function PolicyFormModal({
             <select
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               value={form.triggerField}
-              onChange={(e) => set({ triggerField: e.target.value, triggerValue: '' })}
+              onChange={(e) => handleTriggerFieldChange(e.target.value)}
             >
-              {triggerFields.map((tf) => <option key={tf.value} value={tf.value}>{tf.label}</option>)}
+              <option value="">请选择...</option>
+              {entityFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
             </select>
           </div>
         </div>
 
-        <TriggerValueField
-          entityType={form.entityType}
-          triggerField={form.triggerField}
-          value={form.triggerValue}
-          onChange={(v) => set({ triggerValue: v })}
-        />
+        {/* 触发值：有 optionGroup 时用下拉，否则文本 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">触发值</label>
+          {triggerValueOptions.length > 0 ? (
+            <select
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={form.triggerValue}
+              onChange={(e) => set({ triggerValue: e.target.value })}
+            >
+              <option value="">请选择...</option>
+              {triggerValueOptions.map((o: OptionItem) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="输入触发值"
+              value={form.triggerValue}
+              onChange={(e) => set({ triggerValue: e.target.value })}
+            />
+          )}
+        </div>
 
         <div className="border-t pt-3">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">触发后动作</p>
@@ -329,10 +267,28 @@ function PolicyFormModal({
           onChange={(e) => set({ contentPresets: e.target.value })}
         />
 
-        <RequiredFieldsEditor
-          fields={form.requiredFields}
-          onChange={(requiredFields) => set({ requiredFields })}
-        />
+        {/* 必填字段：从 entity schema 动态渲染 */}
+        {requirableFields.length > 0 && (
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">强制填写字段</p>
+            <div className="rounded-md border border-gray-200 divide-y divide-gray-100">
+              {requirableFields.map((ef) => (
+                <label key={ef.field} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={requiredFieldIds.has(ef.field)}
+                    onChange={(e) => toggleRequired(ef, e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="flex-1 text-sm text-gray-700">{ef.label}</span>
+                  <span className="text-xs text-gray-400">
+                    {ef.type === 'select' ? '下拉' : ef.type === 'datetime' ? '日期时间' : ef.type === 'services' ? '意向服务' : '文本'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   )
@@ -399,10 +355,11 @@ function FieldPoliciesPanel() {
     return parts.join('；') || '—'
   }
 
+  const { data: schema } = useEntitySchema()
+
   const triggerLabel = (p: FieldPolicy) => {
-    const fieldLabel = TRIGGER_FIELDS[p.entityType]?.find((f) => f.value === p.triggerField)?.label ?? p.triggerField
-    const valueLabel = TRIGGER_VALUE_LABEL[p.triggerValue] ?? p.triggerValue
-    return `${fieldLabel} → ${valueLabel}`
+    const fieldLabel = schema?.[p.entityType]?.find((f) => f.field === p.triggerField)?.label ?? p.triggerField
+    return `${fieldLabel} → ${p.triggerValue}`
   }
 
   return (
