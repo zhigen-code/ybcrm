@@ -103,11 +103,11 @@ const TRIGGER_TYPES: { type: WfTriggerType; label: string; desc: string }[] = [
 ]
 
 const ACTION_TYPES: { type: WfActionForm['type']; label: string; supported: boolean }[] = [
-  { type: 'require_activity', label: '要求跟进记录', supported: true  },
-  { type: 'require_fields',   label: '强制填写字段', supported: true  },
-  { type: 'set_field',        label: '自动赋值字段', supported: false },
-  { type: 'send_email',       label: '发送邮件',     supported: false },
-  { type: 'webhook',          label: 'Webhook 通知', supported: false },
+  { type: 'require_activity', label: '要求跟进记录', supported: true },
+  { type: 'require_fields',   label: '强制填写字段', supported: true },
+  { type: 'set_field',        label: '自动赋值字段', supported: true },
+  { type: 'send_email',       label: '发送邮件',     supported: true },
+  { type: 'webhook',          label: 'Webhook 通知', supported: true },
 ]
 
 const ACTION_LABELS: Record<WfActionForm['type'], string> = {

@@ -5,6 +5,7 @@ import { HTTPException } from 'hono/http-exception'
 import { v4 as uuidv4 } from 'uuid'
 import { requireAuth } from '../middleware/auth'
 import { toCamel, toCamelList } from '../../shared/db'
+import { executeWorkflowsForTrigger } from '../workflow/executor'
 
 export const leadsRoutes = new Hono<{ Bindings: Env }>()
 
@@ -111,6 +112,12 @@ leadsRoutes.post('/', zValidator('json', leadSchema), async (c) => {
   // 推送到线索分配队列
   await c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id })
 
+  // 触发 on_create 工作流（fire-and-forget）
+  c.executionCtx.waitUntil(
+    executeWorkflowsForTrigger(c.env.DB, c.env, 'lead', id, { type: 'on_create' })
+      .catch((err) => console.error('[workflow] on_create lead error:', err)),
+  )
+
   const lead = await c.env.DB.prepare(
     `${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ?`,
   ).bind(id).first()
@@ -216,6 +223,14 @@ leadsRoutes.put(
         `INSERT INTO sales_activities (id, lead_id, user_id, activity_type, description, activity_date)
          VALUES (?, ?, ?, 'System', ?, CURRENT_TIMESTAMP)`,
       ).bind(uuidv4(), id, userId, changes.join('；')).run()
+    }
+
+    // 触发 field_change 工作流
+    if (body.status !== undefined && body.status !== lead.status) {
+      c.executionCtx.waitUntil(
+        executeWorkflowsForTrigger(c.env.DB, c.env, 'lead', id, { type: 'field_change', field: 'status', to: body.status })
+          .catch((err) => console.error('[workflow] field_change lead status error:', err)),
+      )
     }
 
     const updated = await c.env.DB.prepare(
@@ -335,6 +350,12 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
     ).bind(uuidv4(), actId, att.name, att.key, att.size ?? null, att.mimeType ?? null, userId),
   )
   if (attStmts.length > 0) await c.env.DB.batch(attStmts)
+
+  // 触发 field_change 工作流（状态变更）
+  c.executionCtx.waitUntil(
+    executeWorkflowsForTrigger(c.env.DB, c.env, 'lead', id, { type: 'field_change', field: 'status', to: body.targetStatus })
+      .catch((err) => console.error('[workflow] field_change lead status-transition error:', err)),
+  )
 
   const result = await c.env.DB.prepare(`${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ?`).bind(id).first()
   return c.json({ data: parseLead(result as Record<string, unknown>) })

@@ -5,6 +5,7 @@ import { HTTPException } from 'hono/http-exception'
 import { v4 as uuidv4 } from 'uuid'
 import { requireAuth } from '../middleware/auth'
 import { toCamel, toCamelList } from '../../shared/db'
+import { executeWorkflowsForTrigger } from '../workflow/executor'
 
 export const clientsRoutes = new Hono<{ Bindings: Env }>()
 
@@ -157,6 +158,12 @@ clientsRoutes.post(
       ).bind(activityId, id, body.leadId, userId).run()
     }
 
+    // 触发 on_create 工作流
+    c.executionCtx.waitUntil(
+      executeWorkflowsForTrigger(c.env.DB, c.env, 'client', id, { type: 'on_create' })
+        .catch((err) => console.error('[workflow] on_create client error:', err)),
+    )
+
     const client = await c.env.DB.prepare(
       `${SELECT_COLS} ${BASE_JOIN} WHERE c.id = ?`,
     ).bind(id).first()
@@ -240,6 +247,14 @@ clientsRoutes.put(
         `INSERT INTO sales_activities (id, client_id, user_id, activity_type, description, activity_date)
          VALUES (?, ?, ?, 'System', ?, CURRENT_TIMESTAMP)`,
       ).bind(uuidv4(), id, userId, changes.join('；')).run()
+    }
+
+    // 触发 field_change 工作流
+    if (body.contractStatus != null && body.contractStatus !== existing.contract_status) {
+      c.executionCtx.waitUntil(
+        executeWorkflowsForTrigger(c.env.DB, c.env, 'client', id, { type: 'field_change', field: 'contractStatus', to: body.contractStatus })
+          .catch((err) => console.error('[workflow] field_change client contractStatus error:', err)),
+      )
     }
 
     const updated = await c.env.DB.prepare(
