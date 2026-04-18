@@ -374,43 +374,6 @@ function WorkflowFormModal({
                 </div>
 
                 <div className="px-3 py-3 space-y-2">
-                  {/* 要求跟进记录 */}
-                  {action.type === 'require_activity' && (
-                    <>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                        <input type="checkbox" checked={action.contentRequired} className="rounded border-gray-300"
-                          onChange={(e) => patchAction(idx, { contentRequired: e.target.checked })} />
-                        跟进内容必填
-                      </label>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">快选预设（逗号分隔，可选）</label>
-                        <input className={inp} placeholder="如：电话未接通,已加微信未回"
-                          value={action.contentPresets}
-                          onChange={(e) => patchAction(idx, { contentPresets: e.target.value })} />
-                      </div>
-                    </>
-                  )}
-
-                  {/* 强制填写字段 */}
-                  {action.type === 'require_fields' && (
-                    <div className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">
-                      {requirableFields.length === 0
-                        ? <p className="px-3 py-2 text-xs text-gray-400">暂无可选字段</p>
-                        : requirableFields.map((ef) => (
-                          <label key={ef.field} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
-                            <input type="checkbox" className="rounded border-gray-300"
-                              checked={action.fields.some((f) => f.field === ef.field)}
-                              onChange={(e) => toggleReqField(idx, ef, e.target.checked)} />
-                            <span className="flex-1 text-sm text-gray-700">{ef.label}</span>
-                            <span className="text-xs text-gray-400">
-                              {ef.type === 'select' ? '下拉' : ef.type === 'datetime' ? '日期时间' : ef.type === 'services' ? '意向服务' : '文本'}
-                            </span>
-                          </label>
-                        ))
-                      }
-                    </div>
-                  )}
-
                   <ActionConfigEditor
                     action={action}
                     onChange={(p) => patchAction(idx, p)}
