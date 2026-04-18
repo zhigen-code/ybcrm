@@ -50,8 +50,8 @@ entitySchemaRoutes.get('/', async (c) => {
       type:        'select',
       optionGroup: group_key,
     }
-    schema.lead.push(field)
-    schema.client.push(field)
+    schema['lead']?.push(field)
+    schema['client']?.push(field)
   }
 
   return c.json({ data: schema })

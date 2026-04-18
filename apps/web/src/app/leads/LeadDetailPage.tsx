@@ -9,8 +9,8 @@ import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { AttachmentList } from '@/shared/components/AttachmentList'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
-import { useFieldPolicies } from '@/shared/hooks/useFieldPolicies'
-import type { FieldPolicyConfig } from '@/shared/hooks/useFieldPolicies'
+import { useWorkflows } from '@/shared/hooks/useWorkflows'
+import type { ActivityConfig } from '@/shared/hooks/useWorkflows'
 import type { Lead, LeadStatus, SalesActivity, User } from '@/shared/types'
 import { useState } from 'react'
 
@@ -22,9 +22,9 @@ export default function LeadDetailPage() {
   const [showActivity, setShowActivity] = useState(false)
   const [assigningUserId, setAssigningUserId] = useState<string | null | undefined>(undefined)
   const [pendingStatus, setPendingStatus] = useState<string | null>(null)
-  const [pendingPolicy, setPendingPolicy] = useState<FieldPolicyConfig | null>(null)
+  const [pendingPolicy, setPendingPolicy] = useState<ActivityConfig | null>(null)
 
-  const { getPolicy } = useFieldPolicies('lead')
+  const { getActivityConfig } = useWorkflows('lead')
   const [transitionError, setTransitionError] = useState<string | null>(null)
 
   const canAssign = me?.role === 'admin' || me?.role === 'operations'
@@ -86,7 +86,7 @@ export default function LeadDetailPage() {
   })
 
   const handleStatusClick = (status: string) => {
-    const policy = getPolicy('status', status)
+    const policy = getActivityConfig('status', status)
     if (policy?.requireActivity) {
       setPendingStatus(status)
       setPendingPolicy(policy)
@@ -332,7 +332,7 @@ export default function LeadDetailPage() {
           title={`变更为「${getOptionLabel(leadStatusOpts, pendingStatus)}」— 请填写跟进记录`}
           onClose={() => { setPendingStatus(null); setPendingPolicy(null); setTransitionError(null) }}
           loading={statusTransition.isPending}
-          policyConfig={pendingPolicy}
+          activityConfig={pendingPolicy}
           serverError={transitionError ?? undefined}
           initialPolicyValues={
             pendingStatus === 'Qualified'

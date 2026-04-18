@@ -12,7 +12,7 @@ import { Input } from './Input'
 import { useOptionGroup, useOptions, toSelectOptions } from '@/shared/hooks/useOptions'
 import { nowForInput } from '@/shared/utils/format'
 import type { ActivityAttachment } from '@/shared/types'
-import type { FieldPolicyConfig } from '@/shared/hooks/useFieldPolicies'
+import type { ActivityConfig } from '@/shared/hooks/useWorkflows'
 
 const schema = z.object({
   activityType: z.string().min(1, '请选择跟进类型'),
@@ -34,7 +34,7 @@ interface ActivityModalProps {
   onClose: () => void
   onSubmit: (data: ActivitySubmitData) => void
   loading: boolean
-  policyConfig?: FieldPolicyConfig | null
+  activityConfig?: ActivityConfig | null
   initialPolicyValues?: Record<string, unknown>
   serverError?: string | undefined
 }
@@ -46,13 +46,13 @@ function formatSize(bytes: number) {
 }
 
 export function ActivityModal({
-  title, onClose, onSubmit, loading, policyConfig, initialPolicyValues, serverError,
+  title, onClose, onSubmit, loading, activityConfig, initialPolicyValues, serverError,
 }: ActivityModalProps) {
   const { options: allActivityTypeOpts } = useOptionGroup('activity_type')
   const activityTypeOpts = allActivityTypeOpts.filter((o) => o.value !== 'System')
   const { data: allOptions } = useOptions()
 
-  const hasServicesField = policyConfig?.requiredFields?.some((f) => f.type === 'services') ?? false
+  const hasServicesField = activityConfig?.requiredFields?.some((f) => f.type === 'services') ?? false
   const { data: servicesData } = useQuery({
     queryKey: ['services'],
     queryFn: () =>
@@ -96,11 +96,11 @@ export function ActivityModal({
 
   const handleSave = handleSubmit(async (formData) => {
     // 校验策略必填字段
-    if (policyConfig?.activityContentRequired && !formData.description?.trim()) {
+    if (activityConfig?.contentRequired && !formData.description?.trim()) {
       setPolicyError('请填写跟进内容')
       return
     }
-    for (const rf of policyConfig?.requiredFields ?? []) {
+    for (const rf of activityConfig?.requiredFields ?? []) {
       const val = policyFields[rf.field]
       if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
         setPolicyError(`请填写${rf.label}`)
@@ -180,11 +180,11 @@ export function ActivityModal({
         </div>
 
         {/* 快选预设 */}
-        {(policyConfig?.contentPresets?.length ?? 0) > 0 && (
+        {(activityConfig?.contentPresets?.length ?? 0) > 0 && (
           <div>
             <p className="mb-1.5 text-xs text-gray-500">快速选择</p>
             <div className="flex flex-wrap gap-1.5">
-              {policyConfig!.contentPresets!.map((preset) => (
+              {activityConfig!.contentPresets!.map((preset) => (
                 <button
                   key={preset}
                   type="button"
@@ -203,16 +203,16 @@ export function ActivityModal({
         )}
 
         <Textarea
-          label={policyConfig?.activityContentRequired ? '内容（必填）' : '内容'}
+          label={activityConfig?.contentRequired ? '内容（必填）' : '内容'}
           placeholder="记录本次跟进的要点..."
           {...register('description')}
         />
 
         {/* 策略要求的额外字段 */}
-        {(policyConfig?.requiredFields?.length ?? 0) > 0 && (
+        {(activityConfig?.requiredFields?.length ?? 0) > 0 && (
           <div className="border-t pt-3 space-y-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">必填信息</p>
-            {policyConfig!.requiredFields!.map((rf) => {
+            {activityConfig!.requiredFields!.map((rf) => {
               if (rf.type === 'select' && rf.optionGroup) {
                 const opts = allOptions?.[rf.optionGroup] ?? []
                 return (

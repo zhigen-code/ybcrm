@@ -16,7 +16,6 @@ const navItems = [
 const adminNavItems = [
     { to: '/app/users', label: '用户管理' },
     { to: '/app/settings', label: '系统管理' },
-    { to: '/app/settings/options', label: '选项配置' },
 ];
 export default function CrmLayout() {
     const { user, logout } = useCrmAuth();

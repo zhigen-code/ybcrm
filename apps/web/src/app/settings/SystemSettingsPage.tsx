@@ -12,7 +12,7 @@ import { Badge } from '@/shared/components/Badge'
 import type { Team } from '@/shared/types'
 import type { OptionItem } from '@/shared/hooks/useOptions'
 import { useOptions } from '@/shared/hooks/useOptions'
-import type { FieldPolicy } from '@/shared/hooks/useFieldPolicies'
+import type { Workflow } from '@/shared/hooks/useWorkflows'
 
 // ─── 选项配置相关常量和组件 ───────────────────────────────────────────────────
 
@@ -90,28 +90,40 @@ const EMPTY_FORM: PolicyForm = {
   contentPresets: '', requiredFields: [],
 }
 
-function buildPolicyConfig(f: PolicyForm) {
+function buildWorkflowPayload(f: PolicyForm) {
   const presets = f.contentPresets
     ? f.contentPresets.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
     : []
+  const actions = []
+  if (f.requireActivity) {
+    actions.push({
+      type: 'require_activity',
+      contentRequired: f.activityContentRequired,
+      ...(presets.length ? { contentPresets: presets } : {}),
+    })
+  }
+  if (f.requiredFields.length) {
+    actions.push({ type: 'require_fields', fields: f.requiredFields })
+  }
   return {
-    requireActivity: f.requireActivity,
-    activityContentRequired: f.activityContentRequired,
-    ...(presets.length ? { contentPresets: presets } : {}),
-    ...(f.requiredFields.length ? { requiredFields: f.requiredFields } : {}),
+    name: `${f.triggerField} → ${f.triggerValue}`,
+    entityType: f.entityType,
+    trigger: { type: 'field_change', field: f.triggerField, to: f.triggerValue },
+    actions,
   }
 }
 
-function formFromPolicy(p: FieldPolicy): PolicyForm {
-  const cfg = p.policyConfig
+function formFromWorkflow(w: Workflow): PolicyForm {
+  const actAction = w.actions.find((a) => a.type === 'require_activity')
+  const fieldsAction = w.actions.find((a) => a.type === 'require_fields')
   return {
-    entityType: p.entityType,
-    triggerField: p.triggerField,
-    triggerValue: p.triggerValue,
-    requireActivity: cfg.requireActivity ?? true,
-    activityContentRequired: cfg.activityContentRequired ?? false,
-    contentPresets: cfg.contentPresets?.join(',') ?? '',
-    requiredFields: (cfg.requiredFields ?? []) as ReqField[],
+    entityType: w.entityType,
+    triggerField: w.trigger.field,
+    triggerValue: w.trigger.to,
+    requireActivity: !!actAction,
+    activityContentRequired: actAction?.type === 'require_activity' ? actAction.contentRequired : false,
+    contentPresets: actAction?.type === 'require_activity' ? (actAction.contentPresets?.join(',') ?? '') : '',
+    requiredFields: fieldsAction?.type === 'require_fields' ? (fieldsAction.fields as ReqField[]) : [],
   }
 }
 
@@ -294,79 +306,72 @@ function PolicyFormModal({
   )
 }
 
-function FieldPoliciesPanel() {
+function WorkflowsPanel() {
   const queryClient = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
-  const [editTarget, setEditTarget] = useState<FieldPolicy | null>(null)
+  const [editTarget, setEditTarget] = useState<Workflow | null>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-field-policies'],
+    queryKey: ['admin-workflows'],
     queryFn: () =>
-      crmApi.get<{ data: FieldPolicy[] }>('/admin/field-policies').then((r) => r.data.data),
+      crmApi.get<{ data: Workflow[] }>('/admin/workflows').then((r) => r.data.data),
   })
 
   const { data: schema } = useEntitySchema()
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['admin-field-policies'] })
-    queryClient.invalidateQueries({ queryKey: ['field-policies'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-workflows'] })
+    queryClient.invalidateQueries({ queryKey: ['workflows'] })
   }
 
   const toggle = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      crmApi.put(`/admin/field-policies/${id}`, { isActive }),
+      crmApi.put(`/admin/workflows/${id}`, { isActive }),
     onSuccess: invalidate,
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => crmApi.delete(`/admin/field-policies/${id}`),
+    mutationFn: (id: string) => crmApi.delete(`/admin/workflows/${id}`),
     onSuccess: invalidate,
   })
 
   const addMutation = useMutation({
-    mutationFn: (f: PolicyForm) =>
-      crmApi.post('/admin/field-policies', {
-        entityType: f.entityType,
-        triggerField: f.triggerField,
-        triggerValue: f.triggerValue,
-        policyConfig: buildPolicyConfig(f),
-      }),
+    mutationFn: (f: PolicyForm) => crmApi.post('/admin/workflows', buildWorkflowPayload(f)),
     onSuccess: () => { invalidate(); setShowAdd(false) },
   })
 
   const editMutation = useMutation({
     mutationFn: ({ id, f }: { id: string; f: PolicyForm }) =>
-      crmApi.put(`/admin/field-policies/${id}`, {
-        entityType: f.entityType,
-        triggerField: f.triggerField,
-        triggerValue: f.triggerValue,
-        policyConfig: buildPolicyConfig(f),
-      }),
+      crmApi.put(`/admin/workflows/${id}`, buildWorkflowPayload(f)),
     onSuccess: () => { invalidate(); setEditTarget(null) },
   })
 
   if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
 
-  const formatPolicyConfig = (p: FieldPolicy) => {
-    const cfg = p.policyConfig
+  const formatActions = (w: Workflow) => {
     const parts: string[] = []
-    if (cfg.requireActivity) parts.push('要求跟进记录')
-    if (cfg.activityContentRequired) parts.push('内容必填')
-    if (cfg.contentPresets?.length) parts.push(`快选：${cfg.contentPresets.join(' / ')}`)
-    if (cfg.requiredFields?.length) parts.push(`必填：${cfg.requiredFields.map((f) => f.label).join('、')}`)
+    for (const a of w.actions) {
+      if (a.type === 'require_activity') {
+        parts.push('要求跟进记录')
+        if (a.contentRequired) parts.push('内容必填')
+        if (a.contentPresets?.length) parts.push(`快选：${a.contentPresets.join(' / ')}`)
+      } else if (a.type === 'require_fields') {
+        parts.push(`必填：${a.fields.map((f) => f.label).join('、')}`)
+      }
+    }
     return parts.join('；') || '—'
   }
 
-  const triggerLabel = (p: FieldPolicy) => {
-    const fieldLabel = schema?.[p.entityType]?.find((f) => f.field === p.triggerField)?.label ?? p.triggerField
-    return `${fieldLabel} → ${p.triggerValue}`
+  const triggerLabel = (w: Workflow) => {
+    const fieldLabel = schema?.[w.entityType]?.find((f) => f.field === w.trigger.field)?.label ?? w.trigger.field
+    return `${fieldLabel} → ${w.trigger.to}`
   }
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-500">字段变更时强制填写跟进记录或指定字段，校验通过后才允许保存。</p>
-        <Button size="sm" onClick={() => setShowAdd(true)}>+ 新建策略</Button>
+        <p className="text-sm text-gray-500">字段变更时触发动作（要求跟进记录、强制填写字段等），校验通过后才允许保存。</p>
+        <Button size="sm" onClick={() => setShowAdd(true)}>+ 新建工作流</Button>
       </div>
 
       <div className="rounded-lg border bg-white overflow-hidden">
@@ -378,40 +383,40 @@ function FieldPoliciesPanel() {
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-700">对象</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-700">触发条件</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">策略要求</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">动作</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((p) => (
-                <tr key={p.id} className={p.isActive ? '' : 'opacity-50'}>
-                  <td className="px-4 py-3 text-gray-700">{ENTITY_LABELS[p.entityType] ?? p.entityType}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{triggerLabel(p)}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs max-w-xs">{formatPolicyConfig(p)}</td>
+              {data.map((w) => (
+                <tr key={w.id} className={w.isActive ? '' : 'opacity-50'}>
+                  <td className="px-4 py-3 text-gray-700">{ENTITY_LABELS[w.entityType] ?? w.entityType}</td>
+                  <td className="px-4 py-3 text-gray-600 text-xs">{triggerLabel(w)}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs max-w-xs">{formatActions(w)}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={p.isActive ? 'green' : 'gray'}>
-                      {p.isActive ? '启用' : '禁用'}
+                    <Badge variant={w.isActive ? 'green' : 'gray'}>
+                      {w.isActive ? '启用' : '禁用'}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
                       <button
-                        onClick={() => setEditTarget(p)}
+                        onClick={() => setEditTarget(w)}
                         className="text-xs text-primary-600 hover:text-primary-800"
                       >
                         编辑
                       </button>
                       <span className="text-gray-300">|</span>
                       <button
-                        onClick={() => toggle.mutate({ id: p.id, isActive: !p.isActive })}
+                        onClick={() => toggle.mutate({ id: w.id, isActive: !w.isActive })}
                         className="text-xs text-gray-500 hover:text-gray-700"
                       >
-                        {p.isActive ? '禁用' : '启用'}
+                        {w.isActive ? '禁用' : '启用'}
                       </button>
                       <span className="text-gray-300">|</span>
                       <button
-                        onClick={() => { if (confirm('确认删除此策略？')) deleteMutation.mutate(p.id) }}
+                        onClick={() => { if (confirm('确认删除此工作流？')) deleteMutation.mutate(w.id) }}
                         className="text-xs text-red-500 hover:text-red-700"
                       >
                         删除
@@ -427,7 +432,7 @@ function FieldPoliciesPanel() {
 
       {showAdd && (
         <PolicyFormModal
-          title="新建字段策略"
+          title="新建工作流"
           initial={EMPTY_FORM}
           onClose={() => setShowAdd(false)}
           onSave={(f) => addMutation.mutate(f)}
@@ -437,8 +442,8 @@ function FieldPoliciesPanel() {
 
       {editTarget && (
         <PolicyFormModal
-          title="编辑字段策略"
-          initial={formFromPolicy(editTarget)}
+          title="编辑工作流"
+          initial={formFromWorkflow(editTarget)}
           onClose={() => setEditTarget(null)}
           onSave={(f) => editMutation.mutate({ id: editTarget.id, f })}
           saving={editMutation.isPending}
@@ -708,7 +713,7 @@ const TABS = [
   { key: 'assignment', label: '自动分配' },
   { key: 'ai',         label: 'AI 配置' },
   { key: 'options',    label: '选项配置' },
-  { key: 'policies',   label: '字段策略' },
+  { key: 'policies',   label: '工作流' },
 ] as const
 type TabKey = typeof TABS[number]['key']
 
@@ -1253,7 +1258,7 @@ export default function SystemSettingsPage() {
       )}
 
       {/* 字段策略 */}
-      {activeTab === 'policies' && <FieldPoliciesPanel />}
+      {activeTab === 'policies' && <WorkflowsPanel />}
 
       {/* AI 配置 */}
       {activeTab === 'ai' && (
