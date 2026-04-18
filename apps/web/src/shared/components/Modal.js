@@ -1,4 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-export function Modal({ title, children, onClose, footer }) {
-    return (_jsx("div", { className: "fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center", children: _jsxs("div", { className: "w-full max-h-[90vh] overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:mx-4 sm:max-w-md sm:rounded-xl", children: [_jsxs("div", { className: "flex items-center justify-between border-b px-5 py-4", children: [_jsx("h2", { className: "text-base font-semibold text-gray-900", children: title }), _jsx("button", { onClick: onClose, className: "flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 text-xl leading-none", children: "\u00D7" })] }), _jsx("div", { className: "px-5 py-4", children: children }), footer && _jsx("div", { className: "flex justify-end gap-2 border-t px-5 py-4", children: footer })] }) }));
-}

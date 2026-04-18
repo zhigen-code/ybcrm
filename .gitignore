@@ -5,3 +5,12 @@ dist/
 *.local
 .env
 .DS_Store
+
+# TypeScript 编译产物（tsc 原地输出）
+apps/web/src/**/*.js
+apps/web/src/**/*.d.ts
+!apps/web/src/vite-env.d.ts
+apps/web/tsconfig.tsbuildinfo
+apps/workers/src/**/*.js
+apps/workers/src/**/*.d.ts
+apps/workers/tsconfig.tsbuildinfo
