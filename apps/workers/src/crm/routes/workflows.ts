@@ -10,6 +10,12 @@ function parseWorkflow(row: Record<string, unknown>) {
       try { w[key] = JSON.parse(w[key] as string) } catch { /* keep */ }
     }
   }
+  // 兼容迁移时 json_group_array 双重序列化的情况
+  if (Array.isArray(w.actions)) {
+    w.actions = (w.actions as unknown[]).map((a) =>
+      typeof a === 'string' ? JSON.parse(a) : a,
+    )
+  }
   return w
 }
 
