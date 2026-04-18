@@ -25,14 +25,14 @@ interface StoredWorkflow {
 
 const FIELD_TO_COLUMN: Record<string, Record<string, string>> = {
   lead: {
-    status:            'status',
-    lostReason:        'lost_reason',
-    source:            'source',
-    assignedToUserId:  'assigned_to_userId',
-    intendedServices:  'intended_services',
-    nextContactDate:   'next_contact_date',
-    notes:             'notes',
-    contactInfo:       'contact_info',
+    status:           'status',
+    lostReason:       'lost_reason',
+    source:           'source',
+    assignedToUserId: 'assigned_to_userId',
+    intendedServices: 'intended_services',
+    nextContactDate:  'next_contact_date',
+    notes:            'notes',
+    contactInfo:      'contact_info',
   },
   client: {
     contractStatus:      'contract_status',
@@ -43,13 +43,80 @@ const FIELD_TO_COLUMN: Record<string, Record<string, string>> = {
   },
 }
 
-// ── 模板插值：支持 {{field}} 和 {{entity.field}} ─────────────────────────────
+// ── 时间变量（基于系统时区）─────────────────────────────────────────────────
 
-function interpolate(template: string, data: Record<string, unknown>): string {
-  return template.replace(/\{\{[\w.]*?(\w+)\}\}/g, (_, field: string) => {
-    const val = data[field]
-    if (Array.isArray(val)) return val.join('、')
-    return val != null ? String(val) : ''
+function buildTimeVars(timezone: string): Record<string, string> {
+  const tz = timezone || 'Asia/Shanghai'
+
+  // 以目标时区的"今天零点"为基准
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD
+  const today = new Date(`${todayStr}T00:00:00`)
+
+  const add = (base: Date, days: number) => {
+    const d = new Date(base)
+    d.setDate(d.getDate() + days)
+    return d.toLocaleDateString('en-CA', { timeZone: tz })
+  }
+
+  // 本周一
+  const dow = today.getDay() === 0 ? 6 : today.getDay() - 1
+  const weekStartStr = add(today, -dow)
+  const weekEndStr   = add(today, 6 - dow)
+
+  // 本月首尾
+  const [year, month] = todayStr.split('-').map(Number) as [number, number]
+  const monthStartStr = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const monthEndStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+  // 当前时间（精确到分钟）
+  const nowStr = new Date().toLocaleString('zh-CN', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).replace(/\//g, '-')
+
+  return {
+    now:        nowStr,
+    today:      todayStr,
+    tomorrow:   add(today, 1),
+    yesterday:  add(today, -1),
+    weekStart:  weekStartStr,
+    weekEnd:    weekEndStr,
+    monthStart: monthStartStr,
+    monthEnd:   monthEndStr,
+  }
+}
+
+// ── 构建完整模板上下文 ────────────────────────────────────────────────────────
+
+function buildContext(
+  entityData: Record<string, unknown>,
+  timeVars: Record<string, string>,
+): Record<string, string> {
+  const ctx: Record<string, string> = {}
+
+  // 实体字段（camelCase，数组转中文顿号分隔）
+  for (const [k, v] of Object.entries(entityData)) {
+    if (Array.isArray(v)) ctx[k] = (v as unknown[]).join('、')
+    else if (v != null)   ctx[k] = String(v)
+  }
+
+  // 时间变量（优先级低于同名实体字段）
+  for (const [k, v] of Object.entries(timeVars)) {
+    if (!(k in ctx)) ctx[k] = v
+  }
+
+  return ctx
+}
+
+// ── 模板插值：{{field}} 或 {{entity.field}} ──────────────────────────────────
+// 未知变量保留原样（不替换为空），方便调试
+
+function interpolate(template: string, ctx: Record<string, string>): string {
+  return template.replace(/\{\{([\w.]+)\}\}/g, (match, key: string) => {
+    // 支持 {{lead.name}} → 取末段 'name'
+    const field = key.includes('.') ? (key.split('.').pop() ?? key) : key
+    return field in ctx ? ctx[field]! : match
   })
 }
 
@@ -88,7 +155,6 @@ function matchesTrigger(
 
 async function sendEmail(
   env: Env,
-  _db: D1Database,
   to: string,
   subject: string,
   body: string,
@@ -129,14 +195,39 @@ export async function executeWorkflowsForTrigger(
   })
   if (!matched.length) return
 
-  // 2. 读取实体最新数据（用于模板插值 + set_field 后续读取）
-  const table = entityType === 'lead' ? 'leads' : 'clients'
-  const raw = await db.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(entityId).first<Record<string, unknown>>()
-  const entityData: Record<string, unknown> = raw ? toCamel(raw) as Record<string, unknown> : {}
+  // 2. 读取实体数据（联表获取负责人姓名等）
+  let entityData: Record<string, unknown> = {}
+  if (entityType === 'lead') {
+    const raw = await db.prepare(
+      `SELECT l.*, u.name as assigned_to_name, u.email as assigned_to_email
+       FROM leads l
+       LEFT JOIN users u ON l.assigned_to_userId = u.id
+       WHERE l.id = ?`,
+    ).bind(entityId).first<Record<string, unknown>>()
+    entityData = raw ? (toCamel(raw) as Record<string, unknown>) : {}
+  } else {
+    const raw = await db.prepare(
+      `SELECT c.*, u.name as assigned_sales_name, u.email as assigned_sales_email
+       FROM clients c
+       LEFT JOIN users u ON c.assigned_sales_userId = u.id
+       WHERE c.id = ?`,
+    ).bind(entityId).first<Record<string, unknown>>()
+    entityData = raw ? (toCamel(raw) as Record<string, unknown>) : {}
+  }
+
+  // 3. 读取系统时区
+  const tzRow = await db.prepare(
+    "SELECT value FROM system_settings WHERE key = 'timezone'",
+  ).first<{ value: string }>()
+  const timezone = tzRow?.value ?? 'Asia/Shanghai'
+
+  // 4. 构建模板上下文（实体数据 + 时间变量）
+  const ctx = buildContext(entityData, buildTimeVars(timezone))
 
   const fieldMap = FIELD_TO_COLUMN[entityType] ?? {}
+  const table    = entityType === 'lead' ? 'leads' : 'clients'
 
-  // 3. 依次执行各工作流的动作
+  // 5. 依次执行各工作流的动作
   for (const row of matched) {
     const { actions } = parseWorkflow(row)
     for (const action of actions) {
@@ -144,15 +235,15 @@ export async function executeWorkflowsForTrigger(
         if (action.type === 'set_field') {
           const col = fieldMap[action.field]
           if (!col) continue
+          const value = interpolate(action.value, ctx)
           await db.prepare(`UPDATE ${table} SET ${col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-            .bind(action.value, entityId)
-            .run()
-          // 更新内存副本，让后续动作的插值读到最新值
-          entityData[action.field] = action.value
+            .bind(value, entityId).run()
+          // 同步更新内存副本，后续动作插值可读到最新值
+          ctx[action.field] = value
 
         } else if (action.type === 'webhook') {
-          const url  = interpolate(action.url,  entityData)
-          const body = interpolate(action.body, entityData)
+          const url  = interpolate(action.url,  ctx)
+          const body = interpolate(action.body, ctx)
           await fetch(url, {
             method: action.method ?? 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -160,10 +251,12 @@ export async function executeWorkflowsForTrigger(
           })
 
         } else if (action.type === 'send_email') {
-          const to      = interpolate(action.to,      entityData)
-          const subject = interpolate(action.subject,  entityData)
-          const body    = interpolate(action.body,     entityData)
-          await sendEmail(env, db, to, subject, body)  // db unused but kept for signature compat
+          await sendEmail(
+            env,
+            interpolate(action.to,      ctx),
+            interpolate(action.subject,  ctx),
+            interpolate(action.body,     ctx),
+          )
         }
         // require_activity / require_fields 仅前端约束，后端跳过
       } catch (err) {

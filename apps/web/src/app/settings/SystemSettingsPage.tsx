@@ -378,6 +378,7 @@ function WorkflowFormModal({
                     onChange={(p) => patchAction(idx, p)}
                     requirableFields={requirableFields}
                     entityFields={entityFields}
+                    entityType={form.entityType}
                   />
                   {!ACTION_TYPES.find((at) => at.type === action.type)?.supported && (
                     <p className="mt-2 text-xs text-amber-500">⚠ 此动作执行逻辑待开发，配置将被保存但暂不生效</p>
@@ -467,13 +468,100 @@ function actionFormToConfig(a: WfActionForm): Record<string, unknown> {
   return rest as Record<string, unknown>
 }
 
+// ── 模板变量参考 ──────────────────────────────────────────────────────────────
+
+const TEMPLATE_VAR_GROUPS = [
+  {
+    label: '线索字段',
+    entityType: 'lead' as const,
+    vars: [
+      { key: 'name',             desc: '线索姓名' },
+      { key: 'contactInfo',      desc: '联系方式' },
+      { key: 'source',           desc: '来源渠道' },
+      { key: 'status',           desc: '当前状态' },
+      { key: 'intendedServices', desc: '意向服务（逗号分隔）' },
+      { key: 'lostReason',       desc: '丢失原因' },
+      { key: 'nextContactDate',  desc: '下次联系时间' },
+      { key: 'notes',            desc: '备注' },
+      { key: 'assignedToName',   desc: '负责人姓名' },
+      { key: 'assignedToEmail',  desc: '负责人邮箱' },
+      { key: 'createdAt',        desc: '创建时间' },
+    ],
+  },
+  {
+    label: '客户字段',
+    entityType: 'client' as const,
+    vars: [
+      { key: 'name',              desc: '客户姓名' },
+      { key: 'phone',             desc: '电话' },
+      { key: 'email',             desc: '邮箱' },
+      { key: 'contractStatus',    desc: '合同状态' },
+      { key: 'servicePlans',      desc: '服务套餐（逗号分隔）' },
+      { key: 'assignedSalesName', desc: '负责销售姓名' },
+      { key: 'assignedSalesEmail',desc: '负责销售邮箱' },
+      { key: 'createdAt',         desc: '创建时间' },
+    ],
+  },
+  {
+    label: '时间变量',
+    entityType: null,
+    vars: [
+      { key: 'now',        desc: '当前时间（精确到分钟）' },
+      { key: 'today',      desc: '今天日期 YYYY-MM-DD' },
+      { key: 'tomorrow',   desc: '明天日期' },
+      { key: 'yesterday',  desc: '昨天日期' },
+      { key: 'weekStart',  desc: '本周一日期' },
+      { key: 'weekEnd',    desc: '本周日日期' },
+      { key: 'monthStart', desc: '本月第一天' },
+      { key: 'monthEnd',   desc: '本月最后一天' },
+    ],
+  },
+]
+
+function TemplateVarReference({ entityType }: { entityType: string }) {
+  const [open, setOpen] = useState(false)
+  const groups = TEMPLATE_VAR_GROUPS.filter(
+    (g) => g.entityType === null || g.entityType === entityType,
+  )
+  return (
+    <div className="mt-2">
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+        <svg className={`h-3 w-3 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        可用变量参考
+      </button>
+      {open && (
+        <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3">
+          <p className="text-xs text-gray-500">在文本框中使用 <code className="bg-white border border-gray-200 rounded px-1">{'{{变量名}}'}</code> 引用，例如：<code className="bg-white border border-gray-200 rounded px-1">{'{{name}}'}</code></p>
+          {groups.map((g) => (
+            <div key={g.label}>
+              <p className="text-xs font-semibold text-gray-600 mb-1">{g.label}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+                {g.vars.map((v) => (
+                  <div key={v.key} className="flex items-baseline gap-1.5 text-xs">
+                    <code className="flex-none font-mono text-primary-700 bg-white border border-gray-200 rounded px-1">{`{{${v.key}}}`}</code>
+                    <span className="text-gray-400">{v.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ActionConfigEditor({
-  action, onChange, requirableFields, entityFields,
+  action, onChange, requirableFields, entityFields, entityType,
 }: {
   action: WfActionForm
   onChange: (patch: object) => void
   requirableFields: EntityField[]
   entityFields: EntityField[]
+  entityType?: string
 }) {
   const inp = 'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500'
   const sel = 'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500'
@@ -538,9 +626,10 @@ function ActionConfigEditor({
 
   if (action.type === 'send_email') return (
     <div className="space-y-2">
-      <div><label className="block text-xs text-gray-500 mb-1">收件人</label><input className={inp} placeholder="{{assignee.email}}" value={action.to} onChange={(e) => onChange({ to: e.target.value })} /></div>
-      <div><label className="block text-xs text-gray-500 mb-1">主题</label><input className={inp} placeholder="通知：{{lead.name}}" value={action.subject} onChange={(e) => onChange({ subject: e.target.value })} /></div>
-      <div><label className="block text-xs text-gray-500 mb-1">正文</label><textarea className={ta} rows={3} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">收件人</label><input className={inp} placeholder="{{assignedToEmail}}" value={action.to} onChange={(e) => onChange({ to: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">主题</label><input className={inp} placeholder="通知：{{name}}" value={action.subject} onChange={(e) => onChange({ subject: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">正文</label><textarea className={ta} rows={4} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+      <TemplateVarReference entityType={entityType ?? 'lead'} />
     </div>
   )
 
@@ -553,7 +642,8 @@ function ActionConfigEditor({
           </select></div>
         <div className="flex-1 min-w-0"><label className="block text-xs text-gray-500 mb-1">URL</label><input className={inp} placeholder="https://..." value={action.url} onChange={(e) => onChange({ url: e.target.value })} /></div>
       </div>
-      <div><label className="block text-xs text-gray-500 mb-1">Body（JSON）</label><textarea className={ta} rows={3} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">Body（JSON，支持变量）</label><textarea className={ta} rows={4} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+      <TemplateVarReference entityType={entityType ?? 'lead'} />
     </div>
   )
 
@@ -622,7 +712,7 @@ function ActionTemplateFormModal({
         </div>
         <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
           <ActionConfigEditor action={action} onChange={(p) => setAction((a) => ({ ...a, ...p } as WfActionForm))}
-            requirableFields={requirableFields} entityFields={entityFields} />
+            requirableFields={requirableFields} entityFields={entityFields} entityType={entityType} />
         </div>
       </div>
     </Modal>
