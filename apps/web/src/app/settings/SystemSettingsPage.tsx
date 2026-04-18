@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { crmApi } from '@/shared/utils/request'
 import { Input } from '@/shared/components/Input'
 import { Button } from '@/shared/components/Button'
-import { Select } from '@/shared/components/Select'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
 import type { Team } from '@/shared/types'
@@ -1241,15 +1240,8 @@ const COMMON_TIMEZONES = [
 ]
 
 const schema = z.object({
-  system_name:     z.string().min(1, '请填写系统名称'),
-  timezone:        z.string(),
-  smtp_host:       z.string(),
-  smtp_port:       z.string(),
-  smtp_secure:     z.string(),
-  smtp_user:       z.string(),
-  smtp_password:   z.string(),
-  smtp_from_email: z.string(),
-  smtp_from_name:  z.string(),
+  system_name: z.string().min(1, '请填写系统名称'),
+  timezone:    z.string(),
 })
 type SettingsForm = z.infer<typeof schema>
 
@@ -1404,10 +1396,7 @@ export default function SystemSettingsPage() {
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SettingsForm>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      system_name: '', timezone: 'Asia/Shanghai', smtp_host: '', smtp_port: '465',
-      smtp_secure: 'true', smtp_user: '', smtp_password: '', smtp_from_email: '', smtp_from_name: '',
-    },
+    defaultValues: { system_name: '', timezone: 'Asia/Shanghai' },
   })
 
   useEffect(() => {
@@ -1477,36 +1466,6 @@ export default function SystemSettingsPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border bg-white p-4 sm:p-6">
-                <h2 className="text-sm font-semibold text-gray-700 mb-1">邮件服务器（SMTP）</h2>
-                <p className="text-xs text-gray-400 mb-3">用于发送通知邮件、魔法链接等系统邮件</p>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-2">
-                      <Input label="SMTP 服务器" placeholder="smtp.example.com" {...register('smtp_host')} />
-                    </div>
-                    <Input label="端口" placeholder="465" {...register('smtp_port')} />
-                  </div>
-                  <Select
-                    label="加密方式"
-                    options={[
-                      { value: 'true', label: 'SSL/TLS（推荐）' },
-                      { value: 'false', label: '不加密' },
-                    ]}
-                    {...register('smtp_secure')}
-                  />
-                  <Input label="账号（用户名）" placeholder="your@email.com" {...register('smtp_user')} />
-                  <Input
-                    label="密码 / 授权码"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    {...register('smtp_password')}
-                  />
-                  <Input label="发件人邮箱" placeholder="noreply@example.com" {...register('smtp_from_email')} />
-                  <Input label="发件人名称" placeholder="辅助生殖 CRM" {...register('smtp_from_name')} />
-                </div>
-              </div>
             </div>
           )}
 

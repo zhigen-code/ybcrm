@@ -88,19 +88,12 @@ function matchesTrigger(
 
 async function sendEmail(
   env: Env,
-  db: D1Database,
+  _db: D1Database,
   to: string,
   subject: string,
   body: string,
 ): Promise<void> {
   if (!env.SENDGRID_API_KEY) return
-
-  const rows = await db.prepare(
-    "SELECT key, value FROM system_settings WHERE key IN ('smtp_from_email', 'smtp_from_name')",
-  ).all<{ key: string; value: string }>()
-  const cfg = Object.fromEntries(rows.results.map((r) => [r.key, r.value]))
-  const fromEmail = cfg['smtp_from_email'] ?? 'noreply@example.com'
-  const fromName  = cfg['smtp_from_name']  ?? ''
 
   await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
@@ -109,7 +102,7 @@ async function sendEmail(
       'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
     },
     body: JSON.stringify({
-      from: { email: fromEmail, name: fromName },
+      from: { email: 'noreply@irfc.cn', name: '辅助生殖 CRM' },
       personalizations: [{ to: [{ email: to }], subject }],
       content: [{ type: 'text/plain', value: body }],
     }),
@@ -170,7 +163,7 @@ export async function executeWorkflowsForTrigger(
           const to      = interpolate(action.to,      entityData)
           const subject = interpolate(action.subject,  entityData)
           const body    = interpolate(action.body,     entityData)
-          await sendEmail(env, db, to, subject, body)
+          await sendEmail(env, db, to, subject, body)  // db unused but kept for signature compat
         }
         // require_activity / require_fields 仅前端约束，后端跳过
       } catch (err) {
