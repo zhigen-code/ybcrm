@@ -92,6 +92,11 @@ export default function PartnersPage() {
     },
   })
 
+  const deletePartner = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/partners/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['partners'] }),
+  })
+
   return (
     <div className="p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -122,9 +127,17 @@ export default function PartnersPage() {
                   </div>
                   <h2 className="mt-1.5 font-semibold text-gray-900 truncate">{partner.name}</h2>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => openEdit(partner)}>
-                  编辑
-                </Button>
+                <div className="flex gap-1 flex-none">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(partner)}>编辑</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { if (confirm(`确认删除「${partner.name}」？`)) deletePartner.mutate(partner.id) }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    删除
+                  </Button>
+                </div>
               </div>
 
               {(partner.contactPerson || partner.contactInfo) && (

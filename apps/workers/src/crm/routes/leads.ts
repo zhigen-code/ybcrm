@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { v4 as uuidv4 } from 'uuid'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireAdmin } from '../middleware/auth'
 import { toCamel, toCamelList } from '../../shared/db'
 import { executeWorkflowsForTrigger } from '../workflow/executor'
 
@@ -346,4 +346,16 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
 
   const result = await c.env.DB.prepare(`${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ?`).bind(id).first()
   return c.json({ data: parseLead(result as Record<string, unknown>) })
+})
+
+leadsRoutes.delete('/:id', requireAdmin, async (c) => {
+  const { id } = c.req.param()
+  const lead = await c.env.DB.prepare('SELECT id FROM leads WHERE id = ?').bind(id).first()
+  if (!lead) throw new HTTPException(404, { message: '线索不存在' })
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM activity_attachments WHERE activity_id IN (SELECT id FROM sales_activities WHERE lead_id = ?)').bind(id),
+    c.env.DB.prepare('DELETE FROM sales_activities WHERE lead_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM leads WHERE id = ?').bind(id),
+  ])
+  return c.json({ data: { id } })
 })

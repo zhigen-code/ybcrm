@@ -104,6 +104,13 @@ export default function LeadsPage() {
     setValue('intendedServices', next, { shouldValidate: true })
   }
 
+  const isAdmin = user?.role === 'admin'
+
+  const deleteLead = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/leads/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
+
   const createMutation = useMutation({
     mutationFn: (body: CreateForm) => crmApi.post('/leads', body),
     onSuccess: () => {
@@ -245,6 +252,17 @@ export default function LeadsPage() {
                         <Link to={`/app/leads/${lead.id}`} className="text-xs text-gray-500 hover:text-gray-700">
                           详情
                         </Link>
+                        {isAdmin && (
+                          <>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              onClick={() => { if (confirm(`确认删除线索「${lead.name}」？此操作不可恢复。`)) deleteLead.mutate(lead.id) }}
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              删除
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

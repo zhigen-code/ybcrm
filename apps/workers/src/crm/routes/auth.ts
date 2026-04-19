@@ -16,11 +16,15 @@ authRoutes.post(
     const { email, password } = c.req.valid('json')
 
     const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first<{
-      id: string; email: string; password_hash: string; name: string; role: string; team_id: string | null
+      id: string; email: string; password_hash: string; name: string; role: string; team_id: string | null; is_active: number
     }>()
 
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       throw new HTTPException(401, { message: '邮箱或密码错误' })
+    }
+
+    if (!user.is_active) {
+      throw new HTTPException(403, { message: '账号已被禁用，请联系管理员' })
     }
 
     const token = await signCrmJwt(

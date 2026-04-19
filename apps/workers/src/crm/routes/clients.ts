@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { v4 as uuidv4 } from 'uuid'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireAdmin } from '../middleware/auth'
 import { toCamel, toCamelList } from '../../shared/db'
 import { executeWorkflowsForTrigger } from '../workflow/executor'
 
@@ -271,3 +271,15 @@ clientsRoutes.put(
     return c.json({ data: parseClient(updated as Record<string, unknown>) })
   },
 )
+
+clientsRoutes.delete('/:id', requireAdmin, async (c) => {
+  const { id } = c.req.param()
+  const client = await c.env.DB.prepare('SELECT id FROM clients WHERE id = ?').bind(id).first()
+  if (!client) throw new HTTPException(404, { message: '客户不存在' })
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM activity_attachments WHERE activity_id IN (SELECT id FROM sales_activities WHERE client_id = ?)').bind(id),
+    c.env.DB.prepare('DELETE FROM sales_activities WHERE client_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM clients WHERE id = ?').bind(id),
+  ])
+  return c.json({ data: { id } })
+})

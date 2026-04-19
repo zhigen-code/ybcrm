@@ -161,6 +161,12 @@ export default function UsersPage() {
     },
   })
 
+  const toggleActiveMutation = useMutation({
+    mutationFn: (user: User) =>
+      crmApi.put(`/users/${user.id}`, { isActive: !user.isActive }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  })
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 sm:mb-6 flex items-center justify-between">
@@ -182,10 +188,13 @@ export default function UsersPage() {
           {/* 移动端：卡片列表 */}
           <div className="space-y-3 sm:hidden">
             {users.map((user) => (
-              <div key={user.id} className="rounded-lg border bg-white p-4">
+              <div key={user.id} className={`rounded-lg border bg-white p-4 ${!user.isActive ? 'opacity-60' : ''}`}>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
-                    <p className="font-medium text-gray-900">{user.name}</p>
+                    <p className="font-medium text-gray-900">
+                      {user.name}
+                      {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">已禁用</span>}
+                    </p>
                     <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
                   </div>
                   <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
@@ -220,6 +229,17 @@ export default function UsersPage() {
                 <div className="flex gap-2 border-t pt-3">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>编辑</Button>
                   <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>重置密码</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={user.isActive ? 'text-red-500' : 'text-green-600'}
+                    onClick={() => {
+                      const action = user.isActive ? '禁用' : '启用'
+                      if (confirm(`确认${action}用户「${user.name}」？`)) toggleActiveMutation.mutate(user)
+                    }}
+                  >
+                    {user.isActive ? '禁用' : '启用'}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -240,8 +260,11 @@ export default function UsersPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{user.name}</td>
+                  <tr key={user.id} className={`hover:bg-gray-50 ${!user.isActive ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {user.name}
+                      {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">已禁用</span>}
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>
                     <td className="px-4 py-3">
                       <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
@@ -278,6 +301,17 @@ export default function UsersPage() {
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>
                           重置密码
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={user.isActive ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}
+                          onClick={() => {
+                            const action = user.isActive ? '禁用' : '启用'
+                            if (confirm(`确认${action}用户「${user.name}」？`)) toggleActiveMutation.mutate(user)
+                          }}
+                        >
+                          {user.isActive ? '禁用' : '启用'}
                         </Button>
                       </div>
                     </td>

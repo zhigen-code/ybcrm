@@ -62,3 +62,11 @@ servicesRoutes.put('/:id', requireAdmin, zValidator('json', serviceSchema.partia
   const updated = await c.env.DB.prepare('SELECT * FROM services WHERE id = ?').bind(id).first()
   return c.json({ data: toCamel(updated as Record<string, unknown>) })
 })
+
+servicesRoutes.delete('/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id')
+  const existing = await c.env.DB.prepare('SELECT id FROM services WHERE id = ?').bind(id).first()
+  if (!existing) throw new HTTPException(404, { message: '服务不存在' })
+  await c.env.DB.prepare('DELETE FROM services WHERE id = ?').bind(id).run()
+  return c.json({ data: { id } })
+})

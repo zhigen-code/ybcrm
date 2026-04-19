@@ -31,6 +31,7 @@ function parseAttachments(raw: unknown): { key: string; name: string; size: numb
 
 activitiesRoutes.get('/', async (c) => {
   const { clientId, leadId, search, page: pageStr, pageSize: pageSizeStr } = c.req.query()
+  const { userId, role } = c.get('jwtPayload')
 
   const page = Math.max(1, parseInt(pageStr ?? '1'))
   const pageSize = Math.min(100, Math.max(1, parseInt(pageSizeStr ?? '20')))
@@ -38,6 +39,12 @@ activitiesRoutes.get('/', async (c) => {
 
   let whereClause = 'WHERE 1=1'
   const params: unknown[] = []
+
+  // sales 只能看自己负责的线索/客户的活动
+  if (role === 'sales') {
+    whereClause += ' AND (l.assigned_to_userId = ? OR c.assigned_sales_userId = ?)'
+    params.push(userId, userId)
+  }
 
   if (clientId && leadId) {
     whereClause += ' AND (sa.client_id = ? OR sa.lead_id = ?)'

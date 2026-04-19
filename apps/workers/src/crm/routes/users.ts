@@ -24,7 +24,7 @@ usersRoutes.get('/', async (c) => {
 
   const [results, countResult] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT id, email, name, role, team_id, capacity, specialization, current_leads_count, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
+      `SELECT id, email, name, role, team_id, capacity, specialization, current_leads_count, is_active, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
     ).bind(...params, Number(pageSize), offset).all(),
     c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`)
       .bind(...params).first<{ total: number }>(),
@@ -51,6 +51,7 @@ usersRoutes.put(
       teamId: z.string().nullable().optional(),
       capacity: z.number().int().positive().optional(),
       specialization: z.array(z.string()).optional(),
+      isActive: z.boolean().optional(),
     }),
   ),
   async (c) => {
@@ -68,6 +69,7 @@ usersRoutes.put(
     if (body.teamId !== undefined) { updates.push('team_id = ?'); params.push(body.teamId) }
     if (body.capacity !== undefined) { updates.push('capacity = ?'); params.push(body.capacity) }
     if (body.specialization !== undefined) { updates.push('specialization = ?'); params.push(JSON.stringify(body.specialization)) }
+    if (body.isActive !== undefined) { updates.push('is_active = ?'); params.push(body.isActive ? 1 : 0) }
 
     params.push(id)
     await c.env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run()

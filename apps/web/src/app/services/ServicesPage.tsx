@@ -66,6 +66,11 @@ export default function ServicesPage() {
     },
   })
 
+  const deleteService = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/services/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services'] }),
+  })
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -81,9 +86,17 @@ export default function ServicesPage() {
             <div key={service.id} className="rounded-lg border bg-white p-5">
               <div className="flex items-start justify-between">
                 <h2 className="font-semibold text-gray-900">{service.name}</h2>
-                <Button variant="ghost" size="sm" onClick={() => openEdit(service)}>
-                  编辑
-                </Button>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(service)}>编辑</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { if (confirm(`确认删除服务「${service.name}」？`)) deleteService.mutate(service.id) }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    删除
+                  </Button>
+                </div>
               </div>
               {service.description && (
                 <p className="mt-1 text-sm text-gray-500">{service.description}</p>

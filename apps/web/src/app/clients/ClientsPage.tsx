@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { crmApi } from '@/shared/utils/request'
 import { Input } from '@/shared/components/Input'
@@ -11,10 +11,14 @@ import { useOptionGroup, getOptionColor } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { Pagination } from '@/shared/components/Pagination'
+import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 
 const PAGE_SIZE = 20
 
 export default function ClientsPage() {
+  const queryClient = useQueryClient()
+  const { user } = useCrmAuth()
+  const isAdmin = user?.role === 'admin'
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -44,6 +48,11 @@ export default function ClientsPage() {
     mutationFn: (body: ActivitySubmitData) =>
       crmApi.post('/activities', { ...body, clientId: followUpTarget!.id }),
     onSuccess: () => setFollowUpTarget(null),
+  })
+
+  const deleteClient = useMutation({
+    mutationFn: (id: string) => crmApi.delete(`/clients/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clients'] }),
   })
 
   const openFollowUp = (client: Client, e: React.MouseEvent) => {
@@ -124,6 +133,17 @@ export default function ClientsPage() {
                         <Link to={`/app/clients/${client.id}`} className="text-xs text-gray-500 hover:text-gray-700">
                           详情
                         </Link>
+                        {isAdmin && (
+                          <>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              onClick={() => { if (confirm(`确认删除客户「${client.name}」？此操作不可恢复。`)) deleteClient.mutate(client.id) }}
+                              className="text-xs text-red-500 hover:text-red-700"
+                            >
+                              删除
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

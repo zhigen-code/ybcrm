@@ -24,6 +24,7 @@ export interface User {
   specialization: string[]
   currentLeadsCount: number
   createdAt: string
+  isActive: number
 }
 
 export interface Team {
