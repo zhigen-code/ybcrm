@@ -901,6 +901,119 @@ function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]
   )
 }
 
+// ─── 回收站面板 ───────────────────────────────────────────────────────────────
+
+type TrashItem = {
+  id: string
+  name: string
+  deletedAt: string
+  createdAt: string
+  _type: 'lead' | 'client' | 'service' | 'partner'
+  [key: string]: unknown
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  lead: '线索', client: '客户', service: '服务', partner: '合作伙伴',
+}
+
+function RecycleBinPanel() {
+  const queryClient = useQueryClient()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['recycle-bin'],
+    queryFn: () => crmApi.get<{ data: TrashItem[] }>('/admin/recycle-bin').then((r) => r.data.data),
+  })
+
+  const restore = useMutation({
+    mutationFn: ({ type, id }: { type: string; id: string }) =>
+      crmApi.post(`/admin/recycle-bin/${type}/${id}/restore`, {}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recycle-bin'] }),
+  })
+
+  const purge = useMutation({
+    mutationFn: ({ type, id }: { type: string; id: string }) =>
+      crmApi.delete(`/admin/recycle-bin/${type}/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recycle-bin'] }),
+  })
+
+  const items = data ?? []
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border bg-white overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+          <div>
+            <h2 className="font-semibold text-gray-800 text-sm">回收站</h2>
+            <p className="text-xs text-gray-400 mt-0.5">已删除的记录，可还原或彻底删除</p>
+          </div>
+          <span className="text-xs text-gray-400">{items.length} 条记录</span>
+        </div>
+
+        {isLoading ? (
+          <div className="py-10 text-center text-sm text-gray-400">加载中...</div>
+        ) : items.length === 0 ? (
+          <div className="py-10 text-center text-sm text-gray-400">回收站为空</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">类型</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">名称</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700 hidden sm:table-cell">附加信息</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700 hidden sm:table-cell">删除时间</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {items.map((item) => {
+                const sub =
+                  item._type === 'lead'    ? `${item.source ?? ''} · ${item.contactInfo ?? ''}` :
+                  item._type === 'client'  ? `${item.phone ?? ''} ${item.email ?? ''}`.trim() :
+                  item._type === 'service' ? (item.description as string ?? '') :
+                  item._type === 'partner' ? `${item.type ?? ''} · ${item.contactPerson ?? ''}` : ''
+                return (
+                  <tr key={`${item._type}-${item.id}`} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+                        {TYPE_LABEL[item._type]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{item.name}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell max-w-[200px] truncate">{sub || '—'}</td>
+                    <td className="px-4 py-3 text-gray-400 text-xs hidden sm:table-cell">
+                      {item.deletedAt ? new Date(item.deletedAt).toLocaleString('zh-CN') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 justify-end">
+                        <button
+                          onClick={() => restore.mutate({ type: item._type, id: item.id })}
+                          className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                        >
+                          还原
+                        </button>
+                        <span className="text-gray-300">|</span>
+                        <button
+                          onClick={() => {
+                            if (confirm(`确认彻底删除「${item.name}」？此操作不可恢复，相关跟进记录也将一并删除。`))
+                              purge.mutate({ type: item._type, id: item.id })
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700"
+                        >
+                          彻底删除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnabled: boolean; onSettingsSaved: () => void }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -1410,10 +1523,11 @@ type SettingsForm = z.infer<typeof schema>
 type Settings = Record<string, string>
 
 const TABS = [
-  { key: 'basic',   label: '基本配置' },
-  { key: 'ai',      label: 'AI 配置' },
-  { key: 'options', label: '选项配置' },
+  { key: 'basic',    label: '基本配置' },
+  { key: 'ai',       label: 'AI 配置' },
+  { key: 'options',  label: '选项配置' },
   { key: 'policies', label: '工作流' },
+  { key: 'trash',    label: '回收站' },
 ] as const
 type TabKey = typeof TABS[number]['key']
 
@@ -1773,6 +1887,9 @@ export default function SystemSettingsPage() {
           onSettingsSaved={() => queryClient.invalidateQueries({ queryKey: ['system-settings'] })}
         />
       )}
+
+      {/* 回收站 */}
+      {activeTab === 'trash' && <RecycleBinPanel />}
 
       {/* AI 配置 */}
       {activeTab === 'ai' && (

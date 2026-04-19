@@ -14,7 +14,7 @@ partnersRoutes.get('/', async (c) => {
   const { page = '1', pageSize = '20', search } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
-  let where = 'WHERE 1=1'
+  let where = 'WHERE deleted_at IS NULL'
   const params: unknown[] = []
   if (search) {
     where += ' AND (name LIKE ? OR contact_person LIKE ?)'
@@ -38,7 +38,7 @@ partnersRoutes.get('/', async (c) => {
 })
 
 partnersRoutes.get('/:id', async (c) => {
-  const partner = await c.env.DB.prepare('SELECT * FROM partners WHERE id = ?')
+  const partner = await c.env.DB.prepare('SELECT * FROM partners WHERE id = ? AND deleted_at IS NULL')
     .bind(c.req.param('id'))
     .first()
   if (!partner) throw new HTTPException(404, { message: '合作伙伴不存在' })
@@ -105,8 +105,8 @@ partnersRoutes.put('/:id', requireAdmin, zValidator('json', partnerSchema.partia
 
 partnersRoutes.delete('/:id', requireAdmin, async (c) => {
   const id = c.req.param('id')
-  const existing = await c.env.DB.prepare('SELECT id FROM partners WHERE id = ?').bind(id).first()
+  const existing = await c.env.DB.prepare('SELECT id FROM partners WHERE id = ? AND deleted_at IS NULL').bind(id).first()
   if (!existing) throw new HTTPException(404, { message: '合作伙伴不存在' })
-  await c.env.DB.prepare('DELETE FROM partners WHERE id = ?').bind(id).run()
+  await c.env.DB.prepare('UPDATE partners SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run()
   return c.json({ data: { id } })
 })

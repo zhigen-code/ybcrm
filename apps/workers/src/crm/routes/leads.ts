@@ -25,7 +25,7 @@ function parseLead(row: Record<string, unknown>) {
 // GET /api/leads/sources — 返回去重的来源列表（用于前端自动补全）
 leadsRoutes.get('/sources', async (c) => {
   const rows = await c.env.DB.prepare(
-    "SELECT DISTINCT source FROM leads WHERE source IS NOT NULL AND source != '' ORDER BY source ASC",
+    "SELECT DISTINCT source FROM leads WHERE source IS NOT NULL AND source != '' AND deleted_at IS NULL ORDER BY source ASC",
   ).all<{ source: string }>()
   return c.json({ data: rows.results.map((r) => r.source) })
 })
@@ -36,7 +36,7 @@ leadsRoutes.get('/', async (c) => {
   const { status, mine, search, page = '1', pageSize = '20' } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
-  let whereClause = 'WHERE 1=1'
+  let whereClause = 'WHERE l.deleted_at IS NULL'
   const whereParams: unknown[] = []
 
   if (role === 'sales') {
@@ -75,7 +75,7 @@ leadsRoutes.get('/', async (c) => {
 // GET /api/leads/:id
 leadsRoutes.get('/:id', async (c) => {
   const lead = await c.env.DB.prepare(
-    `${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ?`,
+    `${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ? AND l.deleted_at IS NULL`,
   ).bind(c.req.param('id')).first()
   if (!lead) throw new HTTPException(404, { message: '线索不存在' })
   return c.json({ data: parseLead(lead as Record<string, unknown>) })
@@ -350,12 +350,8 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
 
 leadsRoutes.delete('/:id', requireAdmin, async (c) => {
   const { id } = c.req.param()
-  const lead = await c.env.DB.prepare('SELECT id FROM leads WHERE id = ?').bind(id).first()
+  const lead = await c.env.DB.prepare('SELECT id FROM leads WHERE id = ? AND deleted_at IS NULL').bind(id).first()
   if (!lead) throw new HTTPException(404, { message: '线索不存在' })
-  await c.env.DB.batch([
-    c.env.DB.prepare('DELETE FROM activity_attachments WHERE activity_id IN (SELECT id FROM sales_activities WHERE lead_id = ?)').bind(id),
-    c.env.DB.prepare('DELETE FROM sales_activities WHERE lead_id = ?').bind(id),
-    c.env.DB.prepare('DELETE FROM leads WHERE id = ?').bind(id),
-  ])
+  await c.env.DB.prepare('UPDATE leads SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run()
   return c.json({ data: { id } })
 })

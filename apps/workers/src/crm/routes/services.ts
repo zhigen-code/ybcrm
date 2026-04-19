@@ -11,12 +11,12 @@ export const servicesRoutes = new Hono<{ Bindings: Env }>()
 servicesRoutes.use('*', requireAuth)
 
 servicesRoutes.get('/', async (c) => {
-  const results = await c.env.DB.prepare('SELECT * FROM services ORDER BY name').all()
+  const results = await c.env.DB.prepare('SELECT * FROM services WHERE deleted_at IS NULL ORDER BY name').all()
   return c.json({ data: toCamelList(results.results as Record<string, unknown>[]) })
 })
 
 servicesRoutes.get('/:id', async (c) => {
-  const service = await c.env.DB.prepare('SELECT * FROM services WHERE id = ?')
+  const service = await c.env.DB.prepare('SELECT * FROM services WHERE id = ? AND deleted_at IS NULL')
     .bind(c.req.param('id'))
     .first()
   if (!service) throw new HTTPException(404, { message: '服务不存在' })
@@ -65,8 +65,8 @@ servicesRoutes.put('/:id', requireAdmin, zValidator('json', serviceSchema.partia
 
 servicesRoutes.delete('/:id', requireAdmin, async (c) => {
   const id = c.req.param('id')
-  const existing = await c.env.DB.prepare('SELECT id FROM services WHERE id = ?').bind(id).first()
+  const existing = await c.env.DB.prepare('SELECT id FROM services WHERE id = ? AND deleted_at IS NULL').bind(id).first()
   if (!existing) throw new HTTPException(404, { message: '服务不存在' })
-  await c.env.DB.prepare('DELETE FROM services WHERE id = ?').bind(id).run()
+  await c.env.DB.prepare('UPDATE services SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run()
   return c.json({ data: { id } })
 })

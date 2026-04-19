@@ -24,6 +24,7 @@ import { aiConfigRoutes } from './crm/routes/aiConfig'
 import { workflowsRoutes, workflowsAdminRoutes } from './crm/routes/workflows'
 import { actionTemplatesAdminRoutes } from './crm/routes/actionTemplates'
 import { entitySchemaRoutes } from './crm/routes/entitySchema'
+import { recycleBinRoutes } from './crm/routes/recycleBin'
 import { requireApiKey } from './crm/middleware/apiKeyAuth'
 import { executeScheduledWorkflows } from './crm/workflow/executor'
 
@@ -128,6 +129,7 @@ app.route('/api/workflows', workflowsRoutes)
 app.route('/api/admin/workflows', workflowsAdminRoutes)
 app.route('/api/admin/action-templates', actionTemplatesAdminRoutes)
 app.route('/api/admin/entity-schema', entitySchemaRoutes)
+app.route('/api/admin/recycle-bin', recycleBinRoutes)
 
 // 客户门户 API（/api/client/*）
 app.route('/api/client/auth', portalAuthRoutes)

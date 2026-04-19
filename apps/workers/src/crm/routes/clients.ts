@@ -31,7 +31,7 @@ clientsRoutes.get('/', async (c) => {
   const { page = '1', pageSize = '20', search } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
-  let whereClause = 'WHERE 1=1'
+  let whereClause = 'WHERE c.deleted_at IS NULL'
   const whereParams: unknown[] = []
 
   if (role === 'sales') {
@@ -64,7 +64,7 @@ clientsRoutes.get('/', async (c) => {
 // GET /api/clients/:id
 clientsRoutes.get('/:id', async (c) => {
   const client = await c.env.DB.prepare(
-    `${SELECT_COLS} ${BASE_JOIN} WHERE c.id = ?`,
+    `${SELECT_COLS} ${BASE_JOIN} WHERE c.id = ? AND c.deleted_at IS NULL`,
   ).bind(c.req.param('id')).first()
   if (!client) throw new HTTPException(404, { message: '客户不存在' })
   return c.json({ data: parseClient(client as Record<string, unknown>) })
@@ -274,12 +274,8 @@ clientsRoutes.put(
 
 clientsRoutes.delete('/:id', requireAdmin, async (c) => {
   const { id } = c.req.param()
-  const client = await c.env.DB.prepare('SELECT id FROM clients WHERE id = ?').bind(id).first()
+  const client = await c.env.DB.prepare('SELECT id FROM clients WHERE id = ? AND deleted_at IS NULL').bind(id).first()
   if (!client) throw new HTTPException(404, { message: '客户不存在' })
-  await c.env.DB.batch([
-    c.env.DB.prepare('DELETE FROM activity_attachments WHERE activity_id IN (SELECT id FROM sales_activities WHERE client_id = ?)').bind(id),
-    c.env.DB.prepare('DELETE FROM sales_activities WHERE client_id = ?').bind(id),
-    c.env.DB.prepare('DELETE FROM clients WHERE id = ?').bind(id),
-  ])
+  await c.env.DB.prepare('UPDATE clients SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run()
   return c.json({ data: { id } })
 })
