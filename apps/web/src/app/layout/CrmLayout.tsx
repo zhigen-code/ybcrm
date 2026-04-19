@@ -30,8 +30,8 @@ export default function CrmLayout() {
     queryFn: () =>
       crmApi.get<{ total: number }>('/leads', { params: { status: 'New', pageSize: 1 } })
         .then((r) => r.data.total),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    refetchInterval: 10_000,
+    staleTime: 0,
   })
 
   const handleLogout = () => {
