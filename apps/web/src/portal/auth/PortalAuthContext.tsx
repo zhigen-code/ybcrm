@@ -15,14 +15,41 @@ interface PortalAuthState {
 const PortalAuthContext = createContext<PortalAuthState | null>(null)
 
 const TOKEN_KEY = 'portal_token'
+const USER_KEY = 'portal_user'
+
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]!))
+    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
+  } catch {
+    return true
+  }
+}
+
+function initFromStorage(): { token: string | null; clientUser: ClientUser | null } {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (!token || isTokenExpired(token)) {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+    return { token: null, clientUser: null }
+  }
+  try {
+    const raw = localStorage.getItem(USER_KEY)
+    return { token, clientUser: raw ? (JSON.parse(raw) as ClientUser) : null }
+  } catch {
+    return { token, clientUser: null }
+  }
+}
 
 export function PortalAuthProvider({ children }: { children: ReactNode }) {
-  const [clientUser, setClientUser] = useState<ClientUser | null>(null)
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY))
-  const [isLoading, setIsLoading] = useState(true)
+  const [{ token: initialToken, clientUser: initialUser }] = useState(initFromStorage)
+  const [token, setToken] = useState<string | null>(initialToken)
+  const [clientUser, setClientUser] = useState<ClientUser | null>(initialUser)
+  const [isLoading, setIsLoading] = useState(!!initialToken && !initialUser)
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
     setToken(null)
     setClientUser(null)
   }, [])
@@ -31,14 +58,16 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     attachTokenInterceptor(portalApi, () => localStorage.getItem(TOKEN_KEY), logout)
   }, [logout])
 
+  // 后台静默刷新，不阻塞渲染
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false)
-      return
-    }
+    if (!token) return
     portalApi
       .get<{ data: ClientUser }>('/auth/me')
-      .then((res) => setClientUser(res.data.data))
+      .then((res) => {
+        const fresh = res.data.data
+        setClientUser(fresh)
+        localStorage.setItem(USER_KEY, JSON.stringify(fresh))
+      })
       .catch(() => logout())
       .finally(() => setIsLoading(false))
   }, [token, logout])
@@ -50,6 +79,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     )
     const { token: newToken, clientUser: newUser } = res.data.data
     localStorage.setItem(TOKEN_KEY, newToken)
+    localStorage.setItem(USER_KEY, JSON.stringify(newUser))
     setToken(newToken)
     setClientUser(newUser)
   }
@@ -65,6 +95,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     )
     const { token: newToken, clientUser: newUser } = res.data.data
     localStorage.setItem(TOKEN_KEY, newToken)
+    localStorage.setItem(USER_KEY, JSON.stringify(newUser))
     setToken(newToken)
     setClientUser(newUser)
   }

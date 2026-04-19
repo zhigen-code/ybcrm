@@ -14,14 +14,42 @@ interface CrmAuthState {
 const CrmAuthContext = createContext<CrmAuthState | null>(null)
 
 const TOKEN_KEY = 'crm_token'
+const USER_KEY = 'crm_user'
+
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]!))
+    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
+  } catch {
+    return true
+  }
+}
+
+function initFromStorage(): { token: string | null; user: User | null } {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (!token || isTokenExpired(token)) {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+    return { token: null, user: null }
+  }
+  try {
+    const raw = localStorage.getItem(USER_KEY)
+    return { token, user: raw ? (JSON.parse(raw) as User) : null }
+  } catch {
+    return { token, user: null }
+  }
+}
 
 export function CrmAuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY))
-  const [isLoading, setIsLoading] = useState(true)
+  const [{ token: initialToken, user: initialUser }] = useState(initFromStorage)
+  const [token, setToken] = useState<string | null>(initialToken)
+  const [user, setUser] = useState<User | null>(initialUser)
+  // isLoading 仅在有 token 但本地无缓存用户时才为 true（极少发生）
+  const [isLoading, setIsLoading] = useState(!!initialToken && !initialUser)
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
     setToken(null)
     setUser(null)
   }, [])
@@ -30,20 +58,27 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
     attachTokenInterceptor(crmApi, () => localStorage.getItem(TOKEN_KEY), logout)
   }, [logout])
 
+  // 后台静默刷新，不阻塞渲染
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false)
-      return
-    }
+    if (!token) return
     crmApi
       .get<{ data: User }>('/auth/me')
-      .then((res) => setUser(res.data.data))
+      .then((res) => {
+        const fresh = res.data.data
+        setUser(fresh)
+        localStorage.setItem(USER_KEY, JSON.stringify(fresh))
+      })
       .catch(() => logout())
       .finally(() => setIsLoading(false))
   }, [token, logout])
 
   const updateUser = useCallback((partial: Partial<User>) => {
-    setUser((prev) => prev ? { ...prev, ...partial } : prev)
+    setUser((prev) => {
+      if (!prev) return prev
+      const updated = { ...prev, ...partial }
+      localStorage.setItem(USER_KEY, JSON.stringify(updated))
+      return updated
+    })
   }, [])
 
   const login = async (email: string, password: string) => {
@@ -53,6 +88,7 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
     })
     const { token: newToken, user: newUser } = res.data.data
     localStorage.setItem(TOKEN_KEY, newToken)
+    localStorage.setItem(USER_KEY, JSON.stringify(newUser))
     setToken(newToken)
     setUser(newUser)
   }

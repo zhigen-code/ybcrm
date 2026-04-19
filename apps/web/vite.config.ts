@@ -8,15 +8,27 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
-    // 让 .tsx/.ts 优先于 .js，避免同名 .js 文件遮蔽 .tsx 文件
     extensions: ['.tsx', '.ts', '.jsx', '.mjs', '.js', '.mts', '.json'],
   },
   server: {
     proxy: {
-      // 所有 /api/* 请求统一代理到单一 Worker（端口 8787）
       '/api': {
         target: 'http://localhost:8787',
         changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':  ['react', 'react-dom'],
+          'vendor-router': ['react-router-dom'],
+          'vendor-query':  ['@tanstack/react-query'],
+          'vendor-form':   ['react-hook-form', 'zod'],
+          'vendor-http':   ['axios'],
+          'vendor-dnd':    ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        },
       },
     },
   },
