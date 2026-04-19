@@ -87,7 +87,7 @@ export default function LeadDetailPage() {
 
   const handleStatusClick = (status: string) => {
     const policy = getActivityConfig('status', status)
-    if (policy?.requireActivity) {
+    if (policy?.requireActivity || (policy?.requiredFields.length ?? 0) > 0) {
       setPendingStatus(status)
       setPendingPolicy(policy)
     } else {

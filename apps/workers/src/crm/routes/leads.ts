@@ -272,42 +272,15 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
     throw new HTTPException(403, { message: '无权操作此线索' })
   }
 
-  // 校验字段策略
-  const policy = await c.env.DB.prepare(
-    "SELECT policy_config FROM field_policies WHERE entity_type='lead' AND trigger_field='status' AND trigger_value=? AND is_active=1",
-  ).bind(body.targetStatus).first<{ policy_config: string }>()
+  // field_policies 表已在 migration 0016 迁移至 workflows，此处不再查询
+  // 必填字段校验改为前端 workflow require_fields 动作承担
 
-  // 解析策略配置（校验 + 后续构建描述用）
-  let policyCfg: {
-    requireActivity?: boolean; activityContentRequired?: boolean
-    requiredFields?: { field: string; label: string; type?: string }[]
-  } | null = null
-  if (policy) {
-    policyCfg = JSON.parse(policy.policy_config)
-    if (policyCfg!.requireActivity && !body.activity) {
-      throw new HTTPException(422, { message: '请填写跟进记录' })
-    }
-    if (policyCfg!.activityContentRequired && !body.activity?.description?.trim()) {
-      throw new HTTPException(422, { message: '请填写跟进内容' })
-    }
-    for (const rf of policyCfg!.requiredFields ?? []) {
-      const val = body.fields?.[rf.field]
-      if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
-        throw new HTTPException(422, { message: `请填写${rf.label}` })
-      }
-    }
-  }
-
-  // 把策略字段值拼入跟进记录描述，让跟进列表信息完整
+  // 把 fields 键值拼入跟进描述，让跟进列表信息完整
   const fieldLines: string[] = []
-  for (const rf of policyCfg?.requiredFields ?? []) {
-    const val = body.fields?.[rf.field]
+  for (const [key, val] of Object.entries(body.fields ?? {})) {
     if (val === undefined || val === null || val === '') continue
-    if (Array.isArray(val)) {
-      fieldLines.push(`${rf.label}：${(val as string[]).join('、')}`)
-    } else {
-      fieldLines.push(`${rf.label}：${val}`)
-    }
+    const label = { lostReason: '丢失原因', nextContactDate: '下次联系', intendedServices: '意向服务' }[key] ?? key
+    fieldLines.push(`${label}：${Array.isArray(val) ? (val as string[]).join('、') : val}`)
   }
   const userDesc = body.activity?.description?.trim() ?? ''
   const finalDescription = [userDesc, ...fieldLines].filter(Boolean).join('\n') || null
