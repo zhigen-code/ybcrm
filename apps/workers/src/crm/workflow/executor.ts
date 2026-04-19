@@ -37,6 +37,7 @@ const FIELD_TO_COLUMN: Record<string, Record<string, string>> = {
     lostReason:       'lost_reason',
     source:           'source',
     assignedToUserId: 'assigned_to_userId',
+    assignedToTeamId: 'assigned_to_teamId',
     intendedServices: 'intended_services',
     nextContactDate:  'next_contact_date',
     notes:            'notes',
