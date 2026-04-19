@@ -904,7 +904,7 @@ function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]
 function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnabled: boolean; onSettingsSaved: () => void }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const [subTab, setSubTab] = useState<'workflows' | 'templates' | 'assignment'>('workflows')
+  const [subTab, setSubTab] = useState<'workflows' | 'assignment'>('workflows')
   const [showAdd, setShowAdd] = useState(false)
   const [editTarget, setEditTarget] = useState<Workflow | null>(null)
 
@@ -988,7 +988,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
     <div>
       {/* 子 Tab */}
       <div className="flex gap-1 mb-4 border-b border-gray-200">
-        {([['workflows', '工作流'], ['templates', '动作库'], ['assignment', '自动分配']] as const).map(([key, label]) => (
+        {([['workflows', '工作流'], ['assignment', '自动分配']] as const).map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               subTab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -997,9 +997,6 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
           </button>
         ))}
       </div>
-
-      {/* 动作库子 Tab */}
-      {subTab === 'templates' && <ActionTemplatesPanel schema={schema} />}
 
       {/* 自动分配子 Tab */}
       {subTab === 'assignment' && (
