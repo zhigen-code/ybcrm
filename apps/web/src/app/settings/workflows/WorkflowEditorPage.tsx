@@ -681,33 +681,31 @@ export default function WorkflowEditorPage() {
   }
 
   if (!isNew && wfLoading) {
-    return <div className="p-8 text-sm text-gray-400">加载中...</div>
+    return <div className="p-6 text-sm text-gray-500">加载中...</div>
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 顶部导航栏 */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/app/settings?tab=policies')}
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            返回
-          </button>
-          <span className="text-gray-300">/</span>
-          <span className="text-sm text-gray-500">工作流</span>
-          <span className="text-gray-300">/</span>
-          <span className="text-sm font-medium text-gray-800 truncate max-w-xs">
-            {isNew ? '新建工作流' : (form.name || '编辑工作流')}
-          </span>
+    <div className="p-4 sm:p-6">
+      {/* 返回 */}
+      <button
+        type="button"
+        onClick={() => navigate('/app/settings?tab=policies')}
+        className="mb-4 text-sm text-gray-500 hover:text-gray-700"
+      >
+        ← 返回
+      </button>
 
-          <div className="flex-1" />
-
+      {/* 页面标题行 */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
+            {isNew ? '新建工作流' : '编辑工作流'}
+          </h1>
+          {!isNew && form.name && (
+            <p className="mt-0.5 text-sm text-gray-500">{form.name}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
           {/* 启用开关 */}
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <span className="text-sm text-gray-600">启用</span>
@@ -719,11 +717,6 @@ export default function WorkflowEditorPage() {
               <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${form.isActive ? 'translate-x-4' : 'translate-x-0'}`} />
             </button>
           </label>
-
-          {saveError && (
-            <span className="text-xs text-red-500">{saveError}</span>
-          )}
-
           <Button variant="secondary" size="sm" onClick={() => navigate('/app/settings?tab=policies')}>
             取消
           </Button>
@@ -738,41 +731,45 @@ export default function WorkflowEditorPage() {
         </div>
       </div>
 
-      {/* 主体 */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex gap-6 items-start">
+      {saveError && (
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
 
-          {/* 左侧主区域 */}
-          <div className="flex-1 min-w-0 space-y-4">
+      <div className="flex gap-6 items-start">
 
-            {/* 工作流名称 + 对象 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">工作流名称（留空自动生成）</label>
-                  <input
-                    className={CLS.inp}
-                    placeholder="如：线索丢失 - 发送通知"
-                    value={form.name}
-                    onChange={(e) => set({ name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">适用对象</label>
-                  <select
-                    className={CLS.sel}
-                    value={form.entityType}
-                    onChange={(e) => set({ entityType: e.target.value, triggerField: '', triggerValue: '', conditions: [], actions: [] })}
-                  >
-                    <option value="lead">线索</option>
-                    <option value="client">客户</option>
-                  </select>
-                </div>
+        {/* 左侧主区域 */}
+        <div className="flex-1 min-w-0 space-y-4">
+
+          {/* 工作流名称 + 对象 */}
+          <div className="rounded-lg border bg-white p-4 sm:p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">工作流名称（留空自动生成）</label>
+                <input
+                  className={CLS.inp}
+                  placeholder="如：线索丢失 - 发送通知"
+                  value={form.name}
+                  onChange={(e) => set({ name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">适用对象</label>
+                <select
+                  className={CLS.sel}
+                  value={form.entityType}
+                  onChange={(e) => set({ entityType: e.target.value, triggerField: '', triggerValue: '', conditions: [], actions: [] })}
+                >
+                  <option value="lead">线索</option>
+                  <option value="client">客户</option>
+                </select>
               </div>
             </div>
+          </div>
 
             {/* 触发器 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <div className="rounded-lg border bg-white p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex-none w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">1</span>
                 <div>
@@ -872,7 +869,7 @@ export default function WorkflowEditorPage() {
             </div>
 
             {/* 条件构建器 */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <div className="rounded-lg border bg-white p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex-none w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">2</span>
                 <div>
@@ -892,7 +889,7 @@ export default function WorkflowEditorPage() {
             </div>
 
             {/* 动作列表（可拖拽排序） */}
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <div className="rounded-lg border bg-white p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex-none w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">3</span>
                 <div>
@@ -948,13 +945,12 @@ export default function WorkflowEditorPage() {
           </div>
 
           {/* 右侧变量面板 */}
-          <div className="hidden lg:block flex-none w-60 sticky top-20">
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="hidden lg:block flex-none w-56 sticky top-6">
+            <div className="rounded-lg border bg-white p-4">
               <VariablePanel entityType={form.entityType} onInsert={handleInsertVar} />
             </div>
           </div>
         </div>
-      </div>
     </div>
   )
 }
