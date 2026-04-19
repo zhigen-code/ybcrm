@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { crmApi } from '@/shared/utils/request'
 import { Input } from '@/shared/components/Input'
 import { Button } from '@/shared/components/Button'
@@ -902,6 +903,7 @@ function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]
 
 function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnabled: boolean; onSettingsSaved: () => void }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [subTab, setSubTab] = useState<'workflows' | 'templates' | 'assignment'>('workflows')
   const [showAdd, setShowAdd] = useState(false)
   const [editTarget, setEditTarget] = useState<Workflow | null>(null)
@@ -1079,7 +1081,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
       {subTab === 'workflows' && <>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-gray-500">配置触发器与动作，满足触发条件时自动执行。</p>
-        <Button size="sm" onClick={() => setShowAdd(true)}>+ 新建工作流</Button>
+        <Button size="sm" onClick={() => navigate('/app/settings/workflows/new')}>+ 新建工作流</Button>
       </div>
 
       <div className="rounded-lg border bg-white overflow-hidden">
@@ -1110,7 +1112,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
                       <button
-                        onClick={() => setEditTarget(w)}
+                        onClick={() => navigate(`/app/settings/workflows/${w.id}`)}
                         className="text-xs text-primary-600 hover:text-primary-800"
                       >
                         编辑
@@ -1426,8 +1428,12 @@ type TeamForm = z.infer<typeof teamSchema>
 
 export default function SystemSettingsPage() {
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabKey>('basic')
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    const tab = searchParams.get('tab')
+    return (TABS.some((t) => t.key === tab) ? tab : 'basic') as TabKey
+  })
   const [editTarget, setEditTarget] = useState<Team | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [activeGroup, setActiveGroup] = useState(OPTION_GROUPS[0]!.key)

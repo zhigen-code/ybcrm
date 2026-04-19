@@ -68,6 +68,14 @@ workflowsAdminRoutes.get('/', async (c) => {
   return c.json({ data: rows.results.map(parseWorkflow) })
 })
 
+// 查询单个
+workflowsAdminRoutes.get('/:id', async (c) => {
+  const { id } = c.req.param()
+  const row = await c.env.DB.prepare('SELECT * FROM workflows WHERE id = ?').bind(id).first<Record<string, unknown>>()
+  if (!row) return c.json({ message: '工作流不存在' }, 404)
+  return c.json({ data: parseWorkflow(row) })
+})
+
 // 新建
 workflowsAdminRoutes.post('/', async (c) => {
   const body = await c.req.json<{

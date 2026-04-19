@@ -18,6 +18,7 @@ const PartnersPage = lazy(() => import('@/app/partners/PartnersPage'))
 const ActivitiesPage = lazy(() => import('@/app/activities/ActivitiesPage'))
 const UsersPage = lazy(() => import('@/app/users/UsersPage'))
 const SystemSettingsPage = lazy(() => import('@/app/settings/SystemSettingsPage'))
+const WorkflowEditorPage = lazy(() => import('@/app/settings/workflows/WorkflowEditorPage'))
 const DocsPage = lazy(() => import('@/app/docs/DocsPage'))
 const ProfilePage = lazy(() => import('@/app/profile/ProfilePage'))
 
@@ -60,6 +61,8 @@ export default function App() {
                     <Route path="activities" element={<ActivitiesPage />} />
                     <Route path="users" element={<UsersPage />} />
                     <Route path="settings" element={<SystemSettingsPage />} />
+                    <Route path="settings/workflows/new" element={<WorkflowEditorPage />} />
+                    <Route path="settings/workflows/:wfId" element={<WorkflowEditorPage />} />
                     <Route path="docs" element={<DocsPage />} />
                     <Route path="settings/options" element={<Navigate to="/app/settings" replace />} />
                     <Route path="profile" element={<ProfilePage />} />
