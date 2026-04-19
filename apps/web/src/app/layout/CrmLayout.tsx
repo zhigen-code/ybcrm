@@ -25,6 +25,15 @@ export default function CrmLayout() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const { data: newLeadsData } = useQuery({
+    queryKey: ['leads-new-count'],
+    queryFn: () =>
+      crmApi.get<{ total: number }>('/leads', { params: { status: 'New', pageSize: 1 } })
+        .then((r) => r.data.total),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
+
   const handleLogout = () => {
     logout()
     navigate('/app/login')
@@ -60,7 +69,7 @@ export default function CrmLayout() {
             onClick={onNavClick}
             className={({ isActive }) =>
               cn(
-                'flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-primary-50 text-primary-700'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
@@ -68,6 +77,11 @@ export default function CrmLayout() {
             }
           >
             {item.label}
+            {item.to === '/app/leads' && newLeadsData != null && newLeadsData > 0 && (
+              <span className="ml-auto flex-shrink-0 rounded-full bg-red-500 text-white text-xs font-bold min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                {newLeadsData > 99 ? '99+' : newLeadsData}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
