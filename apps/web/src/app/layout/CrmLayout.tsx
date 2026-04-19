@@ -78,7 +78,7 @@ export default function CrmLayout() {
           >
             {item.label}
             {item.to === '/app/leads' && newLeadsData != null && newLeadsData > 0 && (
-              <span className="ml-2 flex-shrink-0 rounded-full bg-red-500 text-white font-medium min-w-[16px] h-4 flex items-center justify-center px-1 leading-none" style={{ fontSize: '10px' }}>
+              <span className="ml-1.5 flex-shrink-0 rounded-full bg-red-400 text-white min-w-[14px] h-3.5 flex items-center justify-center px-1" style={{ fontSize: '9px', lineHeight: 1 }}>
                 {newLeadsData > 99 ? '99+' : newLeadsData}
               </span>
             )}
