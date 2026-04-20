@@ -40,6 +40,10 @@ import { handleLeadAssignmentBatch } from './assignment/handler'
 const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', logger())
+
+// 外部 API 的 CORS 必须在全局 CORS 之前注册，否则预检请求被全局中间件拦截
+app.use('/api/v1/*', cors({ origin: '*' }))
+
 app.use(
   '*',
   cors({
@@ -77,9 +81,6 @@ app.get('/api/public/settings', async (c) => {
     },
   })
 })
-
-// 外部 API（API Key 鉴权，允许所有 origin）
-app.use('/api/v1/*', cors({ origin: '*' }))
 
 const v1LeadSchema = z.object({
   source: z.string().min(1, '请填写来源'),
