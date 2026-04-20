@@ -98,15 +98,21 @@ app.post(
     const body = c.req.valid('json')
     const { userId } = c.get('jwtPayload')
     const id = uuidv4()
+    // intended_service 是遗留列，有固定 CHECK 约束，用兼容值兜底
+    const legacyServiceValues = ['赴美试管', '代孕', '供精', '供卵']
+    const legacyService = legacyServiceValues.includes(body.intendedServices[0])
+      ? body.intendedServices[0]
+      : legacyServiceValues[0]
     await c.env.DB.prepare(
       `INSERT INTO leads (id, source, name, contact_info, intended_service, intended_services, status, notes, created_by_userId)
        VALUES (?, ?, ?, ?, ?, ?, 'New', ?, ?)`,
     ).bind(
       id, body.source, body.name, body.contactInfo,
-      body.intendedServices[0], JSON.stringify(body.intendedServices),
+      legacyService, JSON.stringify(body.intendedServices),
       body.notes ?? null, userId,
     ).run()
-    await c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id })
+    // 队列发送失败不应影响主流程
+    void c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id }).catch(() => {})
     return c.json({ data: { id, status: 'New' } }, 201)
   },
 )
