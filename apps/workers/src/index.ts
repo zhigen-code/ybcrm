@@ -102,7 +102,7 @@ app.post(
     const legacyServiceValues = ['赴美试管', '代孕', '供精', '供卵']
     const legacyService = legacyServiceValues.includes(body.intendedServices[0])
       ? body.intendedServices[0]
-      : legacyServiceValues[0]
+      : '其他'
     await c.env.DB.prepare(
       `INSERT INTO leads (id, source, name, contact_info, intended_service, intended_services, status, notes, created_by_userId)
        VALUES (?, ?, ?, ?, ?, ?, 'New', ?, ?)`,
