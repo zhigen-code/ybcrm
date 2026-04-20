@@ -177,6 +177,18 @@ export default function LeadsPage() {
   const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
   const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
   const [showColSettings, setShowColSettings] = useState(false)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const filterPanelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) {
+        setShowFilterPanel(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const PAGE_SIZE = 20
   const canToggleMine = user?.role !== 'sales'
@@ -340,15 +352,92 @@ export default function LeadsPage() {
         <Button onClick={() => setShowCreate(true)} size="sm">新建线索</Button>
       </div>
 
-      <div className="mb-3">
-        <Input
-          placeholder="搜索姓名、联系方式、来源、编号..."
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-        />
+      {/* 搜索框 + 筛选下拉 */}
+      <div className="mb-3 relative" ref={filterPanelRef}>
+        <div className="flex items-center rounded-md border border-gray-300 bg-white shadow-sm transition-colors focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500">
+          <input
+            className="flex-1 px-3 py-2 text-sm bg-transparent outline-none placeholder:text-gray-400"
+            placeholder="搜索姓名、联系方式、来源、编号..."
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+          <button
+            onClick={() => setShowFilterPanel((v) => !v)}
+            className="relative flex items-center gap-1 px-3 py-2 border-l border-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {(sourceFilter || assignedToFilter || nextContactFilter) && (
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary-500" />
+            )}
+            <span className="text-xs">筛选</span>
+            <svg
+              className={`w-3.5 h-3.5 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {showFilterPanel && (
+          <div className="absolute z-20 top-full left-0 right-0 mt-1 rounded-md border border-gray-200 bg-white shadow-lg p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {sourceOptions.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">来源</label>
+                  <select
+                    value={sourceFilter}
+                    onChange={(e) => { setSourceFilter(e.target.value); setPage(1) }}
+                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="">全部来源</option>
+                    {sourceOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+              {canFilterAssignee && usersData?.data && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">负责人</label>
+                  <select
+                    value={assignedToFilter}
+                    onChange={(e) => { setAssignedToFilter(e.target.value); setPage(1) }}
+                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="">全部负责人</option>
+                    {usersData.data.filter((u) => u.isActive).map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">下次联系</label>
+                <select
+                  value={nextContactFilter}
+                  onChange={(e) => { setNextContactFilter(e.target.value); setPage(1) }}
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="">全部</option>
+                  <option value="overdue">已逾期</option>
+                  <option value="today">今天到期</option>
+                  <option value="week">未来 7 天</option>
+                </select>
+              </div>
+            </div>
+            {(sourceFilter || assignedToFilter || nextContactFilter) && (
+              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-end">
+                <button
+                  onClick={() => { setSourceFilter(''); setAssignedToFilter(''); setNextContactFilter(''); setPage(1) }}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  重置筛选
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         {canToggleMine && (
           <div className="flex rounded-lg border bg-white overflow-hidden flex-shrink-0">
             <button
@@ -378,58 +467,6 @@ export default function LeadsPage() {
             </button>
           ))}
         </div>
-      </div>
-
-      {/* 扩展筛选行 */}
-      <div className="mb-4 flex flex-wrap gap-2 items-center">
-        {/* 来源筛选 */}
-        {sourceOptions.length > 0 && (
-          <select
-            value={sourceFilter}
-            onChange={(e) => { setSourceFilter(e.target.value); setPage(1) }}
-            className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">全部来源</option>
-            {sourceOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        )}
-
-        {/* 负责人筛选（admin/operations 可见） */}
-        {canFilterAssignee && usersData?.data && (
-          <select
-            value={assignedToFilter}
-            onChange={(e) => { setAssignedToFilter(e.target.value); setPage(1) }}
-            className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">全部负责人</option>
-            <option value="__unassigned__" disabled>——</option>
-            {usersData.data.filter((u) => u.isActive).map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-        )}
-
-        {/* 下次联系时间筛选 */}
-        <select
-          value={nextContactFilter}
-          onChange={(e) => { setNextContactFilter(e.target.value); setPage(1) }}
-          className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="">下次联系：全部</option>
-          <option value="overdue">已逾期</option>
-          <option value="today">今天到期</option>
-          <option value="week">未来 7 天</option>
-        </select>
-
-        {/* 重置筛选 */}
-        {(sourceFilter || assignedToFilter || nextContactFilter) && (
-          <button
-            onClick={() => { setSourceFilter(''); setAssignedToFilter(''); setNextContactFilter(''); setPage(1) }}
-            className="text-xs text-gray-400 hover:text-gray-600 underline"
-          >
-            重置筛选
-          </button>
-        )}
       </div>
 
       {isLoading ? (
