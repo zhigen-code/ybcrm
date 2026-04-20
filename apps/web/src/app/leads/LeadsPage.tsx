@@ -18,7 +18,7 @@ import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { formatDate } from '@/shared/utils/format'
 import { useOptionGroup, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
-import type { Lead, Service } from '@/shared/types'
+import type { Lead, Service, User } from '@/shared/types'
 
 // ─── 列配置 ───────────────────────────────────────────────────────────────────
 
@@ -167,6 +167,9 @@ export default function LeadsPage() {
   const { user } = useCrmAuth()
   const [showCreate, setShowCreate] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
+  const [assignedToFilter, setAssignedToFilter] = useState('')
+  const [nextContactFilter, setNextContactFilter] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -202,6 +205,13 @@ export default function LeadsPage() {
   })
   const serviceOptions = servicesData?.data ?? []
 
+  const canFilterAssignee = user?.role === 'admin' || user?.role === 'operations'
+  const { data: usersData } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: () => crmApi.get<{ data: User[] }>('/users').then((r) => r.data),
+    enabled: canFilterAssignee,
+  })
+
   const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
   const handleSearch = (val: string) => {
     setSearch(val)
@@ -210,11 +220,14 @@ export default function LeadsPage() {
   }
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', statusFilter, mineOnly, debouncedSearch, page],
+    queryKey: ['leads', statusFilter, sourceFilter, assignedToFilter, nextContactFilter, mineOnly, debouncedSearch, page],
     queryFn: () =>
       crmApi.get<{ data: Lead[]; total: number; page: number; pageSize: number }>('/leads', {
         params: {
           status: statusFilter || undefined,
+          source: sourceFilter || undefined,
+          assignedTo: assignedToFilter || undefined,
+          nextContact: nextContactFilter || undefined,
           mine: mineOnly ? 'true' : undefined,
           search: debouncedSearch || undefined,
           page,
@@ -335,17 +348,17 @@ export default function LeadsPage() {
         />
       </div>
 
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         {canToggleMine && (
           <div className="flex rounded-lg border bg-white overflow-hidden flex-shrink-0">
             <button
-              onClick={() => setMineOnly(false)}
+              onClick={() => { setMineOnly(false); setPage(1) }}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${!mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               全部
             </button>
             <button
-              onClick={() => setMineOnly(true)}
+              onClick={() => { setMineOnly(true); setPage(1) }}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               我的线索
@@ -356,7 +369,7 @@ export default function LeadsPage() {
           {statusFilterOptions.map(({ value, label }) => (
             <button
               key={value}
-              onClick={() => setStatusFilter(value)}
+              onClick={() => { setStatusFilter(value); setPage(1) }}
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 statusFilter === value ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'
               }`}
@@ -365,6 +378,58 @@ export default function LeadsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* 扩展筛选行 */}
+      <div className="mb-4 flex flex-wrap gap-2 items-center">
+        {/* 来源筛选 */}
+        {sourceOptions.length > 0 && (
+          <select
+            value={sourceFilter}
+            onChange={(e) => { setSourceFilter(e.target.value); setPage(1) }}
+            className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">全部来源</option>
+            {sourceOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+
+        {/* 负责人筛选（admin/operations 可见） */}
+        {canFilterAssignee && usersData?.data && (
+          <select
+            value={assignedToFilter}
+            onChange={(e) => { setAssignedToFilter(e.target.value); setPage(1) }}
+            className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">全部负责人</option>
+            <option value="__unassigned__" disabled>——</option>
+            {usersData.data.filter((u) => u.isActive).map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        )}
+
+        {/* 下次联系时间筛选 */}
+        <select
+          value={nextContactFilter}
+          onChange={(e) => { setNextContactFilter(e.target.value); setPage(1) }}
+          className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          <option value="">下次联系：全部</option>
+          <option value="overdue">已逾期</option>
+          <option value="today">今天到期</option>
+          <option value="week">未来 7 天</option>
+        </select>
+
+        {/* 重置筛选 */}
+        {(sourceFilter || assignedToFilter || nextContactFilter) && (
+          <button
+            onClick={() => { setSourceFilter(''); setAssignedToFilter(''); setNextContactFilter(''); setPage(1) }}
+            className="text-xs text-gray-400 hover:text-gray-600 underline"
+          >
+            重置筛选
+          </button>
+        )}
       </div>
 
       {isLoading ? (

@@ -33,7 +33,7 @@ leadsRoutes.get('/sources', async (c) => {
 // GET /api/leads
 leadsRoutes.get('/', async (c) => {
   const { userId, role, teamId } = c.get('jwtPayload')
-  const { status, mine, search, page = '1', pageSize = '20' } = c.req.query()
+  const { status, mine, search, source, assignedTo, nextContact, page = '1', pageSize = '20' } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
   let whereClause = 'WHERE l.deleted_at IS NULL'
@@ -49,6 +49,21 @@ leadsRoutes.get('/', async (c) => {
   if (status) {
     whereClause += ' AND l.status = ?'
     whereParams.push(status)
+  }
+  if (source) {
+    whereClause += ' AND l.source = ?'
+    whereParams.push(source)
+  }
+  if (assignedTo) {
+    whereClause += ' AND l.assigned_to_userId = ?'
+    whereParams.push(assignedTo)
+  }
+  if (nextContact === 'overdue') {
+    whereClause += " AND l.next_contact_date IS NOT NULL AND l.next_contact_date < date('now')"
+  } else if (nextContact === 'today') {
+    whereClause += " AND l.next_contact_date = date('now')"
+  } else if (nextContact === 'week') {
+    whereClause += " AND l.next_contact_date IS NOT NULL AND l.next_contact_date BETWEEN date('now') AND date('now', '+7 days')"
   }
   if (search) {
     whereClause += ' AND (l.name LIKE ? OR l.contact_info LIKE ? OR l.source LIKE ? OR CAST(l.lead_no AS TEXT) LIKE ?)'
