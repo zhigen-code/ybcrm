@@ -82,29 +82,59 @@ app.get('/api/public/settings', async (c) => {
   })
 })
 
+const KNOWN_V1_FIELDS = new Set(['source', 'name', 'contactInfo', 'intendedServices', 'notes'])
+
 const v1LeadSchema = z.object({
   source: z.string().min(1, '请填写来源'),
   name: z.string().min(1, '请填写姓名'),
   contactInfo: z.string().min(1, '请填写联系方式'),
   intendedServices: z.array(z.string()).min(1, '请至少填写一个意向服务'),
   notes: z.string().nullable().optional(),
-})
+}).passthrough()
 
 app.post(
   '/api/v1/leads',
   requireApiKey,
   zValidator('json', v1LeadSchema),
   async (c) => {
-    const body = c.req.valid('json')
+    const body = c.req.valid('json') as Record<string, unknown>
     const { userId } = c.get('jwtPayload')
     const id = uuidv4()
-await c.env.DB.prepare(
+
+    // 查询系统中存在的服务名
+    const serviceRows = await c.env.DB.prepare('SELECT name FROM services WHERE deleted_at IS NULL').all<{ name: string }>()
+    const validServiceNames = new Set(serviceRows.results.map((r) => r.name))
+
+    const notesParts: string[] = []
+    if (body.notes) notesParts.push(String(body.notes))
+
+    // 检查意向服务：不在系统中的附加到备注，并替换为「其他」
+    const submittedServices = body.intendedServices as string[]
+    const unknownServices = submittedServices.filter((s) => !validServiceNames.has(s))
+    if (unknownServices.length > 0) {
+      notesParts.push(`意向服务（系统未收录）：${unknownServices.join('、')}`)
+    }
+    const finalServices = submittedServices.map((s) => validServiceNames.has(s) ? s : '其他')
+    // 去重
+    const dedupedServices = [...new Set(finalServices)]
+
+    // 收集未知字段附加到备注
+    const extraFields = Object.entries(body)
+      .filter(([k]) => !KNOWN_V1_FIELDS.has(k))
+      .map(([k, v]) => `${k}：${v}`)
+    if (extraFields.length > 0) {
+      notesParts.push(`附加信息：${extraFields.join('；')}`)
+    }
+
+    const finalNotes = notesParts.length > 0 ? notesParts.join('\n') : null
+
+    await c.env.DB.prepare(
       `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId)
        VALUES (?, ?, ?, ?, ?, 'New', ?, ?)`,
     ).bind(
-      id, body.source, body.name, body.contactInfo,
-      JSON.stringify(body.intendedServices),
-      body.notes ?? null, userId,
+      id, body.source as string, body.name as string, body.contactInfo as string,
+      JSON.stringify(dedupedServices),
+      finalNotes, userId,
     ).run()
     // 队列发送失败不应影响主流程
     void c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id }).catch(() => {})
