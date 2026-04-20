@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { crmApi, attachTokenInterceptor } from '@/shared/utils/request'
+import { queryClient } from '@/shared/utils/queryClient'
 import type { User } from '@/shared/types'
 
 interface CrmAuthState {
@@ -52,6 +53,7 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(USER_KEY)
     setToken(null)
     setUser(null)
+    queryClient.clear()
   }, [])
 
   useEffect(() => {
