@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
@@ -20,6 +20,49 @@ import { useOptionGroup, getOptionColor, getOptionLabel } from '@/shared/hooks/u
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 import type { Lead, Service } from '@/shared/types'
 
+// ─── 列配置 ───────────────────────────────────────────────────────────────────
+
+const LEAD_COLUMNS = [
+  { key: 'leadNo',           label: '编号',     required: false },
+  { key: 'name',             label: '姓名',     required: true  },
+  { key: 'contactInfo',      label: '联系方式',  required: false },
+  { key: 'intendedServices', label: '意向服务',  required: false },
+  { key: 'status',           label: '状态',     required: false },
+  { key: 'source',           label: '来源',     required: false },
+  { key: 'assignedToName',   label: '负责人',   required: false },
+  { key: 'nextContactDate',  label: '下次联系',  required: false },
+  { key: 'activityCount',    label: '跟进次数',  required: false },
+  { key: 'createdAt',        label: '创建时间',  required: false },
+] as const
+
+type ColKey = typeof LEAD_COLUMNS[number]['key']
+type ColConfig = { key: ColKey; visible: boolean }
+
+const DEFAULT_COLS: ColConfig[] = LEAD_COLUMNS.map((c) => ({ key: c.key, visible: true }))
+const STORAGE_PREFIX = 'crm_leads_cols_'
+
+function loadColConfig(userId: string): ColConfig[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + userId)
+    if (!raw) return DEFAULT_COLS
+    const saved = JSON.parse(raw) as ColConfig[]
+    // 保留已有列，追加新列到末尾
+    const savedKeys = new Set(saved.map((c) => c.key))
+    return [
+      ...saved.filter((c) => LEAD_COLUMNS.some((lc) => lc.key === c.key)),
+      ...LEAD_COLUMNS.filter((c) => !savedKeys.has(c.key)).map((c) => ({ key: c.key, visible: true })),
+    ]
+  } catch {
+    return DEFAULT_COLS
+  }
+}
+
+function saveColConfig(userId: string, config: ColConfig[]) {
+  localStorage.setItem(STORAGE_PREFIX + userId, JSON.stringify(config))
+}
+
+// ─── 表单 schema ──────────────────────────────────────────────────────────────
+
 const createSchema = z.object({
   source: z.string().min(1, '请填写来源'),
   name: z.string().min(1, '请填写姓名'),
@@ -28,6 +71,96 @@ const createSchema = z.object({
   notes: z.string().optional(),
 })
 type CreateForm = z.infer<typeof createSchema>
+
+// ─── 列设置面板 ───────────────────────────────────────────────────────────────
+
+function ColSettingsPanel({
+  config,
+  onChange,
+  onClose,
+}: {
+  config: ColConfig[]
+  onChange: (c: ColConfig[]) => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  const toggle = (key: ColKey) => {
+    const col = LEAD_COLUMNS.find((c) => c.key === key)
+    if (col?.required) return
+    onChange(config.map((c) => (c.key === key ? { ...c, visible: !c.visible } : c)))
+  }
+
+  const move = (key: ColKey, dir: -1 | 1) => {
+    const idx = config.findIndex((c) => c.key === key)
+    const next = idx + dir
+    if (next < 0 || next >= config.length) return
+    const arr = [...config]
+    ;[arr[idx], arr[next]] = [arr[next]!, arr[idx]!]
+    onChange(arr)
+  }
+
+  return (
+    <div
+      ref={ref}
+      className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg border bg-white shadow-lg py-1"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b">列显示与排序</p>
+      <ul className="py-1">
+        {config.map((c, idx) => {
+          const def = LEAD_COLUMNS.find((lc) => lc.key === c.key)!
+          return (
+            <li key={c.key} className="flex items-center gap-1 px-2 py-0.5">
+              <input
+                type="checkbox"
+                checked={c.visible}
+                disabled={def.required}
+                onChange={() => toggle(c.key)}
+                className="accent-primary-600 cursor-pointer disabled:opacity-40"
+              />
+              <span className={`flex-1 text-xs px-1 ${def.required ? 'text-gray-400' : 'text-gray-700'}`}>
+                {def.label}
+              </span>
+              <button
+                onClick={() => move(c.key, -1)}
+                disabled={idx === 0}
+                className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20"
+              >
+                ▲
+              </button>
+              <button
+                onClick={() => move(c.key, 1)}
+                disabled={idx === config.length - 1}
+                className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20"
+              >
+                ▼
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      <div className="border-t px-3 py-1.5">
+        <button
+          onClick={() => onChange(DEFAULT_COLS)}
+          className="text-xs text-gray-400 hover:text-gray-600"
+        >
+          恢复默认
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 主页面 ───────────────────────────────────────────────────────────────────
 
 export default function LeadsPage() {
   const queryClient = useQueryClient()
@@ -39,11 +172,22 @@ export default function LeadsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [followUpTarget, setFollowUpTarget] = useState<Lead | null>(null)
+  const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLS)
+  const [showColSettings, setShowColSettings] = useState(false)
 
   const PAGE_SIZE = 20
-
-  // sales 角色后端已自动过滤，不需要切换
   const canToggleMine = user?.role !== 'sales'
+  const isAdmin = user?.role === 'admin'
+
+  // 用户加载后读取列设置
+  useEffect(() => {
+    if (user?.id) setColConfig(loadColConfig(user.id))
+  }, [user?.id])
+
+  const updateColConfig = (next: ColConfig[]) => {
+    setColConfig(next)
+    if (user?.id) saveColConfig(user.id, next)
+  }
 
   const { options: leadStatusOpts } = useOptionGroup('lead_status')
   const { data: sourcesData } = useQuery({
@@ -58,7 +202,6 @@ export default function LeadsPage() {
   })
   const serviceOptions = servicesData?.data ?? []
 
-  // 搜索防抖
   const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
   const handleSearch = (val: string) => {
     setSearch(val)
@@ -84,13 +227,8 @@ export default function LeadsPage() {
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
-  // 新建线索表单
   const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
+    register, handleSubmit, reset, watch, setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -103,8 +241,6 @@ export default function LeadsPage() {
       : [...selectedServices, svc]
     setValue('intendedServices', next, { shouldValidate: true })
   }
-
-  const isAdmin = user?.role === 'admin'
 
   const deleteLead = useMutation({
     mutationFn: (id: string) => crmApi.delete(`/leads/${id}`),
@@ -136,6 +272,51 @@ export default function LeadsPage() {
     ...leadStatusOpts.map((o) => ({ value: o.value, label: o.label })),
   ]
 
+  const visibleCols = colConfig.filter((c) => c.visible)
+
+  const renderTd = (lead: Lead, key: ColKey) => {
+    switch (key) {
+      case 'leadNo':
+        return <td key={key} className="px-4 py-3 text-gray-400 text-xs font-mono">L-{String(lead.leadNo ?? '').padStart(4, '0')}</td>
+      case 'name':
+        return <td key={key} className="px-4 py-3 font-medium text-gray-900">{lead.name}</td>
+      case 'contactInfo':
+        return <td key={key} className="px-4 py-3 text-gray-600">{lead.contactInfo}</td>
+      case 'intendedServices':
+        return (
+          <td key={key} className="px-4 py-3">
+            <div className="flex flex-wrap gap-1">
+              {(lead.intendedServices ?? []).map((svc) => <Badge key={svc} variant="blue">{svc}</Badge>)}
+            </div>
+          </td>
+        )
+      case 'status':
+        return (
+          <td key={key} className="px-4 py-3">
+            <Badge variant={getOptionColor(leadStatusOpts, lead.status)}>
+              {getOptionLabel(leadStatusOpts, lead.status)}
+            </Badge>
+          </td>
+        )
+      case 'source':
+        return <td key={key} className="px-4 py-3 text-gray-600">{lead.source}</td>
+      case 'assignedToName':
+        return <td key={key} className="px-4 py-3 text-gray-600">{lead.assignedToName ?? <span className="text-gray-400">未分配</span>}</td>
+      case 'nextContactDate':
+        return (
+          <td key={key} className="px-4 py-3 text-xs">
+            {lead.nextContactDate
+              ? <span className={new Date(lead.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(lead.nextContactDate)}</span>
+              : <span className="text-gray-300">—</span>}
+          </td>
+        )
+      case 'activityCount':
+        return <td key={key} className="px-4 py-3 text-gray-500 text-xs">{lead.activityCount ?? 0}</td>
+      case 'createdAt':
+        return <td key={key} className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
+    }
+  }
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -146,7 +327,6 @@ export default function LeadsPage() {
         <Button onClick={() => setShowCreate(true)} size="sm">新建线索</Button>
       </div>
 
-      {/* 搜索框 */}
       <div className="mb-3">
         <Input
           placeholder="搜索姓名、联系方式、来源、编号..."
@@ -155,40 +335,30 @@ export default function LeadsPage() {
         />
       </div>
 
-      {/* 视图切换 + 状态筛选 */}
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        {/* 我的线索 / 全部 切换（仅 admin/operations） */}
         {canToggleMine && (
           <div className="flex rounded-lg border bg-white overflow-hidden flex-shrink-0">
             <button
               onClick={() => setMineOnly(false)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                !mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${!mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               全部
             </button>
             <button
               onClick={() => setMineOnly(true)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               我的线索
             </button>
           </div>
         )}
-
-        {/* 状态筛选 */}
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
           {statusFilterOptions.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => setStatusFilter(value)}
               className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                statusFilter === value
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-gray-600 border hover:bg-gray-50'
+                statusFilter === value ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'
               }`}
             >
               {label}
@@ -208,46 +378,43 @@ export default function LeadsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">编号</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">联系方式</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">意向服务</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">来源</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">负责人</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">下次联系</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">跟进</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">创建时间</th>
-                  <th className="px-4 py-3"></th>
+                  {visibleCols.map((c) => {
+                    const def = LEAD_COLUMNS.find((lc) => lc.key === c.key)!
+                    return (
+                      <th key={c.key} className="px-4 py-3 text-left font-medium text-gray-700 whitespace-nowrap">
+                        {def.label}
+                      </th>
+                    )
+                  })}
+                  {/* 操作列 + 齿轮 */}
+                  <th className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1 relative">
+                      <button
+                        onClick={() => setShowColSettings((v) => !v)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        title="列设置"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                      </button>
+                      {showColSettings && (
+                        <ColSettingsPanel
+                          config={colConfig}
+                          onChange={(next) => { updateColConfig(next) }}
+                          onClose={() => setShowColSettings(false)}
+                        />
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((lead) => (
                   <tr key={lead.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-400 text-xs font-mono">L-{String(lead.leadNo ?? '').padStart(4, '0')}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{lead.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{lead.contactInfo}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {(lead.intendedServices ?? []).map((svc) => (
-                          <Badge key={svc} variant="blue">{svc}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={getOptionColor(leadStatusOpts, lead.status)}>
-                        {getOptionLabel(leadStatusOpts, lead.status)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{lead.source}</td>
-                    <td className="px-4 py-3 text-gray-600">{lead.assignedToName ?? <span className="text-gray-400">未分配</span>}</td>
-                    <td className="px-4 py-3 text-xs">
-                      {lead.nextContactDate
-                        ? <span className={new Date(lead.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(lead.nextContactDate)}</span>
-                        : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{lead.activityCount ?? 0}</td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
+                    {visibleCols.map((c) => renderTd(lead, c.key))}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
@@ -283,10 +450,7 @@ export default function LeadsPage() {
           <div className="sm:hidden space-y-2">
             {filtered.map((lead) => (
               <div key={lead.id} className="rounded-lg border bg-white overflow-hidden">
-                <Link
-                  to={`/app/leads/${lead.id}`}
-                  className="block p-4 hover:bg-gray-50 transition-colors"
-                >
+                <Link to={`/app/leads/${lead.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 truncate">{lead.name}</p>
@@ -300,24 +464,18 @@ export default function LeadsPage() {
                     </Badge>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {(lead.intendedServices ?? []).map((svc) => (
-                      <Badge key={svc} variant="blue">{svc}</Badge>
-                    ))}
+                    {(lead.intendedServices ?? []).map((svc) => <Badge key={svc} variant="blue">{svc}</Badge>)}
                   </div>
                   <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                     <span>{lead.source}</span>
                     {lead.assignedToName
                       ? <span>· 负责人：{lead.assignedToName}</span>
-                      : <span className="text-gray-400">· 未分配</span>
-                    }
+                      : <span className="text-gray-400">· 未分配</span>}
                     <span className="ml-auto">{formatDate(lead.createdAt)}</span>
                   </div>
                 </Link>
                 <div className="border-t px-4 py-2 flex justify-end">
-                  <button
-                    onClick={(e) => openFollowUp(lead, e)}
-                    className="text-sm text-primary-600 font-medium"
-                  >
+                  <button onClick={(e) => openFollowUp(lead, e)} className="text-sm text-primary-600 font-medium">
                     + 添加跟进记录
                   </button>
                 </div>
@@ -329,7 +487,6 @@ export default function LeadsPage() {
         </>
       )}
 
-      {/* 新建线索弹窗 */}
       {showCreate && (
         <Modal title="新建线索" onClose={() => { setShowCreate(false); reset() }}>
           <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-3">
@@ -367,18 +524,13 @@ export default function LeadsPage() {
             </div>
             <Textarea label="备注" {...register('notes')} />
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="secondary" type="button" onClick={() => { setShowCreate(false); reset() }}>
-                取消
-              </Button>
-              <Button type="submit" loading={isSubmitting || createMutation.isPending}>
-                创建
-              </Button>
+              <Button variant="secondary" type="button" onClick={() => { setShowCreate(false); reset() }}>取消</Button>
+              <Button type="submit" loading={isSubmitting || createMutation.isPending}>创建</Button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* 快速跟进弹窗 */}
       {followUpTarget && (
         <ActivityModal
           title={`跟进：${followUpTarget.name}`}
