@@ -1,6 +1,6 @@
 interface Lead {
   id: string
-  intended_service: string
+  intended_services: string
   assigned_to_userId: string | null
 }
 
@@ -94,7 +94,8 @@ function applyRule(rule: AssignmentRule, lead: Lead, users: SalesUser[]): SalesU
     case 'skill_match': {
       const matched = users.filter((u) => {
         const skills: string[] = JSON.parse(u.specialization || '[]')
-        return skills.includes(lead.intended_service)
+        const leadServices: string[] = JSON.parse(lead.intended_services || '[]')
+        return leadServices.some((s) => skills.includes(s))
       })
       return matched.sort((a, b) => a.current_leads_count - b.current_leads_count)[0] ?? null
     }

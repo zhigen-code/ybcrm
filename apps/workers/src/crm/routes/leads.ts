@@ -137,14 +137,13 @@ leadsRoutes.post('/', zValidator('json', leadSchema), async (c) => {
   const id = uuidv4()
 
   await c.env.DB.prepare(
-    `INSERT INTO leads (id, source, name, contact_info, intended_service, intended_services, status, notes, created_by_userId, lead_no)
-     VALUES (?, ?, ?, ?, ?, ?, 'New', ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
+    `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId, lead_no)
+     VALUES (?, ?, ?, ?, ?, 'New', ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
   ).bind(
     id,
     body.source,
     body.name,
     body.contactInfo,
-    body.intendedServices[0],           // 旧列保持兼容：取第一个服务
     JSON.stringify(body.intendedServices),
     body.notes ?? null,
     userId,
@@ -209,9 +208,7 @@ leadsRoutes.put(
     if (body.contactInfo !== undefined) { updates.push('contact_info = ?'); params.push(body.contactInfo) }
     if (body.intendedServices !== undefined) {
       updates.push('intended_services = ?')
-      updates.push('intended_service = ?')
       params.push(JSON.stringify(body.intendedServices))
-      params.push(body.intendedServices[0])
     }
 
     params.push(id)
@@ -334,8 +331,8 @@ leadsRoutes.post('/:id/status-transition', async (c) => {
   if (body.fields?.nextContactDate) { updates.push('next_contact_date = ?'); params.push(body.fields.nextContactDate) }
   if (body.fields?.intendedServices) {
     const svcs = body.fields.intendedServices as string[]
-    updates.push('intended_services = ?', 'intended_service = ?')
-    params.push(JSON.stringify(svcs), svcs[0] ?? '')
+    updates.push('intended_services = ?')
+    params.push(JSON.stringify(svcs))
   }
   params.push(id)
 

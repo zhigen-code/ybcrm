@@ -98,19 +98,12 @@ app.post(
     const body = c.req.valid('json')
     const { userId } = c.get('jwtPayload')
     const id = uuidv4()
-    // intended_service 是遗留列，有固定 CHECK 约束，用兼容值兜底
-    // intended_service 是废弃遗留列，有固定 CHECK 约束，用常量占位即可
-    // 真实服务数据存在 intended_services（UI 只读这个字段）
-    const legacyAllowed = ['赴美试管', '代孕', '供精', '供卵']
-    const legacyService = legacyAllowed.includes(body.intendedServices[0])
-      ? body.intendedServices[0]
-      : legacyAllowed[0]
-    await c.env.DB.prepare(
-      `INSERT INTO leads (id, source, name, contact_info, intended_service, intended_services, status, notes, created_by_userId)
-       VALUES (?, ?, ?, ?, ?, ?, 'New', ?, ?)`,
+await c.env.DB.prepare(
+      `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId)
+       VALUES (?, ?, ?, ?, ?, 'New', ?, ?)`,
     ).bind(
       id, body.source, body.name, body.contactInfo,
-      legacyService, JSON.stringify(body.intendedServices),
+      JSON.stringify(body.intendedServices),
       body.notes ?? null, userId,
     ).run()
     // 队列发送失败不应影响主流程
