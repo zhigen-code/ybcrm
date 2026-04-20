@@ -55,7 +55,8 @@ export function CrmAuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    attachTokenInterceptor(crmApi, () => localStorage.getItem(TOKEN_KEY), logout)
+    window.addEventListener('crm:unauthorized', logout)
+    return () => window.removeEventListener('crm:unauthorized', logout)
   }, [logout])
 
   // 后台静默刷新，不阻塞渲染

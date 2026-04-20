@@ -55,7 +55,8 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    attachTokenInterceptor(portalApi, () => localStorage.getItem(TOKEN_KEY), logout)
+    window.addEventListener('portal:unauthorized', logout)
+    return () => window.removeEventListener('portal:unauthorized', logout)
   }, [logout])
 
   // 后台静默刷新，不阻塞渲染
