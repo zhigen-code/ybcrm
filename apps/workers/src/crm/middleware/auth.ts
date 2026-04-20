@@ -29,3 +29,10 @@ export const requireAdmin = createMiddleware<{ Bindings: Env }>(async (c, next) 
   }
   await next()
 })
+
+export const requireNotSales = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+  if (c.get('jwtPayload').role === 'sales') {
+    throw new HTTPException(403, { message: '权限不足' })
+  }
+  await next()
+})

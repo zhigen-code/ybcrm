@@ -107,11 +107,15 @@ leadsRoutes.get('/', async (c) => {
 
 // GET /api/leads/:id
 leadsRoutes.get('/:id', async (c) => {
+  const { role, userId, teamId } = c.get('jwtPayload')
   const lead = await c.env.DB.prepare(
     `${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ? AND l.deleted_at IS NULL`,
-  ).bind(c.req.param('id')).first()
+  ).bind(c.req.param('id')).first() as Record<string, unknown> | null
   if (!lead) throw new HTTPException(404, { message: '线索不存在' })
-  return c.json({ data: parseLead(lead as Record<string, unknown>) })
+  if (role === 'sales' && lead.assigned_to_userId !== userId && lead.assigned_to_teamId !== teamId) {
+    throw new HTTPException(403, { message: '无权访问此线索' })
+  }
+  return c.json({ data: parseLead(lead) })
 })
 
 const leadSchema = z.object({

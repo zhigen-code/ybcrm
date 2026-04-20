@@ -63,11 +63,15 @@ clientsRoutes.get('/', async (c) => {
 
 // GET /api/clients/:id
 clientsRoutes.get('/:id', async (c) => {
+  const { role, userId } = c.get('jwtPayload')
   const client = await c.env.DB.prepare(
     `${SELECT_COLS} ${BASE_JOIN} WHERE c.id = ? AND c.deleted_at IS NULL`,
-  ).bind(c.req.param('id')).first()
+  ).bind(c.req.param('id')).first() as Record<string, unknown> | null
   if (!client) throw new HTTPException(404, { message: '客户不存在' })
-  return c.json({ data: parseClient(client as Record<string, unknown>) })
+  if (role === 'sales' && client.assigned_sales_userId !== userId) {
+    throw new HTTPException(403, { message: '无权访问此客户' })
+  }
+  return c.json({ data: parseClient(client) })
 })
 
 // POST /api/clients (线索转化)

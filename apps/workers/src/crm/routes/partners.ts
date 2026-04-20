@@ -3,12 +3,12 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { v4 as uuidv4 } from 'uuid'
-import { requireAuth, requireAdmin } from '../middleware/auth'
+import { requireAuth, requireAdmin, requireNotSales } from '../middleware/auth'
 import { toCamel, toCamelList } from '../../shared/db'
 
 export const partnersRoutes = new Hono<{ Bindings: Env }>()
 
-partnersRoutes.use('*', requireAuth)
+partnersRoutes.use('*', requireAuth, requireNotSales)
 
 partnersRoutes.get('/', async (c) => {
   const { page = '1', pageSize = '20', search } = c.req.query()
