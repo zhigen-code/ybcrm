@@ -68,6 +68,9 @@ app.use(
       // 允许阿里云 ESA Pages 子域名
       if (origin?.endsWith('.esapages.com')) return origin
       if (origin?.endsWith('.er.aliyun-esa.net')) return origin
+      // 允许 zhigen.net 和 ybivf.com 所有子域名
+      if (origin?.endsWith('.zhigen.net')) return origin
+      if (origin?.endsWith('.ybivf.com')) return origin
       return null
     },
     credentials: true,
