@@ -1,7 +1,5 @@
 -- 重建 leads 表，去掉 intended_service 列上的 NOT NULL + CHECK 约束
--- SQLite 不支持 ALTER COLUMN，只能通过重建表来修改约束
-
-PRAGMA foreign_keys = OFF;
+-- SQLite 不支持 ALTER COLUMN，D1 不支持 PRAGMA foreign_keys = OFF，故新表不声明外键
 
 CREATE TABLE leads_new (
     id TEXT PRIMARY KEY NOT NULL,
@@ -20,10 +18,7 @@ CREATE TABLE leads_new (
     created_by_userId TEXT,
     deleted_at TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (assigned_to_userId) REFERENCES users(id),
-    FOREIGN KEY (assigned_to_teamId) REFERENCES teams(id),
-    FOREIGN KEY (created_by_userId) REFERENCES users(id)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO leads_new SELECT
@@ -36,5 +31,3 @@ FROM leads;
 
 DROP TABLE leads;
 ALTER TABLE leads_new RENAME TO leads;
-
-PRAGMA foreign_keys = ON;
