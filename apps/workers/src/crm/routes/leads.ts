@@ -33,7 +33,7 @@ leadsRoutes.get('/sources', async (c) => {
 // GET /api/leads
 leadsRoutes.get('/', async (c) => {
   const { userId, role, teamId } = c.get('jwtPayload')
-  const { status, mine, search, source, assignedTo, nextContact, page = '1', pageSize = '20' } = c.req.query()
+  const { status, mine, search, source, assignedTo, nextContact, createdAt, activityCount, service, page = '1', pageSize = '20' } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
   let whereClause = 'WHERE l.deleted_at IS NULL'
@@ -64,6 +64,24 @@ leadsRoutes.get('/', async (c) => {
     whereClause += " AND l.next_contact_date = date('now')"
   } else if (nextContact === 'week') {
     whereClause += " AND l.next_contact_date IS NOT NULL AND l.next_contact_date BETWEEN date('now') AND date('now', '+7 days')"
+  }
+  if (createdAt === 'today') {
+    whereClause += " AND DATE(l.created_at) = DATE('now')"
+  } else if (createdAt === 'week') {
+    whereClause += " AND DATE(l.created_at) >= DATE('now', '-7 days')"
+  } else if (createdAt === 'month') {
+    whereClause += " AND DATE(l.created_at) >= DATE('now', '-30 days')"
+  }
+  if (activityCount === '0') {
+    whereClause += ' AND (SELECT COUNT(*) FROM sales_activities WHERE lead_id = l.id) = 0'
+  } else if (activityCount === '1-3') {
+    whereClause += ' AND (SELECT COUNT(*) FROM sales_activities WHERE lead_id = l.id) BETWEEN 1 AND 3'
+  } else if (activityCount === '3+') {
+    whereClause += ' AND (SELECT COUNT(*) FROM sales_activities WHERE lead_id = l.id) > 3'
+  }
+  if (service) {
+    whereClause += ' AND l.intended_services LIKE ?'
+    whereParams.push(`%${service}%`)
   }
   if (search) {
     whereClause += ' AND (l.name LIKE ? OR l.contact_info LIKE ? OR l.source LIKE ? OR CAST(l.lead_no AS TEXT) LIKE ?)'

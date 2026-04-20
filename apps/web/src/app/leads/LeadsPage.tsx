@@ -170,6 +170,9 @@ export default function LeadsPage() {
   const [sourceFilter, setSourceFilter] = useState('')
   const [assignedToFilter, setAssignedToFilter] = useState('')
   const [nextContactFilter, setNextContactFilter] = useState('')
+  const [createdAtFilter, setCreatedAtFilter] = useState('')
+  const [activityCountFilter, setActivityCountFilter] = useState('')
+  const [serviceFilter, setServiceFilter] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -232,7 +235,7 @@ export default function LeadsPage() {
   }
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leads', statusFilter, sourceFilter, assignedToFilter, nextContactFilter, mineOnly, debouncedSearch, page],
+    queryKey: ['leads', statusFilter, sourceFilter, assignedToFilter, nextContactFilter, createdAtFilter, activityCountFilter, serviceFilter, mineOnly, debouncedSearch, page],
     queryFn: () =>
       crmApi.get<{ data: Lead[]; total: number; page: number; pageSize: number }>('/leads', {
         params: {
@@ -240,6 +243,9 @@ export default function LeadsPage() {
           source: sourceFilter || undefined,
           assignedTo: assignedToFilter || undefined,
           nextContact: nextContactFilter || undefined,
+          createdAt: createdAtFilter || undefined,
+          activityCount: activityCountFilter || undefined,
+          service: serviceFilter || undefined,
           mine: mineOnly ? 'true' : undefined,
           search: debouncedSearch || undefined,
           page,
@@ -365,7 +371,7 @@ export default function LeadsPage() {
             onClick={() => setShowFilterPanel((v) => !v)}
             className="relative flex items-center gap-1 px-3 py-2 border-l border-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
           >
-            {(sourceFilter || assignedToFilter || nextContactFilter) && (
+            {(sourceFilter || assignedToFilter || nextContactFilter || createdAtFilter || activityCountFilter || serviceFilter) && (
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary-500" />
             )}
             <span className="text-xs">筛选</span>
@@ -380,7 +386,7 @@ export default function LeadsPage() {
 
         {showFilterPanel && (
           <div className="absolute z-20 top-full left-0 right-0 mt-1 rounded-md border border-gray-200 bg-white shadow-lg p-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {sourceOptions.length > 0 && (
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-gray-500">来源</label>
@@ -422,11 +428,50 @@ export default function LeadsPage() {
                   <option value="week">未来 7 天</option>
                 </select>
               </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">添加时间</label>
+                <select
+                  value={createdAtFilter}
+                  onChange={(e) => { setCreatedAtFilter(e.target.value); setPage(1) }}
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="">全部时间</option>
+                  <option value="today">今天</option>
+                  <option value="week">最近 7 天</option>
+                  <option value="month">最近 30 天</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">跟进次数</label>
+                <select
+                  value={activityCountFilter}
+                  onChange={(e) => { setActivityCountFilter(e.target.value); setPage(1) }}
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="">全部</option>
+                  <option value="0">未跟进</option>
+                  <option value="1-3">1—3 次</option>
+                  <option value="3+">3 次以上</option>
+                </select>
+              </div>
+              {serviceOptions.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">意向服务</label>
+                  <select
+                    value={serviceFilter}
+                    onChange={(e) => { setServiceFilter(e.target.value); setPage(1) }}
+                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="">全部服务</option>
+                    {serviceOptions.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
-            {(sourceFilter || assignedToFilter || nextContactFilter) && (
+            {(sourceFilter || assignedToFilter || nextContactFilter || createdAtFilter || activityCountFilter || serviceFilter) && (
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-end">
                 <button
-                  onClick={() => { setSourceFilter(''); setAssignedToFilter(''); setNextContactFilter(''); setPage(1) }}
+                  onClick={() => { setSourceFilter(''); setAssignedToFilter(''); setNextContactFilter(''); setCreatedAtFilter(''); setActivityCountFilter(''); setServiceFilter(''); setPage(1) }}
                   className="text-xs text-gray-400 hover:text-gray-600"
                 >
                   重置筛选
