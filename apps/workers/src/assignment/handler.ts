@@ -52,7 +52,7 @@ async function assignLead(leadId: string, env: Env): Promise<void> {
   const salesUsers = await env.DB.prepare(
     `SELECT id, team_id, capacity, specialization, current_leads_count
      FROM users
-     WHERE role = 'sales' AND current_leads_count < capacity
+     WHERE role = 'sales' AND is_active = 1 AND current_leads_count < capacity
      ORDER BY current_leads_count ASC`,
   ).all<SalesUser>()
 

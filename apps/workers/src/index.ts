@@ -129,8 +129,8 @@ app.post(
     const finalNotes = notesParts.length > 0 ? notesParts.join('\n') : null
 
     await c.env.DB.prepare(
-      `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId)
-       VALUES (?, ?, ?, ?, ?, 'New', ?, ?)`,
+      `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId, lead_no)
+       VALUES (?, ?, ?, ?, ?, 'New', ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
     ).bind(
       id, body.source as string, body.name as string, body.contactInfo as string,
       JSON.stringify(dedupedServices),
