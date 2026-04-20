@@ -24,7 +24,7 @@ usersRoutes.get('/', async (c) => {
 
   const [results, countResult] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT id, email, name, role, team_id, capacity, specialization, current_leads_count, is_active, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
+      `SELECT id, email, name, phone, role, team_id, capacity, specialization, current_leads_count, is_active, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
     ).bind(...params, Number(pageSize), offset).all(),
     c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`)
       .bind(...params).first<{ total: number }>(),
@@ -47,6 +47,7 @@ usersRoutes.put(
     'json',
     z.object({
       name: z.string().optional(),
+      phone: z.string().nullable().optional(),
       role: z.enum(['admin', 'operations', 'sales']).optional(),
       teamId: z.string().nullable().optional(),
       capacity: z.number().int().positive().optional(),
@@ -65,6 +66,7 @@ usersRoutes.put(
     const params: unknown[] = []
 
     if (body.name !== undefined) { updates.push('name = ?'); params.push(body.name) }
+    if (body.phone !== undefined) { updates.push('phone = ?'); params.push(body.phone) }
     if (body.role !== undefined) { updates.push('role = ?'); params.push(body.role) }
     if (body.teamId !== undefined) { updates.push('team_id = ?'); params.push(body.teamId) }
     if (body.capacity !== undefined) { updates.push('capacity = ?'); params.push(body.capacity) }
@@ -75,7 +77,7 @@ usersRoutes.put(
     await c.env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run()
 
     const updated = await c.env.DB.prepare(
-      'SELECT id, email, name, role, team_id, capacity, current_leads_count FROM users WHERE id = ?',
+      'SELECT id, email, name, phone, role, team_id, capacity, current_leads_count, is_active FROM users WHERE id = ?',
     ).bind(id).first()
     return c.json({ data: toCamel(updated as Record<string, unknown>) })
   },

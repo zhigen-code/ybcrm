@@ -28,6 +28,7 @@ const registerSchema = z.object({
 
 const editSchema = z.object({
   name: z.string().min(1, '请填写姓名'),
+  phone: z.string().optional(),
   role: z.enum(['admin', 'operations', 'sales']),
   teamId: z.string().optional(),
   capacity: z.coerce.number().int().min(1).max(100),
@@ -108,6 +109,7 @@ export default function UsersPage() {
   const openEdit = (u: User) => {
     editForm.reset({
       name: u.name,
+      phone: u.phone ?? '',
       role: u.role,
       teamId: u.teamId ?? '',
       capacity: u.capacity,
@@ -196,6 +198,7 @@ export default function UsersPage() {
                       {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">已禁用</span>}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
+                    {user.phone && <p className="text-xs text-gray-400 mt-0.5">{user.phone}</p>}
                   </div>
                   <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
                 </div>
@@ -252,6 +255,7 @@ export default function UsersPage() {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">邮箱</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">电话</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">角色</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">专长服务</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">当前线索 / 容量</th>
@@ -266,6 +270,7 @@ export default function UsersPage() {
                       {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">已禁用</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>
+                    <td className="px-4 py-3 text-gray-500">{user.phone ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3">
                       <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
                     </td>
@@ -379,6 +384,7 @@ export default function UsersPage() {
         >
           <div className="space-y-3">
             <Input label="姓名" error={editForm.formState.errors.name?.message} {...editForm.register('name')} />
+            <Input label="电话" placeholder="选填" {...editForm.register('phone')} />
             <Select
               label="角色"
               options={[
