@@ -40,7 +40,7 @@ leadsRoutes.get('/', async (c) => {
   const whereParams: unknown[] = []
 
   if (role === 'sales') {
-    whereClause += ' AND (l.assigned_to_userId = ? OR l.assigned_to_teamId = ?)'
+    whereClause += ' AND (l.assigned_to_userId = ? OR (l.assigned_to_userId IS NULL AND l.assigned_to_teamId = ?))'
     whereParams.push(userId, teamId)
   } else if (mine === 'true') {
     whereClause += ' AND l.assigned_to_userId = ?'
@@ -112,8 +112,12 @@ leadsRoutes.get('/:id', async (c) => {
     `${SELECT_COLS} ${BASE_JOIN} WHERE l.id = ? AND l.deleted_at IS NULL`,
   ).bind(c.req.param('id')).first() as Record<string, unknown> | null
   if (!lead) throw new HTTPException(404, { message: '线索不存在' })
-  if (role === 'sales' && lead.assigned_to_userId !== userId && lead.assigned_to_teamId !== teamId) {
-    throw new HTTPException(403, { message: '无权访问此线索' })
+  if (role === 'sales') {
+    const ownedByUser = lead.assigned_to_userId === userId
+    const ownedByTeam = !lead.assigned_to_userId && lead.assigned_to_teamId === teamId
+    if (!ownedByUser && !ownedByTeam) {
+      throw new HTTPException(403, { message: '无权访问此线索' })
+    }
   }
   return c.json({ data: parseLead(lead) })
 })
