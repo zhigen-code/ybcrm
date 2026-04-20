@@ -65,8 +65,9 @@ app.use(
       // 允许 Cloudflare Pages 预览部署的子域名
       if (origin?.endsWith('.crm-web-6sc.pages.dev')) return origin
       if (origin?.endsWith('.crm-irfc.pages.dev')) return origin
-      // 允许阿里云 ESA Pages 预览子域名
+      // 允许阿里云 ESA Pages 子域名
       if (origin?.endsWith('.esapages.com')) return origin
+      if (origin?.endsWith('.er.aliyun-esa.net')) return origin
       return null
     },
     credentials: true,
