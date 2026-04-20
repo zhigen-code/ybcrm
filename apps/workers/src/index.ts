@@ -41,6 +41,12 @@ const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', logger())
 
+// 让 CDN 按 Origin 分别缓存，避免无 CORS 头的响应被其他 origin 命中
+app.use('*', async (c, next) => {
+  await next()
+  c.res.headers.set('Vary', 'Origin')
+})
+
 // 外部 API 的 CORS 必须在全局 CORS 之前注册，否则预检请求被全局中间件拦截
 app.use('/api/v1/*', cors({ origin: '*' }))
 
@@ -52,11 +58,13 @@ app.use(
         'https://youbei.zhigen.net',
         'https://crm.irfc.cn',
         'https://crm-web-6sc.pages.dev',
+        'https://crm-irfc.pages.dev',
         'http://localhost:5173',
       ]
       if (allowed.includes(origin)) return origin
       // 允许 Cloudflare Pages 预览部署的子域名
       if (origin?.endsWith('.crm-web-6sc.pages.dev')) return origin
+      if (origin?.endsWith('.crm-irfc.pages.dev')) return origin
       // 允许阿里云 ESA Pages 预览子域名
       if (origin?.endsWith('.esapages.com')) return origin
       return null
