@@ -136,8 +136,7 @@ app.post(
       JSON.stringify(dedupedServices),
       finalNotes, userId,
     ).run()
-    // 队列发送失败不应影响主流程
-    void c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id }).catch(() => {})
+    await c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id }).catch(() => {})
     return c.json({ data: { id, status: 'New' } }, 201)
   },
 )
