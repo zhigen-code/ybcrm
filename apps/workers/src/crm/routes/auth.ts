@@ -111,19 +111,20 @@ authRoutes.post(
     email: z.string().email(),
     password: z.string().min(8),
     name: z.string().min(1),
+    phone: z.string().nullable().optional(),
     role: z.enum(['admin', 'operations', 'sales']),
     teamId: z.string().nullable().optional(),
   })),
   async (c) => {
-    const { email, password, name, role, teamId } = c.req.valid('json')
+    const { email, password, name, phone, role, teamId } = c.req.valid('json')
     const existing = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first()
     if (existing) throw new HTTPException(409, { message: '邮箱已存在' })
 
     const passwordHash = await bcrypt.hash(password, 12)
     const id = uuidv4()
     await c.env.DB.prepare(
-      'INSERT INTO users (id, email, password_hash, name, role, team_id) VALUES (?, ?, ?, ?, ?, ?)',
-    ).bind(id, email, passwordHash, name, role, teamId ?? null).run()
+      'INSERT INTO users (id, email, password_hash, name, phone, role, team_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, email, passwordHash, name, phone ?? null, role, teamId ?? null).run()
 
     return c.json({ data: { id, email, name, role } }, 201)
   },

@@ -22,6 +22,7 @@ const registerSchema = z.object({
   email: z.string().email('请输入有效邮箱'),
   password: z.string().min(8, '密码至少 8 位'),
   name: z.string().min(1, '请填写姓名'),
+  phone: z.string().optional(),
   role: z.enum(['admin', 'operations', 'sales']),
   teamId: z.string().optional(),
 })
@@ -349,6 +350,7 @@ export default function UsersPage() {
         >
           <div className="space-y-3">
             <Input label="姓名" error={registerForm.formState.errors.name?.message} {...registerForm.register('name')} />
+            <Input label="电话" placeholder="选填" {...registerForm.register('phone')} />
             <Input label="邮箱" type="email" error={registerForm.formState.errors.email?.message} {...registerForm.register('email')} />
             <Input label="初始密码" type="password" error={registerForm.formState.errors.password?.message} {...registerForm.register('password')} />
             <Select
