@@ -215,6 +215,8 @@ export default function LeadsPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">来源</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">负责人</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">下次联系</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">跟进</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">创建时间</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -239,6 +241,12 @@ export default function LeadsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{lead.source}</td>
                     <td className="px-4 py-3 text-gray-600">{lead.assignedToName ?? <span className="text-gray-400">未分配</span>}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {lead.nextContactDate
+                        ? <span className={new Date(lead.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(lead.nextContactDate)}</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{lead.activityCount ?? 0}</td>
                     <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

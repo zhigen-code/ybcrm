@@ -52,6 +52,7 @@ export interface Lead {
   assignedToName: string | null
   createdByUserId: string | null
   createdByName: string | null
+  activityCount: number
   createdAt: string
   updatedAt: string
 }

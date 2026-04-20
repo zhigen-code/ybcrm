@@ -12,7 +12,7 @@ export const leadsRoutes = new Hono<{ Bindings: Env }>()
 leadsRoutes.use('*', requireAuth)
 
 const BASE_JOIN = 'FROM leads l LEFT JOIN users u ON l.created_by_userId = u.id LEFT JOIN users assign_u ON l.assigned_to_userId = assign_u.id'
-const SELECT_COLS = 'SELECT l.*, u.name as created_by_name, assign_u.name as assigned_to_name'
+const SELECT_COLS = 'SELECT l.*, u.name as created_by_name, assign_u.name as assigned_to_name, (SELECT COUNT(*) FROM sales_activities WHERE lead_id = l.id) as activity_count'
 
 function parseLead(row: Record<string, unknown>) {
   const lead = toCamel(row) as Record<string, unknown>
