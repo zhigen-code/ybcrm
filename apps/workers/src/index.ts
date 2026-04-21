@@ -94,8 +94,8 @@ app.get('/api/public/settings', async (c) => {
   })
 })
 
-const KNOWN_V1_FIELDS = new Set(['source', 'name', 'contactInfo', 'intendedServices', 'notes'])
-// 已知广告字段（多语言别名均支持）
+const KNOWN_V1_FIELDS = new Set(['source', 'name', 'contactInfo', 'intendedServices', 'notes', 'adInfo'])
+// 顶层广告字段别名（兼容旧格式，统一映射为中文 key）
 const AD_FIELD_ALIASES: Record<string, string> = {
   ip: 'ip', url: 'url',
   account: '账户', '账户': '账户',
@@ -110,6 +110,14 @@ const v1LeadSchema = z.object({
   contactInfo: z.string().min(1, '请填写联系方式'),
   intendedServices: z.array(z.string()).min(1, '请至少填写一个意向服务'),
   notes: z.string().nullable().optional(),
+  adInfo: z.object({
+    ip: z.string().optional(),
+    url: z.string().optional(),
+    账户: z.string().optional(),
+    广告计划: z.string().optional(),
+    广告组: z.string().optional(),
+    广告: z.string().optional(),
+  }).optional(),
 }).passthrough()
 
 app.post(
@@ -138,14 +146,21 @@ app.post(
     // 去重
     const dedupedServices = [...new Set(finalServices)]
 
-    // 提取广告字段到 ad_info，其余未知字段附加到备注
+    // 提取广告字段到 ad_info：优先用 adInfo 对象，再合并顶层别名字段，其余未知字段拼到备注
     const adInfo: Record<string, string> = {}
+    // 1. adInfo 对象中的字段
+    if (body.adInfo && typeof body.adInfo === 'object') {
+      for (const [k, v] of Object.entries(body.adInfo as Record<string, unknown>)) {
+        if (v !== undefined && v !== null && v !== '') adInfo[k] = String(v)
+      }
+    }
+    // 2. 顶层别名字段（兼容旧格式，已有的 adInfo key 不覆盖）
     const extraFields: string[] = []
     for (const [k, v] of Object.entries(body)) {
       if (KNOWN_V1_FIELDS.has(k)) continue
       const adKey = AD_FIELD_ALIASES[k]
       if (adKey) {
-        adInfo[adKey] = String(v)
+        if (!adInfo[adKey]) adInfo[adKey] = String(v)
       } else {
         extraFields.push(`${k}：${v}`)
       }
