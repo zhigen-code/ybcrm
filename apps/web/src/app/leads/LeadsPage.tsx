@@ -202,6 +202,17 @@ export default function LeadsPage() {
     if (user?.id) setColConfig(loadColConfig(user.id))
   }, [user?.id])
 
+  // 复用导航栏的 leads-new-count 轮询，计数增加时自动刷新列表
+  const { data: newLeadsCount } = useQuery<number>({ queryKey: ['leads-new-count'], enabled: false })
+  const prevNewCountRef = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (newLeadsCount === undefined) return
+    if (prevNewCountRef.current !== undefined && newLeadsCount > prevNewCountRef.current) {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+    }
+    prevNewCountRef.current = newLeadsCount
+  }, [newLeadsCount, queryClient])
+
   const updateColConfig = (next: ColConfig[]) => {
     setColConfig(next)
     if (user?.id) saveColConfig(user.id, next)
