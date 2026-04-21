@@ -164,9 +164,67 @@ const TIPS = [
   },
 ]
 
+// ── API 接入文档数据 ───────────────────────────────────────────────────────────
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? window.location.origin
+
+const V1_LEAD_FIELDS = [
+  { field: 'source',           type: 'string',   required: true,  desc: '线索来源渠道，如"百度"、"抖音"' },
+  { field: 'name',             type: 'string',   required: true,  desc: '线索姓名' },
+  { field: 'contactInfo',      type: 'string',   required: true,  desc: '联系方式（手机号 / 微信 / 邮箱等）' },
+  { field: 'intendedServices', type: 'string[]', required: true,  desc: '意向服务列表，至少一项。系统未收录的服务会兜底替换为「其他」并记入备注' },
+  { field: 'notes',            type: 'string',   required: false, desc: '备注信息（可选）' },
+  { field: 'adInfo',           type: 'object',   required: false, desc: '广告追踪信息（可选），详见下方广告字段说明' },
+]
+
+const AD_INFO_FIELDS = [
+  { field: 'ip',      desc: '用户 IP 地址' },
+  { field: 'url',     desc: '落地页或广告链接' },
+  { field: '账户',    desc: '广告账户名称' },
+  { field: '广告计划', desc: '广告计划名称' },
+  { field: '广告组',  desc: '广告组名称' },
+  { field: '广告',    desc: '广告创意名称' },
+]
+
+const API_ERROR_CODES = [
+  { code: 401, desc: '缺少或无效的 X-API-Key' },
+  { code: 400, desc: '请求参数校验失败，message 字段说明具体原因' },
+  { code: 500, desc: '服务器内部错误' },
+]
+
+const EXAMPLE_REQUEST = `POST ${API_BASE_URL}/api/v1/leads
+Content-Type: application/json
+X-API-Key: crm_xxxxxxxxxxxxxxxx
+
+{
+  "source": "百度推广",
+  "name": "张三",
+  "contactInfo": "13800000000",
+  "intendedServices": ["试管婴儿"],
+  "notes": "客户咨询过一次",
+  "adInfo": {
+    "ip": "1.2.3.4",
+    "url": "https://landing.example.com/ivf",
+    "账户": "百度账户A",
+    "广告计划": "试管婴儿-全国",
+    "广告组": "25-35岁女性",
+    "广告": "创意文案01"
+  }
+}`
+
+const EXAMPLE_RESPONSE = `HTTP/1.1 201 Created
+Content-Type: application/json
+
+{
+  "data": {
+    "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "status": "New"
+  }
+}`
+
 // ── 文档目录结构 ───────────────────────────────────────────────────────────────
 
-type SectionKey = 'intro' | 'vars' | 'actions' | 'tips'
+type SectionKey = 'intro' | 'vars' | 'actions' | 'tips' | 'api-overview' | 'api-leads'
 
 const DOC_CATEGORIES = [
   {
@@ -177,6 +235,14 @@ const DOC_CATEGORIES = [
       { key: 'vars'    as SectionKey, label: '模板变量' },
       { key: 'actions' as SectionKey, label: '动作类型' },
       { key: 'tips'    as SectionKey, label: '注意事项' },
+    ],
+  },
+  {
+    key: 'api',
+    label: 'API 接入',
+    sections: [
+      { key: 'api-overview' as SectionKey, label: '认证与概述' },
+      { key: 'api-leads'    as SectionKey, label: '提交线索' },
     ],
   },
 ]
@@ -426,13 +492,219 @@ function SectionTips() {
   )
 }
 
+function CodeBlock({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="relative group">
+      <pre className="bg-gray-900 text-green-300 rounded-lg p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">
+        {code}
+      </pre>
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-600"
+      >
+        {copied ? '已复制' : '复制'}
+      </button>
+    </div>
+  )
+}
+
+function SectionApiOverview() {
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-gray-900 mb-1">API 接入 — 认证与概述</h2>
+      <p className="text-sm text-gray-500 mb-6">通过 REST API 将外部系统（落地页、广告平台等）的线索自动录入 CRM</p>
+
+      <div className="rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">认证方式</p>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-sm text-gray-600">
+            所有 API 请求需在请求头中携带 <code className="text-primary-700 bg-primary-50 border border-primary-100 rounded px-1.5 py-0.5 text-xs">X-API-Key</code> 进行身份验证。
+          </p>
+          <div className="rounded-md bg-gray-900 text-green-300 p-3 text-xs font-mono">
+            X-API-Key: crm_xxxxxxxxxxxxxxxx
+          </div>
+          <p className="text-xs text-gray-500">
+            API Key 由管理员在「系统管理 → API 密钥」中创建和管理。Key 以 <code className="text-gray-600">crm_</code> 开头，请妥善保管，不要泄露到前端代码或公开仓库。
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">接口列表</p>
+        </div>
+        <div className="divide-y divide-gray-100">
+          <div className="flex items-center gap-4 px-4 py-3">
+            <span className="text-xs font-bold text-white bg-green-600 rounded px-2 py-0.5">POST</span>
+            <code className="text-sm text-gray-800 font-mono">/api/v1/leads</code>
+            <span className="ml-auto text-sm text-gray-500">提交线索</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">错误码说明</p>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {API_ERROR_CODES.map(({ code, desc }) => (
+            <div key={code} className="flex items-center gap-4 px-4 py-3">
+              <span className={`text-xs font-bold rounded px-2 py-0.5 ${
+                code === 401 ? 'bg-red-100 text-red-700' :
+                code === 400 ? 'bg-yellow-100 text-yellow-700' :
+                'bg-gray-100 text-gray-700'
+              }`}>{code}</span>
+              <span className="text-sm text-gray-600">{desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <p className="text-sm font-semibold text-blue-800 mb-1">自动分配</p>
+        <p className="text-sm text-blue-700">
+          通过 API 提交的线索会自动进入分配队列，根据「系统管理 → 分配规则」中配置的规则自动分配给合适的销售人员。
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function SectionApiLeads() {
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-gray-900 mb-1">提交线索</h2>
+      <p className="text-sm text-gray-500 mb-6">将落地页或广告平台收集的客户信息提交到 CRM</p>
+
+      <div className="rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-3">
+          <span className="text-xs font-bold text-white bg-green-600 rounded px-2 py-0.5">POST</span>
+          <code className="text-sm font-mono text-gray-800">{API_BASE_URL}/api/v1/leads</code>
+        </div>
+        <div className="p-4">
+          <p className="text-xs text-gray-500">Content-Type: application/json &nbsp;·&nbsp; 需携带 X-API-Key 请求头</p>
+        </div>
+      </div>
+
+      {/* 请求字段 */}
+      <div className="rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">请求字段</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 w-44">字段</th>
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 w-24">类型</th>
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 w-16">必填</th>
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600">说明</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {V1_LEAD_FIELDS.map(({ field, type, required, desc }) => (
+              <tr key={field} className="hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <code className="text-xs text-primary-700 bg-primary-50 border border-primary-100 rounded px-1.5 py-0.5">{field}</code>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-xs text-gray-500 font-mono">{type}</span>
+                </td>
+                <td className="px-4 py-3">
+                  {required
+                    ? <span className="text-xs font-medium text-red-600">必填</span>
+                    : <span className="text-xs text-gray-400">可选</span>
+                  }
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-600">{desc}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* adInfo 子字段 */}
+      <div className="rounded-lg border border-blue-100 overflow-hidden mb-6">
+        <div className="bg-blue-50 px-4 py-2.5 border-b border-blue-100">
+          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">adInfo 广告字段说明</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-blue-50 border-b border-blue-100">
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-blue-600 w-32">字段名</th>
+              <th className="text-left px-4 py-2.5 text-xs font-semibold text-blue-600">说明</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-blue-50">
+            {AD_INFO_FIELDS.map(({ field, desc }) => (
+              <tr key={field} className="hover:bg-blue-50/50">
+                <td className="px-4 py-3">
+                  <code className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5">{field}</code>
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-600">{desc}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="px-4 py-3 border-t border-blue-100 bg-blue-50/50">
+          <p className="text-xs text-blue-600">
+            所有 adInfo 子字段均为可选。提交后可在线索详情页的「广告信息」卡片中查看。
+          </p>
+        </div>
+      </div>
+
+      {/* 请求示例 */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">请求示例</p>
+        <CodeBlock code={EXAMPLE_REQUEST} />
+      </div>
+
+      {/* 响应示例 */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">成功响应（201）</p>
+        <CodeBlock code={EXAMPLE_RESPONSE} />
+      </div>
+
+      {/* 兜底规则 */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm font-semibold text-amber-800 mb-2">意向服务兜底规则</p>
+        <ul className="space-y-1.5">
+          {[
+            '系统会对照服务列表校验 intendedServices 中的每一项',
+            '未收录的服务名自动替换为「其他」，并将原始名称追加到备注中',
+            '若提交了系统未配置的「其他」服务，请先在「系统管理 → 服务管理」中添加对应服务项',
+          ].map((text, i) => (
+            <li key={i} className="text-sm text-amber-700 flex gap-2">
+              <span className="flex-none mt-0.5">•</span>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
 
 export default function DocsPage() {
-  const [activeCategory] = useState('workflow')
+  const [activeCategory, setActiveCategory] = useState('workflow')
   const [activeSection, setActiveSection] = useState<SectionKey>('intro')
 
   const category = DOC_CATEGORIES.find((c) => c.key === activeCategory)!
+
+  const handleCategoryClick = (catKey: string) => {
+    const cat = DOC_CATEGORIES.find((c) => c.key === catKey)!
+    setActiveCategory(catKey)
+    setActiveSection(cat.sections[0].key)
+  }
 
   return (
     <div className="flex h-full">
@@ -440,14 +712,17 @@ export default function DocsPage() {
       <aside className="hidden md:flex flex-col w-52 flex-shrink-0 border-r border-gray-200 bg-white py-6 px-3">
         {DOC_CATEGORIES.map((cat) => (
           <div key={cat.key} className="mb-4">
-            <p className="px-3 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <button
+              onClick={() => handleCategoryClick(cat.key)}
+              className="px-3 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 w-full text-left"
+            >
               {cat.label}
-            </p>
+            </button>
             <div className="space-y-0.5">
               {cat.sections.map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => setActiveSection(key)}
+                  onClick={() => { setActiveCategory(cat.key); setActiveSection(key) }}
                   className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                     activeSection === key
                       ? 'bg-primary-50 text-primary-700 font-medium'
@@ -484,10 +759,12 @@ export default function DocsPage() {
       {/* 内容区 */}
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-8 mt-10 md:mt-0">
-          {activeSection === 'intro'   && <SectionIntro />}
-          {activeSection === 'vars'    && <SectionVars />}
-          {activeSection === 'actions' && <SectionActions />}
-          {activeSection === 'tips'    && <SectionTips />}
+          {activeSection === 'intro'        && <SectionIntro />}
+          {activeSection === 'vars'         && <SectionVars />}
+          {activeSection === 'actions'      && <SectionActions />}
+          {activeSection === 'tips'         && <SectionTips />}
+          {activeSection === 'api-overview' && <SectionApiOverview />}
+          {activeSection === 'api-leads'    && <SectionApiLeads />}
         </div>
       </main>
     </div>
