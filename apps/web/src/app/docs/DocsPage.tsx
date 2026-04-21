@@ -701,9 +701,9 @@ export default function DocsPage() {
   const category = DOC_CATEGORIES.find((c) => c.key === activeCategory)!
 
   const handleCategoryClick = (catKey: string) => {
-    const cat = DOC_CATEGORIES.find((c) => c.key === catKey)!
+    const cat = DOC_CATEGORIES.find((c) => c.key === catKey)
     setActiveCategory(catKey)
-    setActiveSection(cat.sections[0].key)
+    if (cat?.sections[0]) setActiveSection(cat.sections[0].key)
   }
 
   return (
