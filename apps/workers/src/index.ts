@@ -95,6 +95,14 @@ app.get('/api/public/settings', async (c) => {
 })
 
 const KNOWN_V1_FIELDS = new Set(['source', 'name', 'contactInfo', 'intendedServices', 'notes'])
+// 已知广告字段（多语言别名均支持）
+const AD_FIELD_ALIASES: Record<string, string> = {
+  ip: 'ip', url: 'url',
+  account: '账户', '账户': '账户',
+  campaign: '广告计划', '广告计划': '广告计划',
+  adGroup: '广告组', '广告组': '广告组', ad_group: '广告组',
+  ad: '广告', '广告': '广告',
+}
 
 const v1LeadSchema = z.object({
   source: z.string().min(1, '请填写来源'),
@@ -130,23 +138,32 @@ app.post(
     // 去重
     const dedupedServices = [...new Set(finalServices)]
 
-    // 收集未知字段附加到备注
-    const extraFields = Object.entries(body)
-      .filter(([k]) => !KNOWN_V1_FIELDS.has(k))
-      .map(([k, v]) => `${k}：${v}`)
+    // 提取广告字段到 ad_info，其余未知字段附加到备注
+    const adInfo: Record<string, string> = {}
+    const extraFields: string[] = []
+    for (const [k, v] of Object.entries(body)) {
+      if (KNOWN_V1_FIELDS.has(k)) continue
+      const adKey = AD_FIELD_ALIASES[k]
+      if (adKey) {
+        adInfo[adKey] = String(v)
+      } else {
+        extraFields.push(`${k}：${v}`)
+      }
+    }
     if (extraFields.length > 0) {
       notesParts.push(`附加信息：${extraFields.join('；')}`)
     }
 
     const finalNotes = notesParts.length > 0 ? notesParts.join('\n') : null
+    const finalAdInfo = Object.keys(adInfo).length > 0 ? JSON.stringify(adInfo) : null
 
     await c.env.DB.prepare(
-      `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId, lead_no)
-       VALUES (?, ?, ?, ?, ?, 'New', ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
+      `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, ad_info, created_by_userId, lead_no)
+       VALUES (?, ?, ?, ?, ?, 'New', ?, ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
     ).bind(
       id, body.source as string, body.name as string, body.contactInfo as string,
       JSON.stringify(dedupedServices),
-      finalNotes, userId,
+      finalNotes, finalAdInfo, userId,
     ).run()
     await c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id }).catch(() => {})
     return c.json({ data: { id, status: 'New' } }, 201)

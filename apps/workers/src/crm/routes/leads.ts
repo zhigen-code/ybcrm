@@ -19,6 +19,9 @@ function parseLead(row: Record<string, unknown>) {
   if (typeof lead.intendedServices === 'string') {
     try { lead.intendedServices = JSON.parse(lead.intendedServices as string) } catch { lead.intendedServices = [] }
   }
+  if (typeof lead.adInfo === 'string') {
+    try { lead.adInfo = JSON.parse(lead.adInfo as string) } catch { lead.adInfo = null }
+  }
   return lead
 }
 
@@ -176,6 +179,7 @@ leadsRoutes.put(
       assignedToTeamId: z.string().nullable().optional(),
       contactInfo: z.string().optional(),
       intendedServices: z.array(z.string()).min(1).optional(),
+      adInfo: z.record(z.string()).nullable().optional(),
     }),
   ),
   async (c) => {
@@ -209,6 +213,10 @@ leadsRoutes.put(
     if (body.intendedServices !== undefined) {
       updates.push('intended_services = ?')
       params.push(JSON.stringify(body.intendedServices))
+    }
+    if (body.adInfo !== undefined) {
+      updates.push('ad_info = ?')
+      params.push(body.adInfo === null ? null : JSON.stringify(body.adInfo))
     }
 
     params.push(id)

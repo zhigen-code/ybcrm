@@ -266,6 +266,19 @@ export default function LeadDetailPage() {
           </div>
         )}
 
+        {lead.adInfo && Object.keys(lead.adInfo).length > 0 && (
+          <div className="mt-4 rounded border border-blue-100 bg-blue-50 p-3">
+            <p className="mb-1.5 text-xs font-medium text-blue-700">广告信息</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
+              {Object.entries(lead.adInfo).map(([k, v]) => (
+                <span key={k} className="text-xs text-gray-600">
+                  {k}：<span className="font-medium text-gray-900">{v}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
           <span>创建人：{lead.createdByName ?? '—'}</span>
           <span>创建于 {formatDate(lead.createdAt)}</span>

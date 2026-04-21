@@ -1,0 +1,1 @@
+ALTER TABLE leads ADD COLUMN ad_info TEXT;

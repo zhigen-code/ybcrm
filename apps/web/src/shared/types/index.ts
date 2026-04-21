@@ -54,6 +54,7 @@ export interface Lead {
   createdByUserId: string | null
   createdByName: string | null
   activityCount: number
+  adInfo: Record<string, string> | null
   createdAt: string
   updatedAt: string
 }
