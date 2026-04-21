@@ -246,11 +246,12 @@ function ApiTab() {
           </div>
           <div>
             <p className="text-gray-500 mb-1">请求体（JSON）</p>
-            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`{\n  "source": "官网表单",\n  "name": "张三",\n  "contactInfo": "13800138000",\n  "intendedServices": ["赴美试管"],\n  "notes": "备注（可选）"\n}`}</code>
+            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`{\n  "source": "官网表单",\n  "name": "张三",\n  "contactInfo": "13800138000",\n  "intendedServices": ["赴美试管"],\n  "notes": "备注（可选）",\n  "adInfo": {\n    "ip": "1.2.3.4",\n    "url": "https://landing.example.com",\n    "账户": "百度账户A",\n    "广告计划": "试管婴儿-全国",\n    "广告组": "25-35岁女性",\n    "广告": "创意文案01"\n  }\n}`}</code>
           </div>
+          <p className="text-xs text-gray-400">adInfo 为可选字段，用于记录广告追踪信息（ip、url、账户、广告计划、广告组、广告），提交后可在线索详情页查看。</p>
           <div>
             <p className="text-gray-500 mb-1">cURL 示例</p>
-            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`curl -X POST ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: crm_your_key_here" \\\n  -d '{"source":"官网","name":"张三","contactInfo":"138xxxx","intendedServices":["赴美试管"]}'`}</code>
+            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`curl -X POST ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: crm_your_key_here" \\\n  -d '{"source":"官网","name":"张三","contactInfo":"138xxxx","intendedServices":["赴美试管"],"adInfo":{"ip":"1.2.3.4","广告计划":"试管-全国"}}'`}</code>
           </div>
           <div>
             <p className="text-gray-500 mb-1">成功响应（201）</p>
