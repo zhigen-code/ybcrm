@@ -293,7 +293,7 @@ export default function ProfilePage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-lg sm:text-xl font-semibold text-gray-900">个人设置</h1>
-        <p className="mt-0.5 text-sm text-gray-500">管理账号信息和 API 接入配置</p>
+        <p className="mt-0.5 text-sm text-gray-500">管理账号信息、修改密码，以及创建用于外部系统接入的 API 密钥</p>
       </div>
 
       <div className="mb-4 flex gap-1 border-b">
