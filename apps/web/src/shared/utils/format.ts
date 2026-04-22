@@ -7,16 +7,26 @@ export function setAppTimezone(tz: string) {
   _timezone = tz
 }
 
+// SQLite CURRENT_TIMESTAMP 返回 "YYYY-MM-DD HH:MM:SS"（UTC，无时区标记）
+// 浏览器 new Date() 会把无标记字符串当本地时间解析，需手动补 Z
+function toDate(date: string | Date): Date {
+  if (date instanceof Date) return date
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(date)) {
+    return new Date(date.replace(' ', 'T') + 'Z')
+  }
+  return new Date(date)
+}
+
 export function formatDate(date: string | Date) {
   return new Intl.DateTimeFormat('zh-CN', {
     timeZone: _timezone,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date(date)).replace(/\//g, '-')
+  }).format(toDate(date)).replace(/\//g, '-')
 }
 
 export function formatRelativeTime(date: string | Date) {
-  return formatDistanceToNow(new Date(date), { locale: zhCN, addSuffix: true })
+  return formatDistanceToNow(toDate(date), { locale: zhCN, addSuffix: true })
 }
 
 // 返回当前时间在 app 时区下的 datetime-local 输入值（yyyy-MM-ddTHH:mm）
