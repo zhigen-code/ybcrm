@@ -225,7 +225,7 @@ const CLS = {
 // ─── 动作配置编辑器 ────────────────────────────────────────────────────────────
 
 function ActionConfigEditor({
-  action, onChange, requirableFields, entityFields, entityType, onFocusTextarea,
+  action, onChange, requirableFields, entityFields, entityType, onFocusTextarea, salesUsers,
 }: {
   action: WfActionForm
   onChange: (patch: object) => void
@@ -233,6 +233,7 @@ function ActionConfigEditor({
   entityFields: EntityField[]
   entityType: string
   onFocusTextarea: (el: HTMLTextAreaElement | HTMLInputElement | null) => void
+  salesUsers: { id: string; name: string }[]
 }) {
   if (action.type === 'require_activity') return (
     <div className="space-y-2">
@@ -275,24 +276,37 @@ function ActionConfigEditor({
     </div>
   )
 
-  if (action.type === 'set_field') return (
-    <div className="space-y-2">
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">目标字段</label>
-        <select className={CLS.sel} value={action.field}
-          onChange={(e) => { const ef = entityFields.find((f) => f.field === e.target.value); onChange({ field: e.target.value, label: ef?.label ?? '', value: '' }) }}>
-          <option value="">请选择...</option>
-          {entityFields.filter((f) => !f.triggerOnly).map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
-        </select>
+  if (action.type === 'set_field') {
+    const selectedField = entityFields.find((f) => f.field === action.field)
+    const isUserField = selectedField?.type === 'user'
+    return (
+      <div className="space-y-2">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">目标字段</label>
+          <select className={CLS.sel} value={action.field}
+            onChange={(e) => { const ef = entityFields.find((f) => f.field === e.target.value); onChange({ field: e.target.value, label: ef?.label ?? '', value: '' }) }}>
+            <option value="">请选择...</option>
+            {entityFields.filter((f) => !f.triggerOnly).map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            {isUserField ? '选择销售人员' : '设为值（支持 {{变量}} 插值）'}
+          </label>
+          {isUserField ? (
+            <select className={CLS.sel} value={action.value} onChange={(e) => onChange({ value: e.target.value })}>
+              <option value="">请选择销售...</option>
+              {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          ) : (
+            <input className={CLS.inp} placeholder="目标值，如 {{today}}" value={action.value}
+              onChange={(e) => onChange({ value: e.target.value })}
+              onFocus={(e) => onFocusTextarea(e.target)} />
+          )}
+        </div>
       </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">设为值（支持 {'{{变量}}'} 插值）</label>
-        <input className={CLS.inp} placeholder="目标值，如 {{today}}" value={action.value}
-          onChange={(e) => onChange({ value: e.target.value })}
-          onFocus={(e) => onFocusTextarea(e.target)} />
-      </div>
-    </div>
-  )
+    )
+  }
 
   if (action.type === 'send_email') return (
     <div className="space-y-2">
@@ -348,7 +362,7 @@ function ActionConfigEditor({
 // ─── 可拖拽动作卡片 ────────────────────────────────────────────────────────────
 
 function SortableActionCard({
-  action, onRemove, onChange, requirableFields, entityFields, entityType, onFocusTextarea,
+  action, onRemove, onChange, requirableFields, entityFields, entityType, onFocusTextarea, salesUsers,
 }: {
   action: WfActionForm
   onRemove: () => void
@@ -357,6 +371,7 @@ function SortableActionCard({
   entityFields: EntityField[]
   entityType: string
   onFocusTextarea: (el: HTMLTextAreaElement | HTMLInputElement | null) => void
+  salesUsers: { id: string; name: string }[]
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: action.id })
   const style = {
@@ -392,6 +407,7 @@ function SortableActionCard({
           action={action} onChange={onChange}
           requirableFields={requirableFields} entityFields={entityFields}
           entityType={entityType} onFocusTextarea={onFocusTextarea}
+          salesUsers={salesUsers}
         />
       </div>
     </div>
@@ -580,6 +596,12 @@ export default function WorkflowEditorPage() {
   }, [existingWf])
 
   const { data: allOptions } = useOptions()
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users-sales'],
+    queryFn: () => crmApi.get<{ data: { id: string; name: string; role: string }[] }>('/users').then((r) => r.data.data),
+  })
+  const salesUsers = (usersData ?? []).filter((u) => u.role === 'sales')
 
   const set = useCallback((patch: Partial<EditorForm>) => setForm((f) => ({ ...f, ...patch })), [])
 
@@ -914,6 +936,7 @@ export default function WorkflowEditorPage() {
                         entityFields={entityFields}
                         entityType={form.entityType}
                         onFocusTextarea={(el) => { focusedRef.current = el }}
+                        salesUsers={salesUsers}
                       />
                     ))}
                   </div>
