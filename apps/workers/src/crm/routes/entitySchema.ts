@@ -17,7 +17,7 @@ const BASE_SCHEMA: Record<string, EntityField[]> = {
     { field: 'lostReason',       label: '丢失原因',     type: 'select',   optionGroup: 'lost_reason' },
     { field: 'source',           label: '来源',         type: 'text',     triggerOnly: true },
     { field: 'assignedToUserId', label: '线索销售',     type: 'user' },
-    { field: 'assignedToTeamId', label: '线索团队',     type: 'user' },
+    { field: 'assignedToTeamId', label: '线索团队',     type: 'team' },
     { field: 'intendedServices', label: '意向服务',     type: 'services' },
     { field: 'nextContactDate',  label: '下次联系时间', type: 'datetime' },
   ],

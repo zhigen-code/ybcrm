@@ -22,7 +22,7 @@ import type { OptionItem } from '@/shared/hooks/useOptions'
 interface EntityField {
   field: string
   label: string
-  type: 'select' | 'datetime' | 'services' | 'text' | 'user'
+  type: 'select' | 'datetime' | 'services' | 'text' | 'user' | 'team'
   optionGroup?: string
   triggerOnly?: boolean
 }
@@ -225,7 +225,7 @@ const CLS = {
 // ─── 动作配置编辑器 ────────────────────────────────────────────────────────────
 
 function ActionConfigEditor({
-  action, onChange, requirableFields, entityFields, entityType, onFocusTextarea, salesUsers,
+  action, onChange, requirableFields, entityFields, entityType, onFocusTextarea, salesUsers, teams,
 }: {
   action: WfActionForm
   onChange: (patch: object) => void
@@ -234,6 +234,7 @@ function ActionConfigEditor({
   entityType: string
   onFocusTextarea: (el: HTMLTextAreaElement | HTMLInputElement | null) => void
   salesUsers: { id: string; name: string }[]
+  teams: { id: string; name: string }[]
 }) {
   if (action.type === 'require_activity') return (
     <div className="space-y-2">
@@ -279,6 +280,7 @@ function ActionConfigEditor({
   if (action.type === 'set_field') {
     const selectedField = entityFields.find((f) => f.field === action.field)
     const isUserField = selectedField?.type === 'user'
+    const isTeamField = selectedField?.type === 'team'
     return (
       <div className="space-y-2">
         <div>
@@ -291,12 +293,17 @@ function ActionConfigEditor({
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">
-            {isUserField ? '选择销售人员' : '设为值（支持 {{变量}} 插值）'}
+            {isUserField ? '选择销售人员' : isTeamField ? '选择团队' : '设为值（支持 {{变量}} 插值）'}
           </label>
           {isUserField ? (
             <select className={CLS.sel} value={action.value} onChange={(e) => onChange({ value: e.target.value })}>
               <option value="">请选择销售...</option>
               {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          ) : isTeamField ? (
+            <select className={CLS.sel} value={action.value} onChange={(e) => onChange({ value: e.target.value })}>
+              <option value="">请选择团队...</option>
+              {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           ) : (
             <input className={CLS.inp} placeholder="目标值，如 {{today}}" value={action.value}
@@ -362,7 +369,7 @@ function ActionConfigEditor({
 // ─── 可拖拽动作卡片 ────────────────────────────────────────────────────────────
 
 function SortableActionCard({
-  action, onRemove, onChange, requirableFields, entityFields, entityType, onFocusTextarea, salesUsers,
+  action, onRemove, onChange, requirableFields, entityFields, entityType, onFocusTextarea, salesUsers, teams,
 }: {
   action: WfActionForm
   onRemove: () => void
@@ -372,6 +379,7 @@ function SortableActionCard({
   entityType: string
   onFocusTextarea: (el: HTMLTextAreaElement | HTMLInputElement | null) => void
   salesUsers: { id: string; name: string }[]
+  teams: { id: string; name: string }[]
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: action.id })
   const style = {
@@ -407,7 +415,7 @@ function SortableActionCard({
           action={action} onChange={onChange}
           requirableFields={requirableFields} entityFields={entityFields}
           entityType={entityType} onFocusTextarea={onFocusTextarea}
-          salesUsers={salesUsers}
+          salesUsers={salesUsers} teams={teams}
         />
       </div>
     </div>
@@ -602,6 +610,12 @@ export default function WorkflowEditorPage() {
     queryFn: () => crmApi.get<{ data: { id: string; name: string; role: string }[] }>('/users').then((r) => r.data.data),
   })
   const salesUsers = (usersData ?? []).filter((u) => u.role === 'sales')
+
+  const { data: teamsData } = useQuery({
+    queryKey: ['teams'],
+    queryFn: () => crmApi.get<{ data: { id: string; name: string }[] }>('/teams').then((r) => r.data.data),
+  })
+  const teams = teamsData ?? []
 
   const set = useCallback((patch: Partial<EditorForm>) => setForm((f) => ({ ...f, ...patch })), [])
 
@@ -936,7 +950,7 @@ export default function WorkflowEditorPage() {
                         entityFields={entityFields}
                         entityType={form.entityType}
                         onFocusTextarea={(el) => { focusedRef.current = el }}
-                        salesUsers={salesUsers}
+                        salesUsers={salesUsers} teams={teams}
                       />
                     ))}
                   </div>
