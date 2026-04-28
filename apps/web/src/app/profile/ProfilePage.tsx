@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { crmApi } from '@/shared/utils/request'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
@@ -310,19 +310,12 @@ function NotifyTab() {
     defaultValues: { emailEnabled: false, email: '', webhookEnabled: false, webhookUrl: '' },
   })
 
+  useEffect(() => {
+    if (data) form.reset(data)
+  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const emailEnabled = form.watch('emailEnabled')
   const webhookEnabled = form.watch('webhookEnabled')
-
-  // 数据加载完后填入表单
-  useState(() => { if (data) form.reset(data) })
-  useQuery({
-    queryKey: ['notification-config'],
-    queryFn: () => crmApi.get<{ data: NotifyForm }>('/auth/notification-config').then((r) => r.data.data),
-    staleTime: 0,
-  })
-  // 同步远端数据到表单
-  const { data: remoteData } = useQuery({ queryKey: ['notification-config'], enabled: false })
-  useState(() => { if (remoteData) form.reset(remoteData as NotifyForm) })
 
   const saveMutation = useMutation({
     mutationFn: (body: NotifyForm) => crmApi.put('/auth/notification-config', body),
@@ -348,11 +341,6 @@ function NotifyTab() {
   }
 
   if (isLoading) return <div className="text-sm text-gray-400 p-4">加载中...</div>
-
-  // 首次加载时同步默认值
-  if (data && !form.formState.isDirty && !form.formState.isSubmitSuccessful) {
-    form.reset(data)
-  }
 
   return (
     <form className="space-y-4 max-w-2xl" onSubmit={form.handleSubmit((d) => saveMutation.mutate(d))}>
