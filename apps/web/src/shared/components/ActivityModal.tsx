@@ -214,11 +214,27 @@ export function ActivityModal({
         {showNextContact && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">下次联系时间（可选）</label>
-            <input
-              type="date"
-              className="h-8 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-              {...register('nextContactDate')}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                className="h-8 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                {...register('nextContactDate')}
+              />
+              {[{ label: '3天后', days: 3 }, { label: '1周后', days: 7 }, { label: '1个月后', days: 30 }].map(({ label, days }) => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => {
+                    const d = new Date()
+                    d.setDate(d.getDate() + days)
+                    setValue('nextContactDate', d.toLocaleDateString('en-CA'))
+                  }}
+                  className="h-8 rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
