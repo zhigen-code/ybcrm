@@ -18,6 +18,7 @@ const schema = z.object({
   activityType: z.string().min(1, '请选择跟进类型'),
   description: z.string().optional(),
   activityDate: z.string().min(1, '请选择时间'),
+  nextContactDate: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -25,6 +26,7 @@ export interface ActivitySubmitData {
   activityType: string
   description?: string | undefined
   activityDate: string
+  nextContactDate?: string | undefined
   attachmentKeys: ActivityAttachment[]
   policyFields?: Record<string, unknown> | undefined
 }
@@ -37,6 +39,7 @@ interface ActivityModalProps {
   activityConfig?: ActivityConfig | null
   initialPolicyValues?: Record<string, unknown>
   serverError?: string | undefined
+  showNextContact?: boolean
 }
 
 function formatSize(bytes: number) {
@@ -46,7 +49,7 @@ function formatSize(bytes: number) {
 }
 
 export function ActivityModal({
-  title, onClose, onSubmit, loading, activityConfig, initialPolicyValues, serverError,
+  title, onClose, onSubmit, loading, activityConfig, initialPolicyValues, serverError, showNextContact,
 }: ActivityModalProps) {
   const { options: allActivityTypeOpts } = useOptionGroup('activity_type')
   const activityTypeOpts = allActivityTypeOpts.filter((o) => o.value !== 'System')
@@ -207,6 +210,17 @@ export function ActivityModal({
           placeholder="记录本次跟进的要点..."
           {...register('description')}
         />
+
+        {showNextContact && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">下次联系时间（可选）</label>
+            <input
+              type="date"
+              className="h-8 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+              {...register('nextContactDate')}
+            />
+          </div>
+        )}
 
         {/* 策略要求的额外字段 */}
         {(activityConfig?.requiredFields?.length ?? 0) > 0 && (

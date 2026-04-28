@@ -261,6 +261,7 @@ export default function ClientDetailPage() {
           onClose={() => setShowActivity(false)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
+          showNextContact
         />
       )}
     </div>

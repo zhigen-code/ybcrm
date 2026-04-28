@@ -90,6 +90,7 @@ activitiesRoutes.post(
       activityType: z.string().min(1, '请选择跟进类型'),
       description: z.string().nullable().optional(),
       activityDate: z.string().min(1),
+      nextContactDate: z.string().nullable().optional(),
       attachmentKeys: z.array(z.object({
         key: z.string(),
         name: z.string(),
@@ -111,10 +112,10 @@ activitiesRoutes.post(
     const id = uuidv4()
 
     await c.env.DB.prepare(
-      `INSERT INTO sales_activities (id, client_id, lead_id, user_id, activity_type, description, activity_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO sales_activities (id, client_id, lead_id, user_id, activity_type, description, activity_date, next_contact_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-      .bind(id, body.clientId ?? null, body.leadId ?? null, userId, body.activityType, body.description ?? null, body.activityDate)
+      .bind(id, body.clientId ?? null, body.leadId ?? null, userId, body.activityType, body.description ?? null, body.activityDate, body.nextContactDate ?? null)
       .run()
 
     if (body.attachmentKeys.length > 0) {
