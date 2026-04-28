@@ -72,11 +72,16 @@ export function ActivityModal({
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const daysFromNow = (n: number) => {
+    const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA')
+  }
+
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       activityType: activityTypeOpts[0]?.value ?? '',
       activityDate: nowForInput(),
+      nextContactDate: showNextContact ? daysFromNow(3) : undefined,
     },
   })
 
@@ -263,13 +268,27 @@ export function ActivityModal({
               }
               if (rf.type === 'datetime') {
                 return (
-                  <Input
-                    key={rf.field}
-                    type="datetime-local"
-                    label={rf.label}
-                    value={(policyFields[rf.field] as string) ?? ''}
-                    onChange={(e) => setPolicyField(rf.field, e.target.value)}
-                  />
+                  <div key={rf.field}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{rf.label}</label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="date"
+                        className="h-8 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        value={(policyFields[rf.field] as string) ?? ''}
+                        onChange={(e) => setPolicyField(rf.field, e.target.value)}
+                      />
+                      {[{ label: '3天后', days: 3 }, { label: '1周后', days: 7 }, { label: '1个月后', days: 30 }].map(({ label, days }) => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setPolicyField(rf.field, daysFromNow(days))}
+                          className="h-8 rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )
               }
               if (rf.type === 'services') {

@@ -369,7 +369,10 @@ export default function LeadDetailPage() {
           serverError={transitionError ?? undefined}
           initialPolicyValues={
             pendingStatus === 'Qualified'
-              ? { intendedServices: lead.intendedServices ?? [] }
+              ? {
+                  intendedServices: lead.intendedServices ?? [],
+                  nextContactDate: (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toLocaleDateString('en-CA') })(),
+                }
               : {}
           }
           onSubmit={(d) =>
