@@ -1,3 +1,5 @@
+import { sendEmail } from '../shared/email'
+
 interface NotificationMessage {
   type: 'lead_assigned'
   leadId: string
@@ -62,21 +64,7 @@ async function processNotification(msg: NotificationMessage, env: Env): Promise<
   ])
 }
 
-async function sendEmail(env: Env, to: string, subject: string, body: string): Promise<void> {
-  if (!env.SENDGRID_API_KEY) return
-  await fetch('https://api.sendgrid.com/v3/mail/send', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: { email: 'noreply@irfc.cn', name: '辅助生殖 CRM' },
-      personalizations: [{ to: [{ email: to }], subject }],
-      content: [{ type: 'text/plain', value: body }],
-    }),
-  })
-}
+import { sendEmail } from '../shared/email'
 
 export function buildWebhookPayload(url: string, text: string): object {
   if (url.includes('qyapi.weixin.qq.com')) {

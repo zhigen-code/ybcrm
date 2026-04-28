@@ -1,4 +1,5 @@
 import { toCamel } from '../../shared/db'
+import { sendEmail } from '../../shared/email'
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -159,30 +160,6 @@ function matchesTrigger(
     return wfTrigger.to === '*' || wfTrigger.to === event.to
   }
   return true
-}
-
-// ── 邮件发送（SendGrid）──────────────────────────────────────────────────────
-
-async function sendEmail(
-  env: Env,
-  to: string,
-  subject: string,
-  body: string,
-): Promise<void> {
-  if (!env.SENDGRID_API_KEY) return
-
-  await fetch('https://api.sendgrid.com/v3/mail/send', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: { email: 'noreply@irfc.cn', name: '辅助生殖 CRM' },
-      personalizations: [{ to: [{ email: to }], subject }],
-      content: [{ type: 'text/plain', value: body }],
-    }),
-  })
 }
 
 // ── 主入口 ────────────────────────────────────────────────────────────────────

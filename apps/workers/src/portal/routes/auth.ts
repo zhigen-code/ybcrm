@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
 import { signPortalJwt } from '../../shared/jwt'
 import { requirePortalAuth } from '../middleware/auth'
+import { sendEmail } from '../../shared/email'
 
 export const portalAuthRoutes = new Hono<{ Bindings: Env }>()
 
@@ -59,22 +60,13 @@ portalAuthRoutes.post(
 
     const magicLink = `${c.env.PORTAL_BASE_URL}/portal/login?token=${token}`
 
-    await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${c.env.SENDGRID_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email }] }],
-        from: { email: 'noreply@yourdomain.com', name: '辅助生殖 CRM' },
-        subject: '您的登录链接',
-        content: [{
-          type: 'text/html',
-          value: `<p>请点击以下链接登录（15分钟内有效）：</p><p><a href="${magicLink}">${magicLink}</a></p>`,
-        }],
-      }),
-    })
+    await sendEmail(
+      c.env,
+      email,
+      '您的登录链接',
+      `<p>请点击以下链接登录（15分钟内有效）：</p><p><a href="${magicLink}">${magicLink}</a></p>`,
+      { html: true },
+    )
 
     return c.json({ data: { message: '如果邮箱存在，登录链接已发送' } })
   },

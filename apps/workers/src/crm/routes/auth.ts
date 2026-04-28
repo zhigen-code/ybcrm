@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { signCrmJwt } from '../../shared/jwt'
 import { requireAuth, requireAdmin } from '../middleware/auth'
 import { buildWebhookPayload } from '../../notification/handler'
+// sendEmail 通过 buildWebhookPayload 同文件引入，此处不需要重复导入
 
 export const authRoutes = new Hono<{ Bindings: Env }>()
 
