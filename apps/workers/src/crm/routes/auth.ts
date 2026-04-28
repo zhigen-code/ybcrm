@@ -103,6 +103,36 @@ authRoutes.put(
   },
 )
 
+authRoutes.get('/notification-config', requireAuth, async (c) => {
+  const { userId } = c.get('jwtPayload')
+  const row = await c.env.DB.prepare('SELECT notification_config, email FROM users WHERE id = ?')
+    .bind(userId).first<{ notification_config: string | null; email: string }>()
+  const defaultEmail = row?.email ?? ''
+  let config = { emailEnabled: false, email: defaultEmail, webhookEnabled: false, webhookUrl: '' }
+  if (row?.notification_config) {
+    try { config = { ...config, ...JSON.parse(row.notification_config) } } catch { /* keep default */ }
+  }
+  return c.json({ data: config })
+})
+
+authRoutes.put(
+  '/notification-config',
+  requireAuth,
+  zValidator('json', z.object({
+    emailEnabled: z.boolean(),
+    email: z.string().optional().default(''),
+    webhookEnabled: z.boolean(),
+    webhookUrl: z.string().optional().default(''),
+  })),
+  async (c) => {
+    const { userId } = c.get('jwtPayload')
+    const body = c.req.valid('json')
+    await c.env.DB.prepare('UPDATE users SET notification_config = ? WHERE id = ?')
+      .bind(JSON.stringify(body), userId).run()
+    return c.json({ data: body })
+  },
+)
+
 authRoutes.post(
   '/register',
   requireAuth,

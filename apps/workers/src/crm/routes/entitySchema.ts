@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { requireAuth, requireAdmin } from '../middleware/auth'
 
-export type FieldType = 'select' | 'datetime' | 'services' | 'text' | 'user'
+export type FieldType = 'select' | 'datetime' | 'services' | 'text' | 'user' | 'team'
 
 export interface EntityField {
   field: string

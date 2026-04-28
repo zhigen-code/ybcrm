@@ -14,6 +14,7 @@ const TABS = [
   { key: 'info',     label: '基本信息' },
   { key: 'password', label: '修改密码' },
   { key: 'api',      label: 'API 接入' },
+  { key: 'notify',   label: '提醒' },
 ] as const
 type TabKey = typeof TABS[number]['key']
 
@@ -286,6 +287,158 @@ function ApiTab() {
   )
 }
 
+// ---- 提醒配置 ----
+const notifySchema = z.object({
+  emailEnabled: z.boolean(),
+  email: z.string().optional().default(''),
+  webhookEnabled: z.boolean(),
+  webhookUrl: z.string().optional().default(''),
+})
+type NotifyForm = z.infer<typeof notifySchema>
+
+function NotifyTab() {
+  const queryClient = useQueryClient()
+  const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'ok' | 'fail'>('idle')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['notification-config'],
+    queryFn: () => crmApi.get<{ data: NotifyForm }>('/auth/notification-config').then((r) => r.data.data),
+  })
+
+  const form = useForm<NotifyForm>({
+    resolver: zodResolver(notifySchema),
+    defaultValues: { emailEnabled: false, email: '', webhookEnabled: false, webhookUrl: '' },
+  })
+
+  const emailEnabled = form.watch('emailEnabled')
+  const webhookEnabled = form.watch('webhookEnabled')
+
+  // 数据加载完后填入表单
+  useState(() => { if (data) form.reset(data) })
+  useQuery({
+    queryKey: ['notification-config'],
+    queryFn: () => crmApi.get<{ data: NotifyForm }>('/auth/notification-config').then((r) => r.data.data),
+    staleTime: 0,
+  })
+  // 同步远端数据到表单
+  const { data: remoteData } = useQuery({ queryKey: ['notification-config'], enabled: false })
+  useState(() => { if (remoteData) form.reset(remoteData as NotifyForm) })
+
+  const saveMutation = useMutation({
+    mutationFn: (body: NotifyForm) => crmApi.put('/auth/notification-config', body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notification-config'] }),
+  })
+
+  const testWebhook = async () => {
+    const url = form.getValues('webhookUrl')
+    if (!url) return
+    setTestStatus('sending')
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'test', message: 'CRM Webhook 测试消息' }),
+        mode: 'no-cors',
+      })
+      setTestStatus('ok')
+    } catch {
+      setTestStatus('fail')
+    }
+    setTimeout(() => setTestStatus('idle'), 3000)
+  }
+
+  if (isLoading) return <div className="text-sm text-gray-400 p-4">加载中...</div>
+
+  // 首次加载时同步默认值
+  if (data && !form.formState.isDirty && !form.formState.isSubmitSuccessful) {
+    form.reset(data)
+  }
+
+  return (
+    <form className="space-y-4 max-w-2xl" onSubmit={form.handleSubmit((d) => saveMutation.mutate(d))}>
+      <div className="rounded-lg border bg-white p-4 sm:p-5 space-y-5">
+        <h2 className="font-medium text-gray-900 text-sm">触发时机</h2>
+        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-800">新线索分配给我</p>
+            <p className="text-xs text-gray-500 mt-0.5">有线索（手动或自动）分配到你名下时触发</p>
+          </div>
+          <span className="text-xs rounded-full bg-green-100 text-green-700 px-2 py-0.5 font-medium">已启用</span>
+        </div>
+      </div>
+
+      {/* 邮件提醒 */}
+      <div className="rounded-lg border bg-white p-4 sm:p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-medium text-gray-900 text-sm">邮件提醒</h2>
+            <p className="text-xs text-gray-500 mt-0.5">触发时发送邮件到指定地址</p>
+          </div>
+          <label className="relative inline-flex cursor-pointer items-center">
+            <input type="checkbox" className="sr-only peer" {...form.register('emailEnabled')} />
+            <div className="h-5 w-9 rounded-full bg-gray-200 peer-checked:bg-primary-600 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:translate-x-4" />
+          </label>
+        </div>
+        {emailEnabled && (
+          <Input
+            label="接收邮箱"
+            placeholder="your@email.com"
+            error={form.formState.errors.email?.message}
+            {...form.register('email')}
+          />
+        )}
+      </div>
+
+      {/* Webhook 提醒 */}
+      <div className="rounded-lg border bg-white p-4 sm:p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-medium text-gray-900 text-sm">Webhook 提醒</h2>
+            <p className="text-xs text-gray-500 mt-0.5">触发时向指定 URL 发送 POST 请求（适用于企微、钉钉机器人等）</p>
+          </div>
+          <label className="relative inline-flex cursor-pointer items-center">
+            <input type="checkbox" className="sr-only peer" {...form.register('webhookEnabled')} />
+            <div className="h-5 w-9 rounded-full bg-gray-200 peer-checked:bg-primary-600 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:translate-x-4" />
+          </label>
+        </div>
+        {webhookEnabled && (
+          <div className="space-y-3">
+            <Input
+              label="Webhook URL"
+              placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+              error={form.formState.errors.webhookUrl?.message}
+              {...form.register('webhookUrl')}
+            />
+            <div className="rounded-md bg-gray-50 border px-3 py-2.5 text-xs text-gray-500 font-mono whitespace-pre-wrap">{`POST <你的 URL>
+Content-Type: application/json
+
+{
+  "event": "lead_assigned",
+  "leadName": "张三",
+  "contactInfo": "138xxxx",
+  "source": "百度推广",
+  "assigneeName": "你的姓名"
+}`}</div>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={testWebhook}
+              loading={testStatus === 'sending'}
+            >
+              {testStatus === 'ok' ? '已发送' : testStatus === 'fail' ? '发送失败' : '测试发送'}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <Button type="submit" loading={saveMutation.isPending}>保存设置</Button>
+      </div>
+    </form>
+  )
+}
+
 // ---- 主页面 ----
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('info')
@@ -317,6 +470,7 @@ export default function ProfilePage() {
       {activeTab === 'info'     && <InfoTab />}
       {activeTab === 'password' && <PasswordTab />}
       {activeTab === 'api'      && <ApiTab />}
+      {activeTab === 'notify'   && <NotifyTab />}
     </div>
   )
 }

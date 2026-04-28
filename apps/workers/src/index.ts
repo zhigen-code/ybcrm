@@ -36,6 +36,7 @@ import { resourcesRoutes } from './portal/routes/resources'
 
 // 线索分配 Queue 消费逻辑
 import { handleLeadAssignmentBatch } from './assignment/handler'
+import { handleNotificationBatch } from './notification/handler'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -225,8 +226,12 @@ app.notFound((c) => c.json({ message: '接口不存在' }, 404))
 // 同时导出 fetch handler（HTTP 请求）、queue handler（异步队列）和 scheduled（Cron）
 export default {
   fetch: app.fetch,
-  async queue(batch: MessageBatch<{ leadId: string }>, env: Env): Promise<void> {
-    await handleLeadAssignmentBatch(batch, env)
+  async queue(batch: MessageBatch<{ leadId: string } | { type: string; leadId: string; assignedToUserId: string }>, env: Env): Promise<void> {
+    if (batch.queue === 'notification-queue') {
+      await handleNotificationBatch(batch as MessageBatch<{ type: 'lead_assigned'; leadId: string; assignedToUserId: string }>, env)
+    } else {
+      await handleLeadAssignmentBatch(batch as MessageBatch<{ leadId: string }>, env)
+    }
   },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
