@@ -299,6 +299,7 @@ type NotifyForm = z.infer<typeof notifySchema>
 function NotifyTab() {
   const queryClient = useQueryClient()
   const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'ok' | 'fail'>('idle')
+  const [testDetail, setTestDetail] = useState<string>('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['notification-config'],
@@ -326,13 +327,17 @@ function NotifyTab() {
     const url = form.getValues('webhookUrl')
     if (!url) return
     setTestStatus('sending')
+    setTestDetail('')
     try {
-      const res = await crmApi.post<{ data: { ok: boolean } }>('/auth/notification-config/test-webhook', { webhookUrl: url })
-      setTestStatus(res.data.data.ok ? 'ok' : 'fail')
-    } catch {
+      const res = await crmApi.post<{ data: { ok: boolean; status: number; body: string } }>('/auth/notification-config/test-webhook', { webhookUrl: url })
+      const { ok, status, body } = res.data.data
+      setTestStatus(ok ? 'ok' : 'fail')
+      setTestDetail(`HTTP ${status}  ${body}`)
+    } catch (e: unknown) {
       setTestStatus('fail')
+      setTestDetail(String((e as { message?: string })?.message ?? e))
     }
-    setTimeout(() => setTestStatus('idle'), 3000)
+    setTimeout(() => { setTestStatus('idle'); setTestDetail('') }, 8000)
   }
 
   if (isLoading) return <div className="text-sm text-gray-400 p-4">加载中...</div>
@@ -409,8 +414,13 @@ Content-Type: application/json
               onClick={testWebhook}
               loading={testStatus === 'sending'}
             >
-              {testStatus === 'ok' ? '已发送' : testStatus === 'fail' ? '发送失败' : '测试发送'}
+              {testStatus === 'ok' ? '✓ 已发送' : testStatus === 'fail' ? '✗ 发送失败' : '测试发送'}
             </Button>
+            {testDetail && (
+              <p className={`mt-1.5 text-xs font-mono break-all ${testStatus === 'ok' ? 'text-green-600' : 'text-red-600'}`}>
+                {testDetail}
+              </p>
+            )}
           </div>
         )}
       </div>

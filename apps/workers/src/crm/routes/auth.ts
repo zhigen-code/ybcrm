@@ -151,9 +151,10 @@ authRoutes.post(
           message: `来自 CRM 的 Webhook 测试消息，发送人：${user?.name ?? '未知'}`,
         }),
       })
-      return c.json({ data: { ok: res.ok, status: res.status } })
+      const responseText = await res.text().catch(() => '')
+      return c.json({ data: { ok: res.ok, status: res.status, body: responseText } })
     } catch (err) {
-      return c.json({ data: { ok: false, error: String(err) } })
+      return c.json({ data: { ok: false, status: 0, body: String(err) } })
     }
   },
 )
