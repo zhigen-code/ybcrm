@@ -327,13 +327,8 @@ function NotifyTab() {
     if (!url) return
     setTestStatus('sending')
     try {
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'test', message: 'CRM Webhook 测试消息' }),
-        mode: 'no-cors',
-      })
-      setTestStatus('ok')
+      const res = await crmApi.post<{ data: { ok: boolean } }>('/auth/notification-config/test-webhook', { webhookUrl: url })
+      setTestStatus(res.data.data.ok ? 'ok' : 'fail')
     } catch {
       setTestStatus('fail')
     }

@@ -134,6 +134,31 @@ authRoutes.put(
 )
 
 authRoutes.post(
+  '/notification-config/test-webhook',
+  requireAuth,
+  zValidator('json', z.object({ webhookUrl: z.string().url('请填写有效的 URL') })),
+  async (c) => {
+    const { webhookUrl } = c.req.valid('json')
+    const { userId } = c.get('jwtPayload')
+    const user = await c.env.DB.prepare('SELECT name FROM users WHERE id = ?')
+      .bind(userId).first<{ name: string }>()
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'test',
+          message: `来自 CRM 的 Webhook 测试消息，发送人：${user?.name ?? '未知'}`,
+        }),
+      })
+      return c.json({ data: { ok: res.ok, status: res.status } })
+    } catch (err) {
+      return c.json({ data: { ok: false, error: String(err) } })
+    }
+  },
+)
+
+authRoutes.post(
   '/register',
   requireAuth,
   requireAdmin,
