@@ -204,6 +204,7 @@ export default function ClientsPage() {
           onClose={() => setFollowUpTarget(null)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
+          showNextContact
         />
       )}
     </div>
