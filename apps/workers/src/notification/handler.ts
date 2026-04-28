@@ -50,23 +50,14 @@ async function processNotification(msg: NotificationMessage, env: Env): Promise<
   const subject = `新线索已分配给你：${leadNo}${lead.name}`
   const body = `你好 ${user.name}，\n\n以下线索已分配给你，请及时跟进：\n\n姓名：${lead.name}\n联系方式：${lead.contact_info}\n来源：${lead.source ?? '未知'}\n\n请登录 CRM 查看详情。`
 
-  const webhookPayload = {
-    event: 'lead_assigned',
-    leadId: msg.leadId,
-    leadNo: lead.lead_no,
-    leadName: lead.name,
-    contactInfo: lead.contact_info,
-    source: lead.source,
-    assigneeName: user.name,
-    assigneeEmail: user.email,
-  }
+  const webhookText = `【新线索分配】${leadNo}${lead.name}\n联系方式：${lead.contact_info}\n来源：${lead.source ?? '未知'}\n负责人：${user.name}`
 
   await Promise.allSettled([
     config.emailEnabled && config.email
       ? sendEmail(env, config.email, subject, body)
       : Promise.resolve(),
     config.webhookEnabled && config.webhookUrl
-      ? sendWebhook(config.webhookUrl, webhookPayload)
+      ? sendWebhook(config.webhookUrl, webhookText)
       : Promise.resolve(),
   ])
 }
@@ -87,10 +78,27 @@ async function sendEmail(env: Env, to: string, subject: string, body: string): P
   })
 }
 
-async function sendWebhook(url: string, payload: object): Promise<void> {
+export function buildWebhookPayload(url: string, text: string): object {
+  if (url.includes('qyapi.weixin.qq.com')) {
+    // 企业微信机器人
+    return { msgtype: 'text', text: { content: text } }
+  }
+  if (url.includes('oapi.dingtalk.com')) {
+    // 钉钉机器人
+    return { msgtype: 'text', text: { content: text } }
+  }
+  if (url.includes('open.feishu.cn') || url.includes('open.larksuite.com')) {
+    // 飞书机器人
+    return { msg_type: 'text', content: { text } }
+  }
+  // 通用 Webhook
+  return { event: 'lead_assigned', message: text }
+}
+
+async function sendWebhook(url: string, text: string): Promise<void> {
   await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(buildWebhookPayload(url, text)),
   })
 }

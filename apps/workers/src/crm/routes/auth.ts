@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
 import { signCrmJwt } from '../../shared/jwt'
 import { requireAuth, requireAdmin } from '../middleware/auth'
+import { buildWebhookPayload } from '../../notification/handler'
 
 export const authRoutes = new Hono<{ Bindings: Env }>()
 
@@ -143,13 +144,11 @@ authRoutes.post(
     const user = await c.env.DB.prepare('SELECT name FROM users WHERE id = ?')
       .bind(userId).first<{ name: string }>()
     try {
+      const testText = `【CRM 测试消息】来自 ${user?.name ?? '未知'} 的 Webhook 连通性测试`
       const res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: 'test',
-          message: `来自 CRM 的 Webhook 测试消息，发送人：${user?.name ?? '未知'}`,
-        }),
+        body: JSON.stringify(buildWebhookPayload(webhookUrl, testText)),
       })
       const responseText = await res.text().catch(() => '')
       return c.json({ data: { ok: res.ok, status: res.status, body: responseText } })
