@@ -77,7 +77,7 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
       return
     }
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toLocaleDateString('en-CA')
       const validValues = new Set(activityTypeOpts.map((o) => o.value))
       const base = { [`${entityType}Id`]: entityId, activityDate: today, activityType: defaultActivityType }
 
