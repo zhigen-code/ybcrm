@@ -11,11 +11,23 @@ import { Modal } from '@/shared/components/Modal'
 import { FileManager } from '@/shared/components/FileManager'
 import type { Service } from '@/shared/types'
 
+interface PartnerProduct {
+  id: string
+  partnerId: string
+  partnerName: string
+  serviceId: string
+  name: string
+  description: string | null
+  price: number | null
+  currency: string
+  isActive: number
+}
+
 const schema = z.object({
   name: z.string().min(1, '请填写名称'),
   description: z.string().nullable().optional(),
   price: z.coerce.number().nullable().optional(),
-  processSteps: z.string().optional(), // 换行分隔，提交时转数组
+  processSteps: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -29,6 +41,19 @@ export default function ServicesPage() {
     queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data),
   })
 
+  const { data: allProductsData } = useQuery({
+    queryKey: ['partner-products-by-service'],
+    queryFn: () =>
+      crmApi.get<{ data: PartnerProduct[] }>('/partner-products', { params: { active: 'true' } }).then((r) => r.data),
+    staleTime: 1000 * 30,
+  })
+
+  const productsByService = (allProductsData?.data ?? []).reduce<Record<string, PartnerProduct[]>>((acc, p) => {
+    if (!acc[p.serviceId]) acc[p.serviceId] = []
+    acc[p.serviceId]!.push(p)
+    return acc
+  }, {})
+
   const form = useForm<FormData>({ resolver: zodResolver(schema) })
 
   const openCreate = () => {
@@ -38,32 +63,17 @@ export default function ServicesPage() {
   }
 
   const openEdit = (s: Service) => {
-    form.reset({
-      name: s.name,
-      description: s.description,
-      price: s.price,
-      processSteps: (s.processSteps ?? []).join('\n'),
-    })
+    form.reset({ name: s.name, description: s.description, price: s.price, processSteps: (s.processSteps ?? []).join('\n') })
     setEditTarget(s)
     setShowCreate(true)
   }
 
   const saveMutation = useMutation({
     mutationFn: (body: FormData) => {
-      const payload = {
-        ...body,
-        processSteps: body.processSteps
-          ? body.processSteps.split('\n').map((s) => s.trim()).filter(Boolean)
-          : [],
-      }
-      return editTarget
-        ? crmApi.put(`/services/${editTarget.id}`, payload)
-        : crmApi.post('/services', payload)
+      const payload = { ...body, processSteps: body.processSteps ? body.processSteps.split('\n').map((s) => s.trim()).filter(Boolean) : [] }
+      return editTarget ? crmApi.put(`/services/${editTarget.id}`, payload) : crmApi.post('/services', payload)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['services'] })
-      setShowCreate(false)
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['services'] }); setShowCreate(false) },
   })
 
   const deleteService = useMutation({
@@ -72,61 +82,119 @@ export default function ServicesPage() {
   })
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">服务管理</h1>
         <Button onClick={openCreate}>新建服务</Button>
       </div>
 
       {isLoading ? (
-        <div className="text-sm text-gray-500">加载中...</div>
+        <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {(data?.data ?? []).map((service) => (
-            <div key={service.id} className="rounded-lg border bg-white p-5">
-              <div className="flex items-start justify-between">
-                <h2 className="font-semibold text-gray-900">{service.name}</h2>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(service)}>编辑</Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { if (confirm(`确认删除服务「${service.name}」？`)) deleteService.mutate(service.id) }}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    删除
-                  </Button>
+        <div className="space-y-8">
+          {(data?.data ?? []).map((service) => {
+            const products = productsByService[service.id] ?? []
+            const byPartner = products.reduce<Record<string, { name: string; products: PartnerProduct[] }>>((acc, p) => {
+              if (!acc[p.partnerId]) acc[p.partnerId] = { name: p.partnerName, products: [] }
+              acc[p.partnerId]!.products.push(p)
+              return acc
+            }, {})
+
+            return (
+              <div key={service.id} className="rounded-xl border overflow-hidden">
+                {/* 服务头部 */}
+                <div className="bg-white px-4 py-3 border-b flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-base font-semibold text-gray-900">{service.name}</h2>
+                      {service.price != null && (
+                        <span className="text-sm font-medium text-primary-600">¥{service.price.toLocaleString()}</span>
+                      )}
+                    </div>
+                    {service.description && (
+                      <p className="mt-0.5 text-sm text-gray-500">{service.description}</p>
+                    )}
+                    {(service.processSteps ?? []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
+                        {(service.processSteps ?? []).map((step, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 text-xs text-gray-500">
+                            <span className="w-4 h-4 rounded-full bg-primary-100 text-primary-700 text-center leading-4 flex-shrink-0 font-medium">{i + 1}</span>
+                            {step}
+                            {i < (service.processSteps ?? []).length - 1 && <span className="text-gray-300">→</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(service)}>编辑</Button>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => { if (confirm(`确认删除「${service.name}」？`)) deleteService.mutate(service.id) }}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      删除
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 主体：产品 + 服务资料 */}
+                <div className="bg-gray-50 grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
+                  {/* 产品列表（占 2/3） */}
+                  <div className="lg:col-span-2 p-4">
+                    <p className="text-sm font-medium text-gray-600 mb-3">
+                      可选产品
+                      {products.length > 0 && <span className="ml-1.5 text-xs text-gray-400 font-normal">共 {products.length} 个，来自 {Object.keys(byPartner).length} 家合作伙伴</span>}
+                    </p>
+                    {products.length === 0 ? (
+                      <p className="text-xs text-gray-400 py-4 text-center">
+                        暂无产品，请在<span className="text-primary-500">合作伙伴</span>页面添加
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {Object.values(byPartner).map((group) => (
+                          <div key={group.name}>
+                            <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
+                              {group.name}
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {group.products.map((p) => (
+                                <div key={p.id} className="rounded-lg border bg-white overflow-hidden">
+                                  <div className="px-3 pt-3 pb-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <span className="font-medium text-sm text-gray-900 leading-snug">{p.name}</span>
+                                      {p.price != null && (
+                                        <span className="text-sm font-semibold text-primary-600 flex-shrink-0">
+                                          {p.currency} {p.price.toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {p.description && (
+                                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.description}</p>
+                                    )}
+                                  </div>
+                                  <div className="border-t bg-gray-50 px-3 py-2">
+                                    <FileManager entityType="product" entityId={p.id} readonly />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 服务资料（占 1/3） */}
+                  <div className="p-4">
+                    <p className="text-sm font-medium text-gray-600 mb-3">服务资料</p>
+                    <FileManager entityType="service" entityId={service.id} />
+                  </div>
                 </div>
               </div>
-              {service.description && (
-                <p className="mt-1 text-sm text-gray-500">{service.description}</p>
-              )}
-              {service.price != null && (
-                <p className="mt-2 text-sm font-medium text-primary-600">
-                  ¥{service.price.toLocaleString()}
-                </p>
-              )}
-              {(service.processSteps ?? []).length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-gray-500 mb-1">服务流程</p>
-                  <ol className="space-y-1">
-                    {(service.processSteps ?? []).map((step, i) => (
-                      <li key={i} className="flex gap-2 text-xs text-gray-600">
-                        <span className="flex-shrink-0 w-4 h-4 rounded-full bg-primary-100 text-primary-700 text-center leading-4 font-medium">
-                          {i + 1}
-                        </span>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-500 mb-2">资料文件</p>
-                <FileManager entityType="service" entityId={service.id} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -137,12 +205,7 @@ export default function ServicesPage() {
           footer={
             <>
               <Button variant="secondary" onClick={() => setShowCreate(false)}>取消</Button>
-              <Button
-                loading={saveMutation.isPending}
-                onClick={form.handleSubmit((d) => saveMutation.mutate(d))}
-              >
-                保存
-              </Button>
+              <Button loading={saveMutation.isPending} onClick={form.handleSubmit((d) => saveMutation.mutate(d))}>保存</Button>
             </>
           }
         >
@@ -150,12 +213,7 @@ export default function ServicesPage() {
             <Input label="名称" error={form.formState.errors.name?.message} {...form.register('name')} />
             <Textarea label="描述" {...form.register('description')} />
             <Input label="价格（元）" type="number" {...form.register('price')} />
-            <Textarea
-              label="服务流程（每行一个步骤）"
-              rows={5}
-              placeholder="初步咨询&#10;医疗评估&#10;方案制定"
-              {...form.register('processSteps')}
-            />
+            <Textarea label="服务流程（每行一个步骤）" rows={5} placeholder="初步咨询&#10;医疗评估&#10;方案制定" {...form.register('processSteps')} />
           </div>
         </Modal>
       )}

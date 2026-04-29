@@ -15,6 +15,7 @@ const ClientsPage = lazy(() => import('@/app/clients/ClientsPage'))
 const ClientDetailPage = lazy(() => import('@/app/clients/ClientDetailPage'))
 const ServicesPage = lazy(() => import('@/app/services/ServicesPage'))
 const PartnersPage = lazy(() => import('@/app/partners/PartnersPage'))
+const ProductLibraryPage = lazy(() => import('@/app/products/ProductLibraryPage'))
 const ActivitiesPage = lazy(() => import('@/app/activities/ActivitiesPage'))
 const UsersPage = lazy(() => import('@/app/users/UsersPage'))
 const SystemSettingsPage = lazy(() => import('@/app/settings/SystemSettingsPage'))
@@ -56,8 +57,9 @@ export default function App() {
                     <Route path="leads/:id" element={<LeadDetailPage />} />
                     <Route path="clients" element={<ClientsPage />} />
                     <Route path="clients/:id" element={<ClientDetailPage />} />
-                    <Route path="services" element={<ServicesPage />} />
-                    <Route path="partners" element={<PartnersPage />} />
+                    <Route path="products" element={<ProductLibraryPage />} />
+                    <Route path="services" element={<Navigate to="/app/products" replace />} />
+                    <Route path="partners" element={<Navigate to="/app/products" replace />} />
                     <Route path="activities" element={<ActivitiesPage />} />
                     <Route path="users" element={<UsersPage />} />
                     <Route path="settings" element={<SystemSettingsPage />} />

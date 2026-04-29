@@ -72,6 +72,7 @@ export interface Client {
   assignedSalesUserId: string | null
   createdByUserId: string | null
   createdByName: string | null
+  nextContactDate: string | null
   createdAt: string
   updatedAt: string
 }

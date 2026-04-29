@@ -1,12 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { crmApi } from '@/shared/utils/request'
-import { Input } from '@/shared/components/Input'
 import { Badge } from '@/shared/components/Badge'
-import { Button } from '@/shared/components/Button'
 import { formatDate } from '@/shared/utils/format'
-import type { Client } from '@/shared/types'
+import type { Client, User } from '@/shared/types'
 import { useOptionGroup, getOptionColor } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
@@ -19,30 +17,65 @@ export default function ClientsPage() {
   const queryClient = useQueryClient()
   const { user } = useCrmAuth()
   const isAdmin = user?.role === 'admin'
+  const canFilterUser = user?.role === 'admin' || user?.role === 'operations'
+
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [followUpTarget, setFollowUpTarget] = useState<Client | null>(null)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [contractStatusFilter, setContractStatusFilter] = useState('')
+  const [assignedUserFilter, setAssignedUserFilter] = useState('')
+  const [createdAtFilter, setCreatedAtFilter] = useState('')
+  const [nextContactFilter, setNextContactFilter] = useState('')
+  const filterPanelRef = useRef<HTMLDivElement>(null)
 
   const { options: contractStatusOpts } = useOptionGroup('contract_status')
 
-  const searchTimeout = useState<ReturnType<typeof setTimeout> | null>(null)
-  const handleSearch = (val: string) => {
-    setSearch(val)
-    if (searchTimeout[0]) clearTimeout(searchTimeout[0])
-    searchTimeout[1](setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 300))
-  }
+  useEffect(() => {
+    const timer = setTimeout(() => { setDebouncedSearch(search); setPage(1) }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) {
+        setShowFilterPanel(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: () => crmApi.get<{ data: User[] }>('/users').then((r) => r.data),
+    enabled: canFilterUser,
+  })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', debouncedSearch, page],
+    queryKey: ['clients', debouncedSearch, contractStatusFilter, assignedUserFilter, createdAtFilter, nextContactFilter, page],
     queryFn: () => crmApi.get<{ data: Client[]; total: number; page: number; pageSize: number }>('/clients', {
-      params: { search: debouncedSearch || undefined, page, pageSize: PAGE_SIZE },
+      params: {
+        search: debouncedSearch || undefined,
+        contractStatus: contractStatusFilter || undefined,
+        assignedSalesUserId: assignedUserFilter || undefined,
+        createdAt: createdAtFilter || undefined,
+        nextContact: nextContactFilter || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+      },
     }).then((r) => r.data),
   })
 
   const filtered = data?.data ?? []
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  const hasFilter = !!(contractStatusFilter || assignedUserFilter || createdAtFilter || nextContactFilter)
+  const resetFilters = () => {
+    setContractStatusFilter(''); setAssignedUserFilter(''); setCreatedAtFilter(''); setNextContactFilter(''); setPage(1)
+  }
 
   const addActivity = useMutation({
     mutationFn: (body: ActivitySubmitData) =>
@@ -60,6 +93,8 @@ export default function ClientsPage() {
     setFollowUpTarget(client)
   }
 
+  const selectClass = 'rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-500'
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -69,18 +104,91 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      <div className="mb-4">
-        <Input
-          placeholder="搜索姓名、邮箱、电话..."
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-        />
+      {/* 搜索框 + 筛选 */}
+      <div className="mb-4 relative" ref={filterPanelRef}>
+        <div className="flex items-center rounded-md border border-gray-300 bg-white shadow-sm transition-colors focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500">
+          <input
+            className="flex-1 px-3 py-2 text-sm bg-transparent outline-none placeholder:text-gray-400"
+            placeholder="搜索姓名、邮箱、电话..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button
+            onClick={() => setShowFilterPanel((v) => !v)}
+            className="relative flex items-center gap-1 px-3 py-2 border-l border-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            {hasFilter && (
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary-500" />
+            )}
+            <span className="text-xs">筛选</span>
+            <svg
+              className={`w-3.5 h-3.5 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        {showFilterPanel && (
+          <div className="absolute z-20 top-full left-0 right-0 mt-1 rounded-md border border-gray-200 bg-white shadow-lg p-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {contractStatusOpts.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">合同状态</label>
+                  <select value={contractStatusFilter} onChange={(e) => { setContractStatusFilter(e.target.value); setPage(1) }} className={selectClass}>
+                    <option value="">全部状态</option>
+                    {contractStatusOpts.filter((o) => o.isActive).map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {canFilterUser && usersData?.data && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">负责销售</label>
+                  <select value={assignedUserFilter} onChange={(e) => { setAssignedUserFilter(e.target.value); setPage(1) }} className={selectClass}>
+                    <option value="">全部</option>
+                    {usersData.data.filter((u) => u.isActive).map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">添加时间</label>
+                <select value={createdAtFilter} onChange={(e) => { setCreatedAtFilter(e.target.value); setPage(1) }} className={selectClass}>
+                  <option value="">全部时间</option>
+                  <option value="today">今天</option>
+                  <option value="week">最近 7 天</option>
+                  <option value="month">最近 30 天</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">下次联系</label>
+                <select value={nextContactFilter} onChange={(e) => { setNextContactFilter(e.target.value); setPage(1) }} className={selectClass}>
+                  <option value="">全部</option>
+                  <option value="overdue">已逾期</option>
+                  <option value="today">今天到期</option>
+                  <option value="week">未来 7 天</option>
+                </select>
+              </div>
+            </div>
+            {hasFilter && (
+              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-end">
+                <button onClick={resetFilters} className="text-xs text-gray-400 hover:text-gray-600">重置筛选</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {isLoading ? (
         <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
       ) : !filtered?.length ? (
-        <div className="py-12 text-center text-sm text-gray-500">暂无客户</div>
+        <div className="py-12 text-center text-sm text-gray-500">
+          {debouncedSearch || hasFilter ? '未找到匹配客户' : '暂无客户'}
+        </div>
       ) : (
         <>
           {/* 桌面端表格 */}
@@ -93,6 +201,7 @@ export default function ClientsPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">联系方式</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">服务套餐</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">合同状态</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">下次联系</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">创建人</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">创建时间</th>
                   <th className="px-4 py-3"></th>
@@ -118,6 +227,11 @@ export default function ClientsPage() {
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {client.nextContactDate
+                        ? <span className={new Date(client.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(client.nextContactDate)}</span>
+                        : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{client.createdByName ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-500">{formatDate(client.createdAt)}</td>
@@ -180,6 +294,11 @@ export default function ClientsPage() {
                     <span>{(client.servicePlans ?? []).join('、') || '未指定套餐'}</span>
                     <span className="ml-auto">{formatDate(client.createdAt)}</span>
                   </div>
+                  {client.nextContactDate && (
+                    <div className="mt-1 text-xs text-gray-400">
+                      下次联系：<span className={new Date(client.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(client.nextContactDate)}</span>
+                    </div>
+                  )}
                 </Link>
                 <div className="border-t px-4 py-2 flex justify-end">
                   <button
@@ -197,7 +316,6 @@ export default function ClientsPage() {
         </>
       )}
 
-      {/* 快速跟进弹窗 */}
       {followUpTarget && (
         <ActivityModal
           title={`跟进：${followUpTarget.name}`}

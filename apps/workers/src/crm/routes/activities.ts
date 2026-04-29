@@ -36,7 +36,12 @@ function parseExtraData(raw: unknown): Record<string, unknown> | null {
 }
 
 activitiesRoutes.get('/', async (c) => {
-  const { clientId, leadId, search, page: pageStr, pageSize: pageSizeStr } = c.req.query()
+  const {
+    clientId, leadId, search,
+    activityType, assignedUserId, entityType,
+    activityDate, nextContact,
+    page: pageStr, pageSize: pageSizeStr,
+  } = c.req.query()
   const { userId, role } = c.get('jwtPayload')
 
   const page = Math.max(1, parseInt(pageStr ?? '1'))
@@ -61,6 +66,45 @@ activitiesRoutes.get('/', async (c) => {
   } else if (leadId) {
     whereClause += ' AND sa.lead_id = ?'
     params.push(leadId)
+  }
+
+  if (activityType) {
+    whereClause += ' AND sa.activity_type = ?'
+    params.push(activityType)
+  }
+
+  if (assignedUserId && role !== 'sales') {
+    whereClause += ' AND sa.user_id = ?'
+    params.push(assignedUserId)
+  }
+
+  if (entityType === 'lead') {
+    whereClause += ' AND sa.lead_id IS NOT NULL AND sa.client_id IS NULL'
+  } else if (entityType === 'client') {
+    whereClause += ' AND sa.client_id IS NOT NULL'
+  }
+
+  const now = new Date().toISOString().slice(0, 10)
+  if (activityDate === 'today') {
+    whereClause += ' AND sa.activity_date >= ? AND sa.activity_date < date(?, "+1 day")'
+    params.push(now, now)
+  } else if (activityDate === 'week') {
+    whereClause += ' AND sa.activity_date >= date(?, "-7 days") AND sa.activity_date <= ?'
+    params.push(now, now)
+  } else if (activityDate === 'month') {
+    whereClause += ' AND sa.activity_date >= date(?, "-30 days") AND sa.activity_date <= ?'
+    params.push(now, now)
+  }
+
+  if (nextContact === 'overdue') {
+    whereClause += ' AND sa.next_contact_date IS NOT NULL AND sa.next_contact_date < ?'
+    params.push(now)
+  } else if (nextContact === 'today') {
+    whereClause += ' AND sa.next_contact_date = ?'
+    params.push(now)
+  } else if (nextContact === 'week') {
+    whereClause += ' AND sa.next_contact_date >= ? AND sa.next_contact_date <= date(?, "+7 days")'
+    params.push(now, now)
   }
 
   if (search) {
@@ -133,6 +177,13 @@ activitiesRoutes.post(
         ).bind(uuidv4(), id, att.key, att.name, att.size),
       )
       await c.env.DB.batch(stmts)
+    }
+
+    // 同步更新客户的下次联系日期
+    if (body.clientId && body.nextContactDate) {
+      await c.env.DB.prepare(
+        'UPDATE clients SET next_contact_date = ? WHERE id = ?',
+      ).bind(body.nextContactDate, body.clientId).run()
     }
 
     const rawActivity = await c.env.DB.prepare(

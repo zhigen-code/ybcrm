@@ -98,6 +98,18 @@ export function ActivityModal({
   const description = watch('description')
   const selectedTypeMeta = parseActivityMeta(activityTypeOpts.find((o) => o.value === watch('activityType')) ?? {} as Parameters<typeof parseActivityMeta>[0])
   const extraFields: ActivityMetaField[] = selectedTypeMeta.fields ?? []
+  const hasProductSelect = extraFields.some((f) => f.type === 'product_select')
+
+  const { data: productsData } = useQuery({
+    queryKey: ['partner-products', 'active'],
+    queryFn: () =>
+      crmApi.get<{ data: { id: string; name: string; partnerName: string; price: number | null; currency: string }[] }>(
+        '/partner-products', { params: { active: 'true' } },
+      ).then((r) => r.data),
+    enabled: hasProductSelect,
+    staleTime: 1000 * 60 * 5,
+  })
+  const allProducts = productsData?.data ?? []
 
   const setExtraField = (key: string, value: unknown) =>
     setExtraData((prev) => ({ ...prev, [key]: value }))
@@ -236,17 +248,50 @@ export function ActivityModal({
         {extraFields.length > 0 && (
           <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 space-y-2">
             <p className="text-xs font-medium text-amber-700">补充信息</p>
-            {extraFields.map((f) => (
-              <div key={f.key}>
-                <label className="block text-xs text-gray-600 mb-1">{f.label}{f.unit ? `（${f.unit}）` : ''}</label>
-                <input
-                  type={f.type === 'number' ? 'number' : 'text'}
-                  className="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  value={(extraData[f.key] as string) ?? ''}
-                  onChange={(e) => setExtraField(f.key, f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
-                />
-              </div>
-            ))}
+            {extraFields.map((f) => {
+              if (f.type === 'product_select') {
+                return (
+                  <div key={f.key}>
+                    <label className="block text-xs text-gray-600 mb-1">{f.label}</label>
+                    <select
+                      className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      value={(extraData[f.key] as string) ?? ''}
+                      onChange={(e) => {
+                        const productId = e.target.value
+                        const product = allProducts.find((p) => p.id === productId)
+                        setExtraField(f.key, productId)
+                        if (product) {
+                          setExtraField(`${f.key}_name`, `${product.name}（${product.partnerName}）`)
+                          // 自动填充同类型中名为 price 的 number 字段
+                          const priceField = extraFields.find((ef) => ef.type === 'number' && ef.key === 'price')
+                          if (priceField && product.price != null) {
+                            setExtraField('price', product.price)
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">请选择产品...</option>
+                      {allProducts.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.partnerName}{p.price != null ? ` (${p.currency} ${p.price.toLocaleString()})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              }
+              return (
+                <div key={f.key}>
+                  <label className="block text-xs text-gray-600 mb-1">{f.label}{f.unit ? `（${f.unit}）` : ''}</label>
+                  <input
+                    type={f.type === 'number' ? 'number' : 'text'}
+                    className="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    value={(extraData[f.key] as string) ?? ''}
+                    onChange={(e) => setExtraField(f.key, f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
+                  />
+                </div>
+              )
+            })}
           </div>
         )}
 

@@ -10,8 +10,8 @@ import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
 import type { Team } from '@/shared/types'
-import type { OptionItem } from '@/shared/hooks/useOptions'
-import { useOptions } from '@/shared/hooks/useOptions'
+import type { OptionItem, ActivityMeta, ActivityMetaField } from '@/shared/hooks/useOptions'
+import { useOptions, parseActivityMeta } from '@/shared/hooks/useOptions'
 import type { Workflow } from '@/shared/hooks/useWorkflows'
 
 // ─── 选项配置相关常量和组件 ───────────────────────────────────────────────────
@@ -1276,12 +1276,16 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
   )
 }
 
+const EMPTY_FIELD = (): ActivityMetaField => ({ key: '', label: '', type: 'text', unit: '' })
+
 function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolean }) {
   const queryClient = useQueryClient()
   const [editTarget, setEditTarget] = useState<OptionItem | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [editColor, setEditColor] = useState<Color>('gray')
   const [addColor, setAddColor] = useState<Color>('gray')
+  const [editFields, setEditFields] = useState<ActivityMetaField[]>([])
+  const isActivityType = groupKey === 'activity_type'
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-options', groupKey],
@@ -1299,8 +1303,8 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
   const addForm  = useForm<OptionItemForm>({ resolver: zodResolver(optionItemSchema), defaultValues: { color: 'gray' } })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...body }: { id: string } & OptionItemForm) =>
-      crmApi.put(`/admin/options/items/${id}`, body),
+    mutationFn: ({ id, metadata, ...body }: { id: string; metadata?: string } & OptionItemForm) =>
+      crmApi.put(`/admin/options/items/${id}`, metadata !== undefined ? { ...body, metadata } : body),
     onSuccess: () => { setEditTarget(null); invalidate() },
   })
 
@@ -1321,35 +1325,159 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
     onSuccess: invalidate,
   })
 
+  const scopeMutation = useMutation({
+    mutationFn: ({ id, meta }: { id: string; meta: ActivityMeta }) =>
+      crmApi.put(`/admin/options/items/${id}`, { metadata: JSON.stringify(meta) }),
+    onSuccess: invalidate,
+  })
+
+  const toggleScope = (item: OptionItem, s: 'lead' | 'client') => {
+    const meta = parseActivityMeta(item)
+    const scope = meta.scope ?? []
+    const newScope = scope.includes(s) ? scope.filter((x) => x !== s) : [...scope, s]
+    scopeMutation.mutate({ id: item.id, meta: { ...meta, scope: newScope } })
+  }
+
   const openEdit = (item: OptionItem) => {
     setEditTarget(item)
     setEditColor(item.color)
     editForm.reset({ value: item.value, label: item.label, color: item.color })
+    if (isActivityType) {
+      setEditFields(parseActivityMeta(item).fields ?? [])
+    }
   }
+
+  const updateField = (idx: number, patch: Partial<ActivityMetaField>) => {
+    setEditFields((prev) => prev.map((f, i) => i === idx ? { ...f, ...patch } : f))
+  }
+
+  const handleSave = editForm.handleSubmit((d) => {
+    if (isActivityType) {
+      const existingMeta = parseActivityMeta(editTarget!)
+      const fields = editFields.filter((f) => f.key.trim() && f.label.trim())
+      const metadata = JSON.stringify({ ...existingMeta, fields })
+      updateMutation.mutate({ id: editTarget!.id, ...d, color: editColor, metadata })
+    } else {
+      updateMutation.mutate({ id: editTarget!.id, ...d, color: editColor })
+    }
+  })
 
   if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
 
   return (
     <div>
-      <div className="rounded-lg border bg-white overflow-hidden">
+      {/* 移动端：卡片列表 */}
+      <div className="sm:hidden space-y-2">
+        {data?.map((item) => {
+          const meta = isActivityType ? parseActivityMeta(item) : null
+          const scope = meta?.scope ?? []
+          const fieldCount = meta?.fields?.filter((f) => f.key && f.label).length ?? 0
+          return (
+            <div key={item.id} className={`rounded-lg border bg-white p-3 ${item.isActive ? '' : 'opacity-50'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`flex-shrink-0 inline-block w-3 h-3 rounded-full ${COLOR_CLASS[item.color] ?? 'bg-gray-200'}`} />
+                  <span className="font-medium text-gray-900 truncate">{item.label}</span>
+                  <span className="text-gray-400 font-mono text-xs flex-shrink-0">{item.value}</span>
+                </div>
+                <Badge variant={item.isActive ? 'green' : 'gray'} className="flex-shrink-0">
+                  {item.isActive ? '启用' : '禁用'}
+                </Badge>
+              </div>
+
+              {isActivityType && (
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-400">范围：</span>
+                  {(['lead', 'client'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => toggleScope(item, s)}
+                      className={`rounded px-2 py-0.5 text-xs font-medium border transition-colors ${
+                        scope.length === 0 || scope.includes(s)
+                          ? 'bg-primary-50 border-primary-300 text-primary-700'
+                          : 'bg-gray-50 border-gray-200 text-gray-400'
+                      }`}
+                    >
+                      {s === 'lead' ? '线索' : '客户'}
+                    </button>
+                  ))}
+                  {fieldCount > 0 && (
+                    <span className="text-xs text-gray-400 ml-auto">{fieldCount} 个自定义字段</span>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-2 flex items-center gap-3 border-t pt-2">
+                <button onClick={() => openEdit(item)} className="text-xs text-primary-600 font-medium">编辑</button>
+                {!item.isSystem && (
+                  <>
+                    <button
+                      onClick={() => toggleActive.mutate({ id: item.id, isActive: !item.isActive })}
+                      className="text-xs text-gray-500"
+                    >
+                      {item.isActive ? '禁用' : '启用'}
+                    </button>
+                    <button
+                      onClick={() => { if (confirm(`确认删除「${item.label}」？`)) deleteMutation.mutate(item.id) }}
+                      className="text-xs text-red-500 ml-auto"
+                    >
+                      删除
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 桌面端：表格 */}
+      <div className="hidden sm:block rounded-lg border bg-white overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">色</th>
               <th className="px-4 py-3 text-left font-medium text-gray-700">值</th>
               <th className="px-4 py-3 text-left font-medium text-gray-700">标签</th>
+              {isActivityType && (
+                <th className="px-4 py-3 text-left font-medium text-gray-700">适用范围</th>
+              )}
               <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {data?.map((item) => (
+            {data?.map((item) => {
+              const meta = isActivityType ? parseActivityMeta(item) : null
+              const scope = meta?.scope ?? []
+              return (
               <tr key={item.id} className={item.isActive ? '' : 'opacity-50'}>
                 <td className="px-4 py-3">
                   <span className={`inline-block w-4 h-4 rounded-full ${COLOR_CLASS[item.color] ?? 'bg-gray-200'}`} />
                 </td>
                 <td className="px-4 py-3 text-gray-500 font-mono text-xs">{item.value}</td>
                 <td className="px-4 py-3 font-medium text-gray-900">{item.label}</td>
+                {isActivityType && (
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1">
+                      {(['lead', 'client'] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => toggleScope(item, s)}
+                          className={`rounded px-2 py-0.5 text-xs font-medium border transition-colors ${
+                            scope.length === 0 || scope.includes(s)
+                              ? 'bg-primary-50 border-primary-300 text-primary-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-400'
+                          }`}
+                        >
+                          {s === 'lead' ? '线索' : '客户'}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <Badge variant={item.isActive ? 'green' : 'gray'}>
                     {item.isActive ? '启用' : '禁用'}
@@ -1357,12 +1485,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 justify-end">
-                    <button
-                      onClick={() => openEdit(item)}
-                      className="text-xs text-primary-600 hover:text-primary-800"
-                    >
-                      编辑
-                    </button>
+                    <button onClick={() => openEdit(item)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
                     {!item.isSystem && (
                       <>
                         <span className="text-gray-300">|</span>
@@ -1384,7 +1507,8 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                   </div>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -1404,14 +1528,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
           footer={
             <>
               <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
-              <Button
-                loading={updateMutation.isPending}
-                onClick={editForm.handleSubmit((d) =>
-                  updateMutation.mutate({ id: editTarget.id, ...d, color: editColor })
-                )}
-              >
-                保存
-              </Button>
+              <Button loading={updateMutation.isPending} onClick={handleSave}>保存</Button>
             </>
           }
         >
@@ -1429,6 +1546,66 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
               <p className="text-sm font-medium text-gray-700 mb-2">颜色</p>
               <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
+
+            {isActivityType && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">自定义字段</p>
+                  <button
+                    type="button"
+                    onClick={() => setEditFields((prev) => [...prev, EMPTY_FIELD()])}
+                    className="text-xs text-primary-600 hover:text-primary-800"
+                  >
+                    + 添加字段
+                  </button>
+                </div>
+                {editFields.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2">暂无自定义字段，点击"添加字段"</p>
+                ) : (
+                  <div className="space-y-2">
+                    {editFields.map((f, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
+                        <input
+                          placeholder="字段键（英文）"
+                          value={f.key}
+                          onChange={(e) => updateField(idx, { key: e.target.value })}
+                          className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                        <input
+                          placeholder="显示名称"
+                          value={f.label}
+                          onChange={(e) => updateField(idx, { label: e.target.value })}
+                          className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                        <select
+                          value={f.type}
+                          onChange={(e) => updateField(idx, { type: e.target.value as 'text' | 'number' | 'product_select' })}
+                          className="col-span-2 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="text">文本</option>
+                          <option value="number">数字</option>
+                          <option value="product_select">产品选择</option>
+                        </select>
+                        <input
+                          placeholder="单位（可选）"
+                          value={f.unit ?? ''}
+                          onChange={(e) => updateField(idx, { unit: e.target.value })}
+                          className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditFields((prev) => prev.filter((_, i) => i !== idx))}
+                          className="col-span-1 text-gray-400 hover:text-red-500 text-sm text-center"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-gray-400">字段键用英文，如 amount、hospital；单位如 元、个（可留空）</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Modal>
       )}

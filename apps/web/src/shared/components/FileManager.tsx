@@ -11,7 +11,7 @@ interface Attachment {
   createdAt: string
 }
 
-type EntityType = 'service' | 'partner'
+type EntityType = 'service' | 'partner' | 'product'
 
 type FileType = 'image' | 'pdf' | 'audio' | 'other'
 

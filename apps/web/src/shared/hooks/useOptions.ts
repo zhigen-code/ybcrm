@@ -4,7 +4,7 @@ import { crmApi } from '@/shared/utils/request'
 export interface ActivityMetaField {
   key: string
   label: string
-  type: 'text' | 'number'
+  type: 'text' | 'number' | 'product_select'
   unit?: string
 }
 

@@ -12,6 +12,7 @@ import { leadsRoutes } from './crm/routes/leads'
 import { clientsRoutes } from './crm/routes/clients'
 import { servicesRoutes } from './crm/routes/services'
 import { partnersRoutes } from './crm/routes/partners'
+import { partnerProductsRoutes } from './crm/routes/partnerProducts'
 import { activitiesRoutes } from './crm/routes/activities'
 import { usersRoutes } from './crm/routes/users'
 import { teamsRoutes } from './crm/routes/teams'
@@ -192,6 +193,7 @@ app.route('/api/leads', leadsRoutes)
 app.route('/api/clients', clientsRoutes)
 app.route('/api/services', servicesRoutes)
 app.route('/api/partners', partnersRoutes)
+app.route('/api/partner-products', partnerProductsRoutes)
 app.route('/api/activities', activitiesRoutes)
 app.route('/api/users', usersRoutes)
 app.route('/api/teams', teamsRoutes)

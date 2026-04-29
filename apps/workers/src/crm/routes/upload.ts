@@ -26,7 +26,7 @@ uploadRoutes.post('/internal', async (c) => {
 
 // ─── 实体附件（服务 / 合作伙伴） ───────────────────────────────────────────
 
-const ALLOWED_ENTITY_TYPES = ['service', 'partner'] as const
+const ALLOWED_ENTITY_TYPES = ['service', 'partner', 'product'] as const
 type EntityType = typeof ALLOWED_ENTITY_TYPES[number]
 
 // GET /api/upload/attachments?entityType=service&entityId=xxx

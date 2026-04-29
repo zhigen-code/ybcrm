@@ -11,8 +11,7 @@ const navItems = [
   { to: '/app/leads', label: '线索管理' },
   { to: '/app/clients', label: '客户档案' },
   { to: '/app/activities', label: '销售活动' },
-  { to: '/app/services', label: '服务管理' },
-  { to: '/app/partners', label: '合作伙伴', roles: ['admin', 'operations'] },
+  { to: '/app/products', label: '产品库', roles: ['admin', 'operations'] },
 ]
 
 const adminNavItems = [

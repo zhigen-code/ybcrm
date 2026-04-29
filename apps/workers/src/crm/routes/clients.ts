@@ -28,7 +28,7 @@ function parseClient(row: Record<string, unknown>) {
 // GET /api/clients
 clientsRoutes.get('/', async (c) => {
   const { role, userId } = c.get('jwtPayload')
-  const { page = '1', pageSize = '20', search } = c.req.query()
+  const { page = '1', pageSize = '20', search, contractStatus, assignedSalesUserId, createdAt, nextContact } = c.req.query()
   const offset = (Number(page) - 1) * Number(pageSize)
 
   let whereClause = 'WHERE c.deleted_at IS NULL'
@@ -42,6 +42,35 @@ clientsRoutes.get('/', async (c) => {
     whereClause += ' AND (c.name LIKE ? OR c.email LIKE ? OR c.phone LIKE ?)'
     const q = `%${search}%`
     whereParams.push(q, q, q)
+  }
+  if (contractStatus) {
+    whereClause += ' AND c.contract_status = ?'
+    whereParams.push(contractStatus)
+  }
+  if (assignedSalesUserId && role !== 'sales') {
+    whereClause += ' AND c.assigned_sales_userId = ?'
+    whereParams.push(assignedSalesUserId)
+  }
+  const now = new Date().toISOString().slice(0, 10)
+  if (createdAt === 'today') {
+    whereClause += ' AND date(c.created_at) = ?'
+    whereParams.push(now)
+  } else if (createdAt === 'week') {
+    whereClause += ' AND c.created_at >= date(?, "-7 days")'
+    whereParams.push(now)
+  } else if (createdAt === 'month') {
+    whereClause += ' AND c.created_at >= date(?, "-30 days")'
+    whereParams.push(now)
+  }
+  if (nextContact === 'overdue') {
+    whereClause += ' AND c.next_contact_date IS NOT NULL AND c.next_contact_date < ?'
+    whereParams.push(now)
+  } else if (nextContact === 'today') {
+    whereClause += ' AND c.next_contact_date = ?'
+    whereParams.push(now)
+  } else if (nextContact === 'week') {
+    whereClause += ' AND c.next_contact_date >= ? AND c.next_contact_date <= date(?, "+7 days")'
+    whereParams.push(now, now)
   }
 
   const [results, countResult] = await Promise.all([
