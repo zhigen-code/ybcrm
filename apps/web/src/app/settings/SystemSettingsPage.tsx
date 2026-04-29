@@ -540,6 +540,8 @@ function templateToAction(t: ActionTemplate): WfActionForm {
     case 'set_field':        return { type: 'set_field',        field: String(c['field'] ?? ''), label: String(c['label'] ?? ''), value: String(c['value'] ?? '') }
     case 'send_email':       return { type: 'send_email',       to: String(c['to'] ?? ''), subject: String(c['subject'] ?? ''), body: String(c['body'] ?? '') }
     case 'webhook':          return { type: 'webhook',          url: String(c['url'] ?? ''), method: (String(c['method'] ?? 'POST')) as 'POST' | 'GET', body: String(c['body'] ?? '{}') }
+    case 'ai_analysis':      return { type: 'ai_analysis',      autoExecute: String(c['autoExecute'] ?? '') }
+    default:                 return { type: 'webhook',          url: '', method: 'POST', body: '{}' }
   }
 }
 
