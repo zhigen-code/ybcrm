@@ -695,6 +695,7 @@ export default function LeadsPage() {
           onClose={() => setFollowUpTarget(null)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
+          entityType="lead"
         />
       )}
     </div>
