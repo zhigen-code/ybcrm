@@ -8,6 +8,7 @@ import { useOptionGroup, getOptionLabel, useOptions } from '@/shared/hooks/useOp
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { AttachmentList } from '@/shared/components/AttachmentList'
+import { AiAnalysisCard } from '@/shared/components/AiAnalysisCard'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 import { useWorkflows } from '@/shared/hooks/useWorkflows'
 import type { ActivityConfig } from '@/shared/hooks/useWorkflows'
@@ -348,6 +349,16 @@ export default function LeadDetailPage() {
           </div>
         )}
       </div>
+
+      {/* AI 分析 */}
+      <AiAnalysisCard
+        entityType="lead"
+        entityId={id!}
+        onActionExecuted={() => {
+          queryClient.invalidateQueries({ queryKey: ['lead', id] })
+          queryClient.invalidateQueries({ queryKey: ['activities', 'lead', id] })
+        }}
+      />
 
       {/* 添加跟进记录弹窗 */}
       {showActivity && (

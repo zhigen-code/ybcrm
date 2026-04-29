@@ -83,6 +83,7 @@ type WfActionForm =
   | { type: 'set_field';        field: string; label: string; value: string }
   | { type: 'send_email';       to: string; subject: string; body: string }
   | { type: 'webhook';          url: string; method: 'POST' | 'GET'; body: string }
+  | { type: 'ai_analysis';      autoExecute: string }
 
 type WorkflowForm = {
   name: string
@@ -120,6 +121,7 @@ const ACTION_TYPES: { type: WfActionForm['type']; label: string; supported: bool
   { type: 'set_field',        label: '自动赋值字段', supported: true },
   { type: 'send_email',       label: '发送邮件',     supported: true },
   { type: 'webhook',          label: 'Webhook 通知', supported: true },
+  { type: 'ai_analysis',      label: 'AI 自动分析',  supported: true },
 ]
 
 const ACTION_LABELS: Record<WfActionForm['type'], string> = {
@@ -128,6 +130,7 @@ const ACTION_LABELS: Record<WfActionForm['type'], string> = {
   set_field:        '自动赋值字段',
   send_email:       '发送邮件',
   webhook:          'Webhook 通知',
+  ai_analysis:      'AI 自动分析',
 }
 
 function buildTrigger(f: WorkflowForm) {
@@ -164,6 +167,12 @@ function buildWorkflowPayload(f: WorkflowForm) {
           : []
         return { type: 'require_activity', contentRequired: a.contentRequired, ...(presets.length ? { contentPresets: presets } : {}) }
       }
+      if (a.type === 'ai_analysis') {
+        const autoExecute = a.autoExecute
+          ? a.autoExecute.split(/[,，、\s]+/).map((s) => s.trim()).filter(Boolean)
+          : []
+        return { type: 'ai_analysis', ...(autoExecute.length ? { autoExecute } : {}) }
+      }
       return a
     }),
   }
@@ -179,6 +188,7 @@ function formFromWorkflow(w: Workflow): WorkflowForm {
     if (a.type === 'require_fields')   return { type: 'require_fields',   fields: a.fields as ReqField[] }
     if (a.type === 'set_field')        return { type: 'set_field',        field: (a as Record<string, string>).field ?? '', label: (a as Record<string, string>).label ?? '', value: (a as Record<string, string>).value ?? '' }
     if (a.type === 'send_email')       return { type: 'send_email',       to: (a as Record<string, string>).to ?? '', subject: (a as Record<string, string>).subject ?? '', body: (a as Record<string, string>).body ?? '' }
+    if (a.type === 'ai_analysis') return { type: 'ai_analysis', autoExecute: ((a as Record<string, unknown>).autoExecute as string[] | undefined)?.join(',') ?? '' }
     return { type: 'webhook', url: (a as Record<string, string>).url ?? '', method: ((a as Record<string, string>).method ?? 'POST') as 'POST' | 'GET', body: (a as Record<string, string>).body ?? '' }
   })
   return {
@@ -262,6 +272,7 @@ function WorkflowFormModal({
       set_field:        { type: 'set_field',        field: '', label: '', value: '' },
       send_email:       { type: 'send_email',       to: '', subject: '', body: '' },
       webhook:          { type: 'webhook',          url: '', method: 'POST', body: '{}' },
+      ai_analysis:      { type: 'ai_analysis',      autoExecute: '' },
     }
     set({ actions: [...form.actions, defaults[type]] })
   }
@@ -721,6 +732,22 @@ function ActionConfigEditor({
     </div>
   )
 
+  if (action.type === 'ai_analysis') return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-500">触发时自动对该实体运行 AI 分析并保存结果。</p>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">自动执行建议操作（逗号分隔，可选）</label>
+        <input
+          className={inp}
+          placeholder="set_next_contact_date,update_lead_status"
+          value={action.autoExecute}
+          onChange={(e) => onChange({ autoExecute: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-gray-400">留空则只保存分析结果，不自动执行任何操作。可填：set_next_contact_date / update_lead_status / update_contract_status</p>
+      </div>
+    </div>
+  )
+
   return null
 }
 
@@ -748,6 +775,7 @@ function ActionTemplateFormModal({
       set_field:        { type: 'set_field',        field: '', label: '', value: '' },
       send_email:       { type: 'send_email',       to: '', subject: '', body: '' },
       webhook:          { type: 'webhook',          url: '', method: 'POST', body: '{}' },
+      ai_analysis:      { type: 'ai_analysis',      autoExecute: '' },
     }
     setAction(defaults[type])
   }
@@ -2348,6 +2376,176 @@ export default function SystemSettingsPage() {
               </div>
             )}
           </div>
+
+          {/* AI 分析提示词 */}
+          <AiPromptsPanel />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── AI 分析提示词配置面板 ────────────────────────────────────────────────────
+
+interface AiPrompt {
+  id: string
+  key: string
+  name: string
+  systemPrompt: string
+  userPromptTemplate: string
+  modelId: string | null
+  isActive: number
+}
+
+const PROMPT_VARS: Record<string, { key: string; desc: string }[]> = {
+  lead_analysis: [
+    { key: 'today',            desc: '当前日期' },
+    { key: 'name',             desc: '姓名' },
+    { key: 'source',           desc: '来源' },
+    { key: 'status',           desc: '当前状态' },
+    { key: 'intended_services',desc: '意向服务' },
+    { key: 'next_contact_date',desc: '下次联系时间' },
+    { key: 'assigned_to_name', desc: '负责销售' },
+    { key: 'activities',       desc: '跟进记录（最近20条）' },
+    { key: 'activity_types',   desc: '可用跟进类型列表' },
+  ],
+  client_analysis: [
+    { key: 'today',               desc: '当前日期' },
+    { key: 'name',                desc: '姓名' },
+    { key: 'contract_status',     desc: '合同状态' },
+    { key: 'service_plans',       desc: '服务套餐' },
+    { key: 'next_contact_date',   desc: '下次联系时间' },
+    { key: 'assigned_sales_name', desc: '负责销售' },
+    { key: 'activities',          desc: '跟进记录（最近20条）' },
+    { key: 'activity_types',      desc: '可用跟进类型列表' },
+  ],
+}
+
+function AiPromptsPanel() {
+  const queryClient = useQueryClient()
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ systemPrompt: string; userPromptTemplate: string } | null>(null)
+  const [showVars, setShowVars] = useState(false)
+
+  const { data: promptsData, isLoading } = useQuery({
+    queryKey: ['ai-prompts'],
+    queryFn: () => crmApi.get<{ data: AiPrompt[] }>('/admin/ai/prompts').then((r) => r.data.data),
+  })
+  const prompts = promptsData ?? []
+
+  const saveMutation = useMutation({
+    mutationFn: ({ id, ...body }: { id: string; systemPrompt: string; userPromptTemplate: string }) =>
+      crmApi.put(`/admin/ai/prompts/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-prompts'] })
+      setEditId(null)
+      setEditForm(null)
+    },
+  })
+
+  const openEdit = (p: AiPrompt) => {
+    setEditId(p.id)
+    setEditForm({ systemPrompt: p.systemPrompt, userPromptTemplate: p.userPromptTemplate })
+    setShowVars(false)
+  }
+
+  return (
+    <div className="rounded-lg border bg-white overflow-hidden">
+      <div className="px-4 py-3 border-b bg-gray-50">
+        <h3 className="text-sm font-semibold text-gray-700">AI 分析提示词</h3>
+        <p className="text-xs text-gray-400 mt-0.5">配置线索和客户 AI 分析时使用的提示词模板</p>
+      </div>
+
+      {isLoading ? (
+        <div className="p-4 text-sm text-gray-400">加载中...</div>
+      ) : (
+        <div className="divide-y">
+          {prompts.map((p) => (
+            <div key={p.id} className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-800">{p.name}</span>
+                  <span className="ml-2 text-xs text-gray-400 font-mono">{p.key}</span>
+                </div>
+                {editId !== p.id ? (
+                  <button onClick={() => openEdit(p)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setEditId(null); setEditForm(null) }}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => saveMutation.mutate({ id: p.id, ...editForm! })}
+                      className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                    >
+                      {saveMutation.isPending ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {editId === p.id && editForm ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">系统角色设定（System Prompt）</label>
+                    <textarea
+                      rows={3}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
+                      value={editForm.systemPrompt}
+                      onChange={(e) => setEditForm((f) => f ? { ...f, systemPrompt: e.target.value } : f)}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-gray-600">用户提示词模板（User Prompt Template）</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowVars((v) => !v)}
+                        className="text-xs text-gray-400 hover:text-gray-600"
+                      >
+                        {showVars ? '收起变量' : '查看可用变量'}
+                      </button>
+                    </div>
+                    {showVars && (
+                      <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                          {(PROMPT_VARS[p.key] ?? []).map((v) => (
+                            <div key={v.key} className="flex items-baseline gap-1.5 text-xs">
+                              <code className="font-mono text-primary-700 bg-white border border-gray-200 rounded px-1">{`{{${v.key}}}`}</code>
+                              <span className="text-gray-400">{v.desc}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <textarea
+                      rows={12}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
+                      value={editForm.userPromptTemplate}
+                      onChange={(e) => setEditForm((f) => f ? { ...f, userPromptTemplate: e.target.value } : f)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">系统角色</p>
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 line-clamp-2">{p.systemPrompt || '（未配置）'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">用户提示词模板</p>
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 line-clamp-3 whitespace-pre-wrap">{p.userPromptTemplate || '（未配置）'}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {prompts.length === 0 && (
+            <p className="p-4 text-sm text-gray-400">暂无提示词配置</p>
+          )}
         </div>
       )}
     </div>

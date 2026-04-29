@@ -1,5 +1,6 @@
 import { toCamel } from '../../shared/db'
 import { sendEmail } from '../../shared/email'
+import { runAnalysis } from '../routes/aiAnalysis'
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ type WfAction =
   | { type: 'set_field'; field: string; label: string; value: string }
   | { type: 'send_email'; to: string; subject: string; body: string }
   | { type: 'webhook'; url: string; method: string; body: string }
+  | { type: 'ai_analysis'; autoExecute?: string[] }
 
 interface StoredWorkflow {
   id: string
@@ -258,6 +260,25 @@ export async function executeWorkflowsForTrigger(
             interpolate(action.body,     ctx),
           )
         }
+        } else if (action.type === 'ai_analysis' && (entityType === 'lead' || entityType === 'client')) {
+          const result = await runAnalysis(db, entityType, entityId, null, 'workflow')
+          // 自动执行指定类型的建议操作
+          if (action.autoExecute?.length && Array.isArray(result.actions)) {
+            for (const act of result.actions as { type: string; value: string }[]) {
+              if (!action.autoExecute.includes(act.type)) continue
+              const table = entityType === 'lead' ? 'leads' : 'clients'
+              const fieldMap = FIELD_TO_COLUMN[entityType] ?? {}
+              if (act.type === 'set_next_contact_date') {
+                const col = fieldMap['nextContactDate'] ?? 'next_contact_date'
+                await db.prepare(`UPDATE ${table} SET ${col} = ? WHERE id = ?`).bind(act.value, entityId).run()
+              } else if (act.type === 'update_lead_status' && entityType === 'lead') {
+                await db.prepare('UPDATE leads SET status = ? WHERE id = ?').bind(act.value, entityId).run()
+              } else if (act.type === 'update_contract_status' && entityType === 'client') {
+                await db.prepare('UPDATE clients SET contract_status = ? WHERE id = ?').bind(act.value, entityId).run()
+              }
+            }
+          }
+
         // require_activity / require_fields 仅前端约束，后端跳过
       } catch (err) {
         console.error(`[workflow] action ${action.type} failed in workflow ${row.id}:`, err)

@@ -1,0 +1,89 @@
+// 共用 AI 调用工具
+
+interface AiCallResult {
+  content: string
+  modelDisplayName: string
+}
+
+function resolveOpenAIBase(baseUrl: string | null): string {
+  return (baseUrl ?? '').replace(/\/$/, '') || 'https://api.openai.com/v1'
+}
+
+export async function callAiModel(
+  db: D1Database,
+  modelId: string | null | undefined,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<AiCallResult> {
+  // 选择模型：指定 modelId 优先，否则取第一个 enabled 模型
+  let row: { model_id: string; display_name: string; provider_type: string; api_key: string; base_url: string | null } | null = null
+
+  if (modelId) {
+    row = await db.prepare(`
+      SELECT m.model_id, m.display_name, p.provider_type, p.api_key, p.base_url
+      FROM ai_models m JOIN ai_providers p ON m.provider_id = p.id
+      WHERE m.id = ? AND m.is_enabled = 1 AND p.is_active = 1
+    `).bind(modelId).first()
+  }
+
+  if (!row) {
+    row = await db.prepare(`
+      SELECT m.model_id, m.display_name, p.provider_type, p.api_key, p.base_url
+      FROM ai_models m JOIN ai_providers p ON m.provider_id = p.id
+      WHERE m.is_enabled = 1 AND p.is_active = 1
+      ORDER BY m.created_at ASC
+      LIMIT 1
+    `).first()
+  }
+
+  if (!row) throw new Error('未配置可用的 AI 模型，请在系统管理 → AI 模型中启用至少一个模型')
+
+  if (row.provider_type === 'anthropic') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': row.api_key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: row.model_id,
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`AI 调用失败：${res.status} ${text.slice(0, 200)}`)
+    }
+    const json = await res.json() as { content?: { text?: string }[] }
+    return { content: json.content?.[0]?.text ?? '', modelDisplayName: row.display_name }
+  }
+
+  // OpenAI 兼容接口
+  const baseUrl = resolveOpenAIBase(row.base_url)
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${row.api_key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: row.model_id,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`AI 调用失败：${res.status} ${text.slice(0, 200)}`)
+  }
+  const json = await res.json() as { choices?: { message?: { content?: string } }[] }
+  return { content: json.choices?.[0]?.message?.content ?? '', modelDisplayName: row.display_name }
+}
+
+// 提取 AI 回复中的 JSON（处理被 markdown 代码块包裹的情况）
+export function extractJson(text: string): string {
+  const md = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  return md ? md[1]!.trim() : text.trim()
+}

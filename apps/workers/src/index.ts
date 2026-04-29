@@ -22,6 +22,7 @@ import { optionsRoutes } from './crm/routes/options'
 import { apiKeysRoutes } from './crm/routes/apiKeys'
 import { assignmentRulesRoutes } from './crm/routes/assignmentRules'
 import { aiConfigRoutes } from './crm/routes/aiConfig'
+import { aiAnalysisRoutes } from './crm/routes/aiAnalysis'
 import { workflowsRoutes, workflowsAdminRoutes } from './crm/routes/workflows'
 import { actionTemplatesAdminRoutes } from './crm/routes/actionTemplates'
 import { entitySchemaRoutes } from './crm/routes/entitySchema'
@@ -202,6 +203,7 @@ app.route('/api/admin/settings', settingsRoutes)
 app.route('/api/admin/options', optionsRoutes)
 app.route('/api/admin/assignment-rules', assignmentRulesRoutes)
 app.route('/api/admin/ai', aiConfigRoutes)
+app.route('/api', aiAnalysisRoutes)
 app.route('/api/auth/api-keys', apiKeysRoutes)
 app.route('/api/workflows', workflowsRoutes)
 app.route('/api/admin/workflows', workflowsAdminRoutes)
