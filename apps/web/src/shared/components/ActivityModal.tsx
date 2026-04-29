@@ -76,12 +76,6 @@ export function ActivityModal({
 
   const [policyFields, setPolicyFields] = useState<Record<string, unknown>>(initialPolicyValues ?? {})
   const [extraData, setExtraData] = useState<Record<string, unknown>>({})
-
-  const selectedTypeMeta = parseActivityMeta(activityTypeOpts.find((o) => o.value === watch('activityType')) ?? {} as Parameters<typeof parseActivityMeta>[0])
-  const extraFields: ActivityMetaField[] = selectedTypeMeta.fields ?? []
-
-  const setExtraField = (key: string, value: unknown) =>
-    setExtraData((prev) => ({ ...prev, [key]: value }))
   const [policyError, setPolicyError] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
@@ -102,6 +96,11 @@ export function ActivityModal({
   })
 
   const description = watch('description')
+  const selectedTypeMeta = parseActivityMeta(activityTypeOpts.find((o) => o.value === watch('activityType')) ?? {} as Parameters<typeof parseActivityMeta>[0])
+  const extraFields: ActivityMetaField[] = selectedTypeMeta.fields ?? []
+
+  const setExtraField = (key: string, value: unknown) =>
+    setExtraData((prev) => ({ ...prev, [key]: value }))
 
   const setPolicyField = (field: string, value: unknown) => {
     setPolicyFields((prev) => ({ ...prev, [field]: value }))
