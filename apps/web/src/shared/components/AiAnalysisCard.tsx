@@ -50,7 +50,7 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
   const queryClient = useQueryClient()
   const latestKey = ['ai-analysis-latest', entityType, entityId]
   const { options: activityTypeOpts } = useOptionGroup('activity_type')
-  const defaultActivityType = activityTypeOpts[0]?.value ?? ''
+  const defaultActivityType = (activityTypeOpts.find((o) => o.value === 'System') ?? activityTypeOpts[0])?.value ?? ''
 
   const { data: latest, isLoading: loadingLatest } = useQuery({
     queryKey: latestKey,
