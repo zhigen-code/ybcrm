@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { HTTPException } from 'hono/http-exception'
 import { v4 as uuidv4 } from 'uuid'
-import { requireAuth, requireAdmin } from '../middleware/auth'
+import { requireAuth } from '../middleware/auth'
 import { toCamel, toCamelList } from '../../shared/db'
 import { callAiModel, extractJson } from '../../shared/ai'
 
@@ -31,7 +31,7 @@ aiAnalysisRoutes.put(
   })),
   async (c) => {
     const { role } = c.get('jwtPayload')
-    requireAdmin(role)
+    if (role !== 'admin') throw new HTTPException(403, { message: '仅管理员可操作' })
     const id = c.req.param('id')
     const body = c.req.valid('json')
 

@@ -259,7 +259,6 @@ export async function executeWorkflowsForTrigger(
             interpolate(action.subject,  ctx),
             interpolate(action.body,     ctx),
           )
-        }
         } else if (action.type === 'ai_analysis' && (entityType === 'lead' || entityType === 'client')) {
           const result = await runAnalysis(db, entityType, entityId, null, 'workflow')
           // 自动执行指定类型的建议操作
@@ -278,7 +277,7 @@ export async function executeWorkflowsForTrigger(
               }
             }
           }
-
+        }
         // require_activity / require_fields 仅前端约束，后端跳过
       } catch (err) {
         console.error(`[workflow] action ${action.type} failed in workflow ${row.id}:`, err)
