@@ -72,8 +72,13 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
 
   // 所有建议操作均通过创建跟进记录实现，保证操作留痕和逻辑统一
   const executeAction = async (analysis: AiAnalysis, action: AiAction) => {
+    if (!defaultActivityType) {
+      alert('跟进类型尚未加载，请稍候再试')
+      return
+    }
     try {
       const today = new Date().toISOString().split('T')[0]
+      const validValues = new Set(activityTypeOpts.map((o) => o.value))
       const base = { [`${entityType}Id`]: entityId, activityDate: today, activityType: defaultActivityType }
 
       const ACTION_DESCRIPTIONS: Record<string, string> = {
@@ -87,9 +92,12 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
       if (action.type === 'create_activity') {
         let actData: { activityType?: string; description?: string; date?: string } = {}
         try { actData = JSON.parse(action.value) } catch { /* */ }
+        const resolvedType = actData.activityType && validValues.has(actData.activityType)
+          ? actData.activityType
+          : defaultActivityType
         await crmApi.post('/activities', {
           ...base,
-          activityType: actData.activityType ?? defaultActivityType,
+          activityType: resolvedType,
           description: actData.description ?? action.reason,
           activityDate: actData.date ?? today,
         })
@@ -111,7 +119,8 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
       onActionExecuted?.()
     } catch (err) {
       console.error('执行操作失败:', err)
-      alert('操作执行失败，请手动处理')
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      alert(msg ? `操作失败：${msg}` : '操作执行失败，请手动处理')
     }
   }
 
