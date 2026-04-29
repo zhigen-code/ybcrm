@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/Button'
 import { cn } from '@/shared/utils/cn'
 import { crmApi } from '@/shared/utils/request'
 import { setAppTimezone } from '@/shared/utils/format'
+import { AiAgentChat } from '@/shared/components/AiAgentChat'
 
 const navItems = [
   { to: '/app/leads', label: '线索管理' },
@@ -152,6 +153,9 @@ export default function CrmLayout() {
       <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
         <Outlet />
       </main>
+
+      {/* AI 助手悬浮对话框 */}
+      <AiAgentChat />
     </div>
   )
 }

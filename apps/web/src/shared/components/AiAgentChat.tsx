@@ -1,0 +1,202 @@
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { crmApi } from '@/shared/utils/request'
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+const SUGGESTIONS = [
+  '今天需要联系哪些客户？',
+  '有哪些已逾期的线索？',
+  '帮我查一下最近新建的线索',
+]
+
+export function AiAgentChat() {
+  const [open, setOpen] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }, [open])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
+
+  const send = useCallback(async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || loading) return
+
+    const newMessages: Message[] = [...messages, { role: 'user', content: trimmed }]
+    setMessages(newMessages)
+    setInput('')
+    setLoading(true)
+    setError(null)
+
+    try {
+      const res = await crmApi.post<{ data: { message: string } }>('/ai-agent/chat', {
+        messages: newMessages,
+      })
+      setMessages((prev) => [...prev, { role: 'assistant', content: res.data.data.message }])
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setError(msg ?? '请求失败，请检查 AI 模型配置')
+    } finally {
+      setLoading(false)
+      setTimeout(() => inputRef.current?.focus(), 50)
+    }
+  }, [messages, loading])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      send(input)
+    }
+  }
+
+  const clearChat = () => {
+    setMessages([])
+    setError(null)
+    inputRef.current?.focus()
+  }
+
+  return (
+    <>
+      {/* 悬浮按钮 */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
+          open
+            ? 'bg-gray-700 hover:bg-gray-800'
+            : 'bg-violet-600 hover:bg-violet-700'
+        }`}
+        title="AI 助手"
+      >
+        {open ? (
+          <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+              d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+        )}
+      </button>
+
+      {/* 对话面板 */}
+      {open && (
+        <div className="fixed bottom-20 right-5 z-50 flex flex-col w-[360px] sm:w-[400px] h-[520px] rounded-2xl border bg-white shadow-2xl overflow-hidden">
+          {/* 头部 */}
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-violet-600 to-violet-500">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-white">AI 助手</span>
+              <span className="text-xs text-violet-200">口述指令，自动操作</span>
+            </div>
+            {messages.length > 0 && (
+              <button
+                onClick={clearChat}
+                className="text-xs text-violet-200 hover:text-white transition-colors"
+              >
+                清空
+              </button>
+            )}
+          </div>
+
+          {/* 消息区 */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {messages.length === 0 && !loading && (
+              <div className="pt-4">
+                <p className="text-center text-xs text-gray-400 mb-4">你可以试试：</p>
+                <div className="space-y-2">
+                  {SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => send(s)}
+                      className="w-full text-left rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:border-violet-300 hover:bg-violet-50 transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                    msg.role === 'user'
+                      ? 'bg-violet-600 text-white rounded-br-sm'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3">
+                  <div className="flex gap-1 items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-600">
+                {error}
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+
+          {/* 输入区 */}
+          <div className="border-t p-3">
+            <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-violet-400 focus-within:ring-1 focus-within:ring-violet-400 transition-all">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="输入指令…（Enter 发送，Shift+Enter 换行）"
+                rows={1}
+                disabled={loading}
+                className="flex-1 resize-none bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none disabled:opacity-50"
+                style={{ maxHeight: '100px', overflowY: 'auto' }}
+                onInput={(e) => {
+                  const t = e.currentTarget
+                  t.style.height = 'auto'
+                  t.style.height = `${Math.min(t.scrollHeight, 100)}px`
+                }}
+              />
+              <button
+                onClick={() => send(input)}
+                disabled={!input.trim() || loading}
+                className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600 text-white transition-colors hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
