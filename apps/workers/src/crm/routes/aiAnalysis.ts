@@ -13,7 +13,7 @@ aiAnalysisRoutes.use('*', requireAuth)
 
 // ─── 提示词 CRUD（admin only） ────────────────────────────────────────────────
 
-aiAnalysisRoutes.get('/prompts', async (c) => {
+aiAnalysisRoutes.get('/admin/ai/prompts', async (c) => {
   const rows = await c.env.DB.prepare(
     'SELECT id, key, name, system_prompt, user_prompt_template, model_id, is_active, updated_at FROM ai_prompts ORDER BY key ASC',
   ).all()
@@ -21,7 +21,7 @@ aiAnalysisRoutes.get('/prompts', async (c) => {
 })
 
 aiAnalysisRoutes.put(
-  '/prompts/:id',
+  '/admin/ai/prompts/:id',
   zValidator('json', z.object({
     name:                 z.string().min(1).optional(),
     systemPrompt:         z.string().optional(),
