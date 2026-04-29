@@ -204,26 +204,49 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
               <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">色</th>
               <th className="px-4 py-3 text-left font-medium text-gray-700">值</th>
               <th className="px-4 py-3 text-left font-medium text-gray-700">标签</th>
+              {isActivityType && <th className="px-4 py-3 text-left font-medium text-gray-700">适用范围</th>}
               <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {data?.map((item) => (
+            {data?.map((item) => {
+              const itemMeta = isActivityType ? parseActivityMeta(item) : null
+              const itemScope: ('lead' | 'client')[] = itemMeta?.scope ?? ['lead', 'client']
+              const toggleItemScope = (s: 'lead' | 'client') => {
+                const next = itemScope.includes(s) ? itemScope.filter(x => x !== s) : [...itemScope, s]
+                const newScope = next.length > 0 ? next : ['lead', 'client']
+                const newMeta = { ...itemMeta, scope: newScope }
+                crmApi.put(`/admin/options/items/${item.id}`, { metadata: JSON.stringify(newMeta) })
+                  .then(invalidate)
+              }
+              return (
               <tr key={item.id} className={item.isActive ? '' : 'opacity-50'}>
                 <td className="px-4 py-3">
                   <span className={`inline-block w-4 h-4 rounded-full ${COLOR_CLASS[item.color] ?? 'bg-gray-200'}`} />
                 </td>
                 <td className="px-4 py-3 text-gray-500 font-mono text-xs">{item.value}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">
-                  {item.label}
-                  {isActivityType && (() => {
-                    const meta = parseActivityMeta(item)
-                    const scope = meta.scope ?? ['lead', 'client']
-                    if (scope.length === 2) return null
-                    return <span className="ml-2 text-xs text-gray-400">[{scope.map(s => s === 'lead' ? '线索' : '客户').join('/')}]</span>
-                  })()}
-                </td>
+                <td className="px-4 py-3 font-medium text-gray-900">{item.label}</td>
+                {isActivityType && (
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1">
+                      {(['lead', 'client'] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => toggleItemScope(s)}
+                          className={`rounded px-2 py-0.5 text-xs font-medium border transition-colors ${
+                            itemScope.includes(s)
+                              ? 'bg-primary-50 border-primary-300 text-primary-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-400'
+                          }`}
+                        >
+                          {s === 'lead' ? '线索' : '客户'}
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <Badge variant={item.isActive ? 'green' : 'gray'}>
                     {item.isActive ? '启用' : '禁用'}
@@ -260,7 +283,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                   </div>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
