@@ -77,9 +77,10 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
       return
     }
     try {
-      const today = new Date().toLocaleDateString('en-CA')
+      // 传完整 UTC datetime（"YYYY-MM-DD HH:MM:SS"），formatDate 会识别并加 Z 正确转换时区
+      const activityDate = new Date().toISOString().replace('T', ' ').slice(0, 19)
       const validValues = new Set(activityTypeOpts.map((o) => o.value))
-      const base = { [`${entityType}Id`]: entityId, activityDate: today, activityType: defaultActivityType }
+      const base = { [`${entityType}Id`]: entityId, activityDate, activityType: defaultActivityType }
 
       const ACTION_DESCRIPTIONS: Record<string, string> = {
         update_lead_status:       `AI 建议：更新线索状态为「${action.value}」。${action.reason}`,
@@ -99,7 +100,7 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
           ...base,
           activityType: resolvedType,
           description: actData.description ?? action.reason,
-          activityDate: actData.date ?? today,
+          activityDate: actData.date ?? activityDate,
         })
       } else if (action.type === 'set_next_contact_date') {
         await crmApi.post('/activities', {
