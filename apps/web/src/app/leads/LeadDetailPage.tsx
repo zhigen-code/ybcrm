@@ -356,6 +356,7 @@ export default function LeadDetailPage() {
           onClose={() => setShowActivity(false)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
+          entityType="lead"
         />
       )}
 

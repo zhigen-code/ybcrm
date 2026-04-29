@@ -205,6 +205,7 @@ export default function ClientsPage() {
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
           showNextContact
+          entityType="client"
         />
       )}
     </div>

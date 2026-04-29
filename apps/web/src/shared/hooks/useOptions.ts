@@ -1,6 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { crmApi } from '@/shared/utils/request'
 
+export interface ActivityMetaField {
+  key: string
+  label: string
+  type: 'text' | 'number'
+  unit?: string
+}
+
+export interface ActivityMeta {
+  scope?: ('lead' | 'client')[]
+  fields?: ActivityMetaField[]
+}
+
 export interface OptionItem {
   id: string
   groupKey: string
@@ -10,6 +22,12 @@ export interface OptionItem {
   sortOrder: number
   isActive: number
   isSystem: number
+  metadata?: string | null
+}
+
+export function parseActivityMeta(item: OptionItem): ActivityMeta {
+  if (!item.metadata) return {}
+  try { return JSON.parse(item.metadata) } catch { return {} }
 }
 
 type OptionsMap = Record<string, OptionItem[]>

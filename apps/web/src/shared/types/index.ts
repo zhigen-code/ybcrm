@@ -112,6 +112,8 @@ export interface SalesActivity {
   activityType: string
   description: string | null
   activityDate: string
+  nextContactDate: string | null
+  extraData: Record<string, unknown> | null
   createdAt: string
   attachments: ActivityAttachment[]
 }

@@ -9,7 +9,8 @@ import { Button } from './Button'
 import { Select } from './Select'
 import { Textarea } from './Textarea'
 import { Input } from './Input'
-import { useOptionGroup, useOptions, toSelectOptions } from '@/shared/hooks/useOptions'
+import { useOptionGroup, useOptions, toSelectOptions, parseActivityMeta } from '@/shared/hooks/useOptions'
+import type { ActivityMetaField } from '@/shared/hooks/useOptions'
 import { nowForInput } from '@/shared/utils/format'
 import type { ActivityAttachment } from '@/shared/types'
 import type { ActivityConfig } from '@/shared/hooks/useWorkflows'
@@ -27,6 +28,7 @@ export interface ActivitySubmitData {
   description?: string | undefined
   activityDate: string
   nextContactDate?: string | undefined
+  extraData?: Record<string, unknown> | undefined
   attachmentKeys: ActivityAttachment[]
   policyFields?: Record<string, unknown> | undefined
 }
@@ -40,6 +42,7 @@ interface ActivityModalProps {
   initialPolicyValues?: Record<string, unknown>
   serverError?: string | undefined
   showNextContact?: boolean
+  entityType?: 'lead' | 'client'
 }
 
 function formatSize(bytes: number) {
@@ -49,10 +52,16 @@ function formatSize(bytes: number) {
 }
 
 export function ActivityModal({
-  title, onClose, onSubmit, loading, activityConfig, initialPolicyValues, serverError, showNextContact,
+  title, onClose, onSubmit, loading, activityConfig, initialPolicyValues, serverError, showNextContact, entityType,
 }: ActivityModalProps) {
   const { options: allActivityTypeOpts } = useOptionGroup('activity_type')
-  const activityTypeOpts = allActivityTypeOpts.filter((o) => o.value !== 'System')
+  const activityTypeOpts = allActivityTypeOpts.filter((o) => {
+    if (o.value === 'System') return false
+    if (!entityType) return true
+    const meta = parseActivityMeta(o)
+    if (!meta.scope || meta.scope.length === 0) return true
+    return meta.scope.includes(entityType)
+  })
   const { data: allOptions } = useOptions()
 
   const hasServicesField = activityConfig?.requiredFields?.some((f) => f.type === 'services') ?? false
@@ -66,6 +75,13 @@ export function ActivityModal({
   const services = servicesData?.data ?? []
 
   const [policyFields, setPolicyFields] = useState<Record<string, unknown>>(initialPolicyValues ?? {})
+  const [extraData, setExtraData] = useState<Record<string, unknown>>({})
+
+  const selectedTypeMeta = parseActivityMeta(activityTypeOpts.find((o) => o.value === watch('activityType')) ?? {} as Parameters<typeof parseActivityMeta>[0])
+  const extraFields: ActivityMetaField[] = selectedTypeMeta.fields ?? []
+
+  const setExtraField = (key: string, value: unknown) =>
+    setExtraData((prev) => ({ ...prev, [key]: value }))
   const [policyError, setPolicyError] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
@@ -141,6 +157,7 @@ export function ActivityModal({
     onSubmit({
       ...formData,
       attachmentKeys,
+      extraData: Object.keys(extraData).length > 0 ? extraData : undefined,
       policyFields: Object.keys(policyFields).length > 0 ? policyFields : undefined,
     })
   })
@@ -167,7 +184,7 @@ export function ActivityModal({
             <label className="block text-xs text-gray-500 mb-1">跟进类型</label>
             <select
               className="w-full h-8 rounded-md border border-gray-300 bg-white px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-              {...register('activityType')}
+              {...register('activityType', { onChange: () => setExtraData({}) })}
             >
               {toSelectOptions(activityTypeOpts).map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -215,6 +232,24 @@ export function ActivityModal({
           placeholder="记录本次跟进的要点..."
           {...register('description')}
         />
+
+        {/* 当前跟进类型的自定义字段 */}
+        {extraFields.length > 0 && (
+          <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 space-y-2">
+            <p className="text-xs font-medium text-amber-700">补充信息</p>
+            {extraFields.map((f) => (
+              <div key={f.key}>
+                <label className="block text-xs text-gray-600 mb-1">{f.label}{f.unit ? `（${f.unit}）` : ''}</label>
+                <input
+                  type={f.type === 'number' ? 'number' : 'text'}
+                  className="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  value={(extraData[f.key] as string) ?? ''}
+                  onChange={(e) => setExtraField(f.key, f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         {showNextContact && (
           <div>

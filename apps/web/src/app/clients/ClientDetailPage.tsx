@@ -12,7 +12,7 @@ import { Badge } from '@/shared/components/Badge'
 import { Modal } from '@/shared/components/Modal'
 import { formatDate } from '@/shared/utils/format'
 import type { Client, SalesActivity, Service } from '@/shared/types'
-import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel } from '@/shared/hooks/useOptions'
+import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel, parseActivityMeta } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { AttachmentList } from '@/shared/components/AttachmentList'
@@ -197,6 +197,18 @@ export default function ClientDetailPage() {
                   {act.description && (
                     <p className="mt-1 text-gray-700 whitespace-pre-line">{act.description}</p>
                   )}
+                  {act.extraData && Object.keys(act.extraData).length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5">
+                      {Object.entries(act.extraData as Record<string, unknown>).map(([k, v]) => {
+                        const field = parseActivityMeta(activityTypeOpts.find((o) => o.value === act.activityType) ?? {} as Parameters<typeof parseActivityMeta>[0])?.fields?.find((f) => f.key === k)
+                        return (
+                          <span key={k} className="text-xs text-gray-500">
+                            {field?.label ?? k}：<span className="font-medium text-gray-800">{String(v)}{field?.unit ? ` ${field.unit}` : ''}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
                   <AttachmentList attachments={act.attachments ?? []} />
                 </div>
               </div>
@@ -262,6 +274,7 @@ export default function ClientDetailPage() {
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
           showNextContact
+          entityType="client"
         />
       )}
     </div>

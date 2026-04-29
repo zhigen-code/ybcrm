@@ -13,7 +13,7 @@ const VALID_COLORS = ['gray', 'blue', 'green', 'yellow', 'red', 'purple'] as con
 // GET /api/options — 公开，按 group_key 分组返回所有启用选项
 optionsRoutes.get('/', async (c) => {
   const results = await c.env.DB.prepare(
-    'SELECT * FROM option_items WHERE is_active = 1 ORDER BY group_key, sort_order',
+    'SELECT id, group_key, value, label, color, sort_order, is_active, is_system, metadata FROM option_items WHERE is_active = 1 ORDER BY group_key, sort_order',
   ).all()
 
   const grouped: Record<string, unknown[]> = {}
@@ -32,8 +32,8 @@ optionsRoutes.use('/items*', requireAuth, requireAdmin)
 optionsRoutes.get('/items', async (c) => {
   const { groupKey } = c.req.query()
   const sql = groupKey
-    ? 'SELECT * FROM option_items WHERE group_key = ? ORDER BY sort_order'
-    : 'SELECT * FROM option_items ORDER BY group_key, sort_order'
+    ? 'SELECT id, group_key, value, label, color, sort_order, is_active, is_system, metadata FROM option_items WHERE group_key = ? ORDER BY sort_order'
+    : 'SELECT id, group_key, value, label, color, sort_order, is_active, is_system, metadata FROM option_items ORDER BY group_key, sort_order'
   const results = groupKey
     ? await c.env.DB.prepare(sql).bind(groupKey).all()
     : await c.env.DB.prepare(sql).all()
@@ -51,6 +51,7 @@ optionsRoutes.post(
       label:     z.string().min(1, '请填写标签'),
       color:     z.enum(VALID_COLORS).default('gray'),
       sortOrder: z.number().int().default(0),
+      metadata:  z.string().nullable().optional(),
     }),
   ),
   async (c) => {
@@ -68,8 +69,8 @@ optionsRoutes.post(
 
     const id = uuidv4()
     await c.env.DB.prepare(
-      'INSERT INTO option_items (id, group_key, value, label, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-    ).bind(id, body.groupKey, body.value, body.label, body.color, body.sortOrder).run()
+      'INSERT INTO option_items (id, group_key, value, label, color, sort_order, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    ).bind(id, body.groupKey, body.value, body.label, body.color, body.sortOrder, body.metadata ?? null).run()
 
     const item = await c.env.DB.prepare('SELECT * FROM option_items WHERE id = ?').bind(id).first()
     return c.json({ data: toCamel(item as Record<string, unknown>) }, 201)
@@ -86,6 +87,7 @@ optionsRoutes.put(
       color:     z.enum(VALID_COLORS).optional(),
       sortOrder: z.number().int().optional(),
       isActive:  z.boolean().optional(),
+      metadata:  z.string().nullable().optional(),
     }),
   ),
   async (c) => {
@@ -104,6 +106,7 @@ optionsRoutes.put(
     if (body.color !== undefined)     { updates.push('color = ?');      params.push(body.color) }
     if (body.sortOrder !== undefined) { updates.push('sort_order = ?'); params.push(body.sortOrder) }
     if (body.isActive !== undefined)  { updates.push('is_active = ?');  params.push(body.isActive ? 1 : 0) }
+    if (body.metadata !== undefined)  { updates.push('metadata = ?');   params.push(body.metadata) }
 
     if (updates.length === 0) throw new HTTPException(400, { message: '没有可更新的字段' })
 

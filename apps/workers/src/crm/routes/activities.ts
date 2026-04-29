@@ -30,6 +30,11 @@ function parseAttachments(raw: unknown): { key: string; name: string; size: numb
   try { return JSON.parse(raw as string) } catch { return [] }
 }
 
+function parseExtraData(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null
+  try { return JSON.parse(raw as string) } catch { return null }
+}
+
 activitiesRoutes.get('/', async (c) => {
   const { clientId, leadId, search, page: pageStr, pageSize: pageSizeStr } = c.req.query()
   const { userId, role } = c.get('jwtPayload')
@@ -76,6 +81,7 @@ activitiesRoutes.get('/', async (c) => {
   const data = toCamelList(results.results as Record<string, unknown>[]).map((a) => ({
     ...a,
     attachments: parseAttachments(a.rawAttachments),
+    extraData: parseExtraData(a.extraData),
     rawAttachments: undefined,
   }))
   return c.json({ data, total, page, pageSize })
@@ -92,6 +98,7 @@ activitiesRoutes.post(
       description: z.string().nullable().optional(),
       activityDate: z.string().min(1),
       nextContactDate: z.string().nullable().optional(),
+      extraData: z.record(z.unknown()).nullable().optional(),
       attachmentKeys: z.array(z.object({
         key: z.string(),
         name: z.string(),
@@ -113,10 +120,10 @@ activitiesRoutes.post(
     const id = uuidv4()
 
     await c.env.DB.prepare(
-      `INSERT INTO sales_activities (id, client_id, lead_id, user_id, activity_type, description, activity_date, next_contact_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO sales_activities (id, client_id, lead_id, user_id, activity_type, description, activity_date, next_contact_date, extra_data)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-      .bind(id, body.clientId ?? null, body.leadId ?? null, userId, body.activityType, body.description ?? null, body.activityDate, body.nextContactDate ?? null)
+      .bind(id, body.clientId ?? null, body.leadId ?? null, userId, body.activityType, body.description ?? null, body.activityDate, body.nextContactDate ?? null, body.extraData ? JSON.stringify(body.extraData) : null)
       .run()
 
     if (body.attachmentKeys.length > 0) {
@@ -131,9 +138,11 @@ activitiesRoutes.post(
     const rawActivity = await c.env.DB.prepare(
       `${ACTIVITY_SELECT} WHERE sa.id = ?`,
     ).bind(id).first()
+    const rawAct = toCamel(rawActivity as Record<string, unknown>)
     const activity = {
-      ...toCamel(rawActivity as Record<string, unknown>),
+      ...rawAct,
       attachments: parseAttachments((rawActivity as Record<string, unknown>).raw_attachments),
+      extraData: parseExtraData(rawAct.extraData),
       rawAttachments: undefined,
     }
 

@@ -8,7 +8,8 @@ import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
-import type { OptionItem } from '@/shared/hooks/useOptions'
+import type { OptionItem, ActivityMetaField } from '@/shared/hooks/useOptions'
+import { parseActivityMeta } from '@/shared/hooks/useOptions'
 
 const VALID_COLORS = ['gray', 'blue', 'green', 'yellow', 'red', 'purple'] as const
 type Color = typeof VALID_COLORS[number]
@@ -54,12 +55,98 @@ function ColorPicker({ value, onChange }: { value: Color; onChange: (c: Color) =
   )
 }
 
+type Scope = 'lead' | 'client'
+
+function ActivityMetaEditor({
+  metadata, onChange,
+}: {
+  metadata: string | null | undefined
+  onChange: (meta: string | null) => void
+}) {
+  const parsed = parseActivityMeta({ metadata } as OptionItem)
+  const scope: Scope[] = parsed.scope ?? ['lead', 'client']
+  const fields: ActivityMetaField[] = parsed.fields ?? []
+
+  const update = (newScope: Scope[], newFields: ActivityMetaField[]) => {
+    const meta = { scope: newScope, fields: newFields }
+    onChange(JSON.stringify(meta))
+  }
+
+  const toggleScope = (s: Scope) => {
+    const next = scope.includes(s) ? scope.filter((x) => x !== s) : [...scope, s]
+    update(next.length > 0 ? next : ['lead', 'client'], fields)
+  }
+
+  const addField = () => update(scope, [...fields, { key: `field_${Date.now()}`, label: '', type: 'text' }])
+  const removeField = (i: number) => update(scope, fields.filter((_, idx) => idx !== i))
+  const setField = (i: number, patch: Partial<ActivityMetaField>) =>
+    update(scope, fields.map((f, idx) => idx === i ? { ...f, ...patch } : f))
+
+  return (
+    <div className="space-y-3 border-t pt-3">
+      <div>
+        <p className="text-sm font-medium text-gray-700 mb-1.5">适用范围</p>
+        <div className="flex gap-4">
+          {([['lead', '线索'], ['client', '客户']] as [Scope, string][]).map(([val, label]) => (
+            <label key={val} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={scope.includes(val)} onChange={() => toggleScope(val)} className="rounded" />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-sm font-medium text-gray-700">自定义字段</p>
+          <button type="button" onClick={addField} className="text-xs text-primary-600 hover:text-primary-800">+ 添加字段</button>
+        </div>
+        {fields.length === 0 ? (
+          <p className="text-xs text-gray-400">无自定义字段</p>
+        ) : (
+          <div className="space-y-2">
+            {fields.map((f, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  placeholder="字段名"
+                  className="h-7 flex-1 rounded border border-gray-300 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  value={f.label}
+                  onChange={(e) => setField(i, { label: e.target.value, key: e.target.value.replace(/\s+/g, '_').toLowerCase() || f.key })}
+                />
+                <select
+                  className="h-7 rounded border border-gray-300 px-1 text-xs focus:outline-none"
+                  value={f.type}
+                  onChange={(e) => setField(i, { type: e.target.value as 'text' | 'number' })}
+                >
+                  <option value="text">文本</option>
+                  <option value="number">数字</option>
+                </select>
+                {f.type === 'number' && (
+                  <input
+                    placeholder="单位"
+                    className="h-7 w-14 rounded border border-gray-300 px-2 text-xs focus:outline-none"
+                    value={f.unit ?? ''}
+                    onChange={(e) => { const u = e.target.value; setField(i, u ? { unit: u } : { unit: '' }) }}
+                  />
+                )}
+                <button type="button" onClick={() => removeField(i)} className="text-xs text-red-400 hover:text-red-600">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolean }) {
   const queryClient = useQueryClient()
   const [editTarget, setEditTarget] = useState<OptionItem | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [editColor, setEditColor] = useState<Color>('gray')
   const [addColor, setAddColor] = useState<Color>('gray')
+  const [editMeta, setEditMeta] = useState<string | null>(null)
+  const [addMeta, setAddMeta] = useState<string | null>(null)
+  const isActivityType = groupKey === 'activity_type'
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-options', groupKey],
@@ -78,14 +165,14 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...body }: { id: string } & ItemForm) =>
-      crmApi.put(`/admin/options/items/${id}`, body),
+      crmApi.put(`/admin/options/items/${id}`, { ...body, metadata: isActivityType ? editMeta : undefined }),
     onSuccess: () => { setEditTarget(null); invalidate() },
   })
 
   const addMutation = useMutation({
     mutationFn: (body: ItemForm) =>
-      crmApi.post('/admin/options/items', { ...body, groupKey }),
-    onSuccess: () => { setShowAdd(false); addForm.reset(); setAddColor('gray'); invalidate() },
+      crmApi.post('/admin/options/items', { ...body, groupKey, metadata: isActivityType ? addMeta : undefined }),
+    onSuccess: () => { setShowAdd(false); addForm.reset(); setAddColor('gray'); setAddMeta(null); invalidate() },
   })
 
   const toggleActive = useMutation({
@@ -102,6 +189,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
   const openEdit = (item: OptionItem) => {
     setEditTarget(item)
     setEditColor(item.color)
+    setEditMeta(item.metadata ?? null)
     editForm.reset({ value: item.value, label: item.label, color: item.color })
   }
 
@@ -127,7 +215,15 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                   <span className={`inline-block w-4 h-4 rounded-full ${COLOR_CLASS[item.color] ?? 'bg-gray-200'}`} />
                 </td>
                 <td className="px-4 py-3 text-gray-500 font-mono text-xs">{item.value}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">{item.label}</td>
+                <td className="px-4 py-3 font-medium text-gray-900">
+                  {item.label}
+                  {isActivityType && (() => {
+                    const meta = parseActivityMeta(item)
+                    const scope = meta.scope ?? ['lead', 'client']
+                    if (scope.length === 2) return null
+                    return <span className="ml-2 text-xs text-gray-400">[{scope.map(s => s === 'lead' ? '线索' : '客户').join('/')}]</span>
+                  })()}
+                </td>
                 <td className="px-4 py-3">
                   <Badge variant={item.isActive ? 'green' : 'gray'}>
                     {item.isActive ? '启用' : '禁用'}
@@ -210,6 +306,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
               <p className="text-sm font-medium text-gray-700 mb-2">颜色</p>
               <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
+            {isActivityType && <ActivityMetaEditor metadata={editMeta} onChange={setEditMeta} />}
           </div>
         </Modal>
       )}
@@ -238,6 +335,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
               <p className="text-sm font-medium text-gray-700 mb-2">颜色</p>
               <ColorPicker value={addColor} onChange={setAddColor} />
             </div>
+            {isActivityType && <ActivityMetaEditor metadata={addMeta} onChange={setAddMeta} />}
           </div>
         </Modal>
       )}
