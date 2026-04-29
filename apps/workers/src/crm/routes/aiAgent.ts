@@ -124,7 +124,7 @@ async function runOpenAiAgent(
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: modelId, max_tokens: 2048,
+        model: modelId, max_completion_tokens: 2048,
         tools: toOpenAiTools(CRM_TOOLS), tool_choice: 'auto',
         messages: toOAI(msgList),
       }),
