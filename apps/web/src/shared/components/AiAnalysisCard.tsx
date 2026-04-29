@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { formatDate } from '@/shared/utils/format'
+import { useOptionGroup } from '@/shared/hooks/useOptions'
 
 interface AiAction {
   type: string
@@ -49,6 +49,8 @@ interface Props {
 export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props) {
   const queryClient = useQueryClient()
   const latestKey = ['ai-analysis-latest', entityType, entityId]
+  const { options: activityTypeOpts } = useOptionGroup('activity_type')
+  const defaultActivityType = activityTypeOpts[0]?.value ?? ''
 
   const { data: latest, isLoading: loadingLatest } = useQuery({
     queryKey: latestKey,
@@ -68,51 +70,43 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
     onSuccess: () => queryClient.invalidateQueries({ queryKey: latestKey }),
   })
 
-  // 执行各类动作
+  // 所有建议操作均通过创建跟进记录实现，保证操作留痕和逻辑统一
   const executeAction = async (analysis: AiAnalysis, action: AiAction) => {
     try {
-      if (action.type === 'set_next_contact_date') {
-        await crmApi.put(`/${entityType}s/${entityId}`, {
-          [entityType === 'lead' ? 'nextContactDate' : 'nextContactDate']: action.value,
-        })
-        if (entityType === 'lead') {
-          queryClient.invalidateQueries({ queryKey: ['lead', entityId] })
-        } else {
-          queryClient.invalidateQueries({ queryKey: ['client', entityId] })
-        }
+      const today = new Date().toISOString().split('T')[0]
+      const base = { [`${entityType}Id`]: entityId, activityDate: today, activityType: defaultActivityType }
 
-      } else if (action.type === 'update_lead_status') {
-        await crmApi.put(`/leads/${entityId}`, { status: action.value })
-        queryClient.invalidateQueries({ queryKey: ['lead', entityId] })
+      const ACTION_DESCRIPTIONS: Record<string, string> = {
+        update_lead_status:       `AI 建议：更新线索状态为「${action.value}」。${action.reason}`,
+        update_contract_status:   `AI 建议：更新合同状态为「${action.value}」。${action.reason}`,
+        update_intended_services: `AI 建议：更新意向服务为「${action.value}」。${action.reason}`,
+        update_service_plans:     `AI 建议：更新服务套餐为「${action.value}」。${action.reason}`,
+        reassign_sales:           `AI 建议：重新分配销售为「${action.value}」。${action.reason}`,
+      }
 
-      } else if (action.type === 'update_contract_status') {
-        await crmApi.put(`/clients/${entityId}`, { contractStatus: action.value })
-        queryClient.invalidateQueries({ queryKey: ['client', entityId] })
-
-      } else if (action.type === 'update_intended_services') {
-        let services: string[]
-        try { services = JSON.parse(action.value) } catch { services = [action.value] }
-        await crmApi.put(`/leads/${entityId}`, { intendedServices: services })
-        queryClient.invalidateQueries({ queryKey: ['lead', entityId] })
-
-      } else if (action.type === 'update_service_plans') {
-        let plans: string[]
-        try { plans = JSON.parse(action.value) } catch { plans = [action.value] }
-        await crmApi.put(`/clients/${entityId}`, { servicePlans: plans })
-        queryClient.invalidateQueries({ queryKey: ['client', entityId] })
-
-      } else if (action.type === 'create_activity') {
+      if (action.type === 'create_activity') {
         let actData: { activityType?: string; description?: string; date?: string } = {}
         try { actData = JSON.parse(action.value) } catch { /* */ }
         await crmApi.post('/activities', {
-          [`${entityType}Id`]: entityId,
-          activityType: actData.activityType ?? '',
-          description: actData.description ?? '',
-          activityDate: actData.date ?? new Date().toISOString().split('T')[0],
+          ...base,
+          activityType: actData.activityType ?? defaultActivityType,
+          description: actData.description ?? action.reason,
+          activityDate: actData.date ?? today,
         })
-        queryClient.invalidateQueries({ queryKey: ['activities', entityType, entityId] })
+      } else if (action.type === 'set_next_contact_date') {
+        await crmApi.post('/activities', {
+          ...base,
+          description: `AI 建议：安排下次联系时间为 ${action.value}。${action.reason}`,
+          nextContactDate: action.value,
+        })
+      } else {
+        await crmApi.post('/activities', {
+          ...base,
+          description: ACTION_DESCRIPTIONS[action.type] ?? `AI 建议：${action.label}（${action.value}）。${action.reason}`,
+        })
       }
 
+      queryClient.invalidateQueries({ queryKey: ['activities', entityType, entityId] })
       await markExecuted.mutateAsync({ analysisId: analysis.id, actionType: action.type })
       onActionExecuted?.()
     } catch (err) {
