@@ -270,7 +270,7 @@ export default function LeadDetailPage() {
         )}
 
         {/* 状态附加字段 */}
-        {((lead.status === 'Lost' && lead.lostReason) || (lead.status === 'Qualified' && lead.nextContactDate)) && (
+        {((lead.status === 'Lost' && lead.lostReason) || lead.nextContactDate) && (
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
             {lead.status === 'Lost' && lead.lostReason && (
               <span className="text-gray-600">
@@ -279,7 +279,7 @@ export default function LeadDetailPage() {
                 </span>
               </span>
             )}
-            {lead.status === 'Qualified' && lead.nextContactDate && (
+            {lead.nextContactDate && (
               <span className="text-gray-600">
                 下次联系：<span className="font-medium text-gray-900">{formatDate(lead.nextContactDate)}</span>
               </span>

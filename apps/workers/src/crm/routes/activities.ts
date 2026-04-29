@@ -179,11 +179,16 @@ activitiesRoutes.post(
       await c.env.DB.batch(stmts)
     }
 
-    // 同步更新客户的下次联系日期
+    // 同步更新下次联系日期
     if (body.clientId && body.nextContactDate) {
       await c.env.DB.prepare(
         'UPDATE clients SET next_contact_date = ? WHERE id = ?',
       ).bind(body.nextContactDate, body.clientId).run()
+    }
+    if (body.leadId && body.nextContactDate) {
+      await c.env.DB.prepare(
+        'UPDATE leads SET next_contact_date = ? WHERE id = ?',
+      ).bind(body.nextContactDate, body.leadId).run()
     }
 
     const rawActivity = await c.env.DB.prepare(
