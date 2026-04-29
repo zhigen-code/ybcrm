@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { requireAuth } from '../middleware/auth'
 import { toCamel, toCamelList } from '../../shared/db'
+import { executeWorkflowsForTrigger } from '../workflow/executor'
 
 export const activitiesRoutes = new Hono<{ Bindings: Env }>()
 
@@ -135,6 +136,13 @@ activitiesRoutes.post(
       attachments: parseAttachments((rawActivity as Record<string, unknown>).raw_attachments),
       rawAttachments: undefined,
     }
+
+    // 触发跟进工作流
+    c.executionCtx.waitUntil(
+      executeWorkflowsForTrigger(c.env.DB, c.env, 'activity', id, { type: 'on_create' })
+        .catch((err) => console.error('[workflow/activity] on_create failed:', err)),
+    )
+
     return c.json({ data: activity }, 201)
   },
 )

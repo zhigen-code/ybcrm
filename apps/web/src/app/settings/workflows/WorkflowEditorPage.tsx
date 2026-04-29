@@ -64,7 +64,7 @@ interface EditorForm {
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────────
 
-const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户' }
+const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户', activity: '跟进' }
 
 const TRIGGER_TYPES: { type: WfTriggerType; label: string; desc: string }[] = [
   { type: 'field_change', label: '字段变更', desc: '字段值变更为目标值时触发' },
@@ -122,6 +122,15 @@ const TEMPLATE_VAR_GROUPS = [
       { key: 'email', desc: '邮箱' }, { key: 'contractStatus', desc: '合同状态' },
       { key: 'servicePlans', desc: '服务套餐' }, { key: 'assignedSalesName', desc: '负责销售姓名' },
       { key: 'assignedSalesEmail', desc: '负责销售邮箱' }, { key: 'createdAt', desc: '创建时间' },
+    ],
+  },
+  {
+    label: '跟进字段', entityType: 'activity' as const,
+    vars: [
+      { key: 'activityType', desc: '跟进类型' }, { key: 'description', desc: '跟进内容' },
+      { key: 'activityDate', desc: '跟进时间' }, { key: 'nextContactDate', desc: '下次联系时间' },
+      { key: 'recorderName', desc: '记录人姓名' }, { key: 'recorderEmail', desc: '记录人邮箱' },
+      { key: 'leadName', desc: '关联线索名' }, { key: 'clientName', desc: '关联客户名' },
     ],
   },
   {
@@ -799,6 +808,7 @@ export default function WorkflowEditorPage() {
                 >
                   <option value="lead">线索</option>
                   <option value="client">客户</option>
+                  <option value="activity">跟进</option>
                 </select>
               </div>
             </div>
@@ -815,7 +825,9 @@ export default function WorkflowEditorPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-2 mb-4">
-                {TRIGGER_TYPES.map((tt) => (
+                {TRIGGER_TYPES.filter((tt) =>
+                  form.entityType !== 'activity' || tt.type !== 'scheduled'
+                ).map((tt) => (
                   <button key={tt.type} type="button"
                     onClick={() => set({ triggerType: tt.type, triggerField: '', triggerValue: '' })}
                     className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
@@ -959,7 +971,9 @@ export default function WorkflowEditorPage() {
 
               {/* 添加动作按钮组 */}
               <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-                {ACTION_TYPES.map((at) => (
+                {ACTION_TYPES.filter((at) =>
+                  form.entityType !== 'activity' || (at.type === 'send_email' || at.type === 'webhook')
+                ).map((at) => (
                   <button
                     key={at.type}
                     type="button"

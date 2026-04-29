@@ -167,7 +167,7 @@ function matchesTrigger(
 export async function executeWorkflowsForTrigger(
   db: D1Database,
   env: Env,
-  entityType: 'lead' | 'client',
+  entityType: 'lead' | 'client' | 'activity',
   entityId: string,
   event: { type: 'on_create' } | { type: 'field_change'; field: string; to: string },
 ): Promise<void> {
@@ -192,12 +192,25 @@ export async function executeWorkflowsForTrigger(
        WHERE l.id = ?`,
     ).bind(entityId).first<Record<string, unknown>>()
     entityData = raw ? (toCamel(raw) as Record<string, unknown>) : {}
-  } else {
+  } else if (entityType === 'client') {
     const raw = await db.prepare(
       `SELECT c.*, u.name as assigned_sales_name, u.email as assigned_sales_email
        FROM clients c
        LEFT JOIN users u ON c.assigned_sales_userId = u.id
        WHERE c.id = ?`,
+    ).bind(entityId).first<Record<string, unknown>>()
+    entityData = raw ? (toCamel(raw) as Record<string, unknown>) : {}
+  } else {
+    // activity：联表获取记录人、关联线索/客户名
+    const raw = await db.prepare(
+      `SELECT sa.*,
+              u.name as recorder_name, u.email as recorder_email,
+              l.name as lead_name, c.name as client_name
+       FROM sales_activities sa
+       LEFT JOIN users u ON sa.user_id = u.id
+       LEFT JOIN leads l ON sa.lead_id = l.id
+       LEFT JOIN clients c ON sa.client_id = c.id
+       WHERE sa.id = ?`,
     ).bind(entityId).first<Record<string, unknown>>()
     entityData = raw ? (toCamel(raw) as Record<string, unknown>) : {}
   }

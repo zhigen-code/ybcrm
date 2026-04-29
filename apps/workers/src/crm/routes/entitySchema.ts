@@ -25,6 +25,9 @@ const BASE_SCHEMA: Record<string, EntityField[]> = {
     { field: 'contractStatus',      label: '合同状态', type: 'select', optionGroup: 'contract_status' },
     { field: 'assignedSalesUserId', label: '负责销售', type: 'user' },
   ],
+  activity: [
+    { field: 'activityType', label: '跟进类型', type: 'select', optionGroup: 'activity_type', triggerOnly: true },
+  ],
 }
 
 const KNOWN_GROUPS = new Set(
@@ -52,7 +55,7 @@ entitySchemaRoutes.get('/', async (c) => {
       optionGroup: group_key,
     }
     schema['lead']?.push(field)
-    schema['client']?.push(field)
+    schema['client']?.push({ ...field })
   }
 
   return c.json({ data: schema })
