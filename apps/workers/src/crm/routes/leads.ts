@@ -139,9 +139,13 @@ leadsRoutes.post('/', zValidator('json', leadSchema), async (c) => {
   const { userId } = c.get('jwtPayload')
   const id = uuidv4()
 
+  // 取创建人所属团队，创建时预关联
+  const creator = await c.env.DB.prepare('SELECT team_id FROM users WHERE id = ?').bind(userId).first<{ team_id: string | null }>()
+  const teamId = creator?.team_id ?? null
+
   await c.env.DB.prepare(
-    `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId, lead_no)
-     VALUES (?, ?, ?, ?, ?, 'New', ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
+    `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, created_by_userId, assigned_to_teamId, lead_no)
+     VALUES (?, ?, ?, ?, ?, 'New', ?, ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
   ).bind(
     id,
     body.source,
@@ -150,6 +154,7 @@ leadsRoutes.post('/', zValidator('json', leadSchema), async (c) => {
     JSON.stringify(body.intendedServices),
     body.notes ?? null,
     userId,
+    teamId,
   ).run()
 
   // 推送到线索分配队列
@@ -207,7 +212,21 @@ leadsRoutes.put(
 
     if (body.status !== undefined) { updates.push('status = ?'); params.push(body.status) }
     if (body.notes !== undefined) { updates.push('notes = ?'); params.push(body.notes) }
-    if (body.assignedToUserId !== undefined) { updates.push('assigned_to_userId = ?'); params.push(body.assignedToUserId) }
+    if (body.assignedToUserId !== undefined) {
+      updates.push('assigned_to_userId = ?')
+      params.push(body.assignedToUserId)
+      // 同步更新为该用户所属团队（body 未显式传 teamId 时）
+      if (body.assignedToTeamId === undefined) {
+        if (body.assignedToUserId === null) {
+          updates.push('assigned_to_teamId = ?')
+          params.push(null)
+        } else {
+          const assignedUser = await c.env.DB.prepare('SELECT team_id FROM users WHERE id = ?').bind(body.assignedToUserId).first<{ team_id: string | null }>()
+          updates.push('assigned_to_teamId = ?')
+          params.push(assignedUser?.team_id ?? null)
+        }
+      }
+    }
     if (body.assignedToTeamId !== undefined) { updates.push('assigned_to_teamId = ?'); params.push(body.assignedToTeamId) }
     if (body.contactInfo !== undefined) { updates.push('contact_info = ?'); params.push(body.contactInfo) }
     if (body.intendedServices !== undefined) {
