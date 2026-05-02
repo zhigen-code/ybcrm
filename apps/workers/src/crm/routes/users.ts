@@ -17,18 +17,19 @@ usersRoutes.get('/', async (c) => {
   let where = 'WHERE 1=1'
   const params: unknown[] = []
   if (search) {
-    where += ' AND (name LIKE ? OR email LIKE ?)'
+    where += ' AND (u.name LIKE ? OR u.email LIKE ?)'
     const q = `%${search}%`
     params.push(q, q)
   }
 
   const [results, countResult] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT id, email, name, phone, role, team_id, capacity, specialization, current_leads_count,
-        (SELECT COUNT(*) FROM clients WHERE assigned_sales_userId = users.id AND deleted_at IS NULL) as current_clients_count,
-        is_active, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
+      `SELECT u.id, u.email, u.name, u.phone, u.role, u.team_id, u.capacity, u.specialization, u.current_leads_count,
+        (SELECT COUNT(*) FROM clients WHERE assigned_sales_userId = u.id AND deleted_at IS NULL) as current_clients_count,
+        t.name as team_name, u.is_active, u.created_at
+        FROM users u LEFT JOIN teams t ON u.team_id = t.id ${where} ORDER BY u.name LIMIT ? OFFSET ?`,
     ).bind(...params, Number(pageSize), offset).all(),
-    c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`)
+    c.env.DB.prepare(`SELECT COUNT(*) as total FROM users u ${where}`)
       .bind(...params).first<{ total: number }>(),
   ])
 

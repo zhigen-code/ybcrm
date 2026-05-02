@@ -202,9 +202,12 @@ export default function UsersPage() {
                   <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
                 </div>
 
-                <div className="flex items-center gap-3 mb-2 text-xs text-gray-500">
+                <div className="flex items-center gap-3 mb-1 text-xs text-gray-500">
                   <span>线索 <span className="font-medium text-gray-700">{user.currentLeadsCount}</span></span>
                   <span>客户 <span className="font-medium text-gray-700">{user.currentClientsCount ?? 0}</span></span>
+                </div>
+                <div className="mb-2 text-xs text-gray-400">
+                  团队：{user.teamName ?? <span className="text-gray-300">—</span>}
                 </div>
 
                 {/* 专长 */}
@@ -249,6 +252,7 @@ export default function UsersPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">邮箱</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">电话</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">角色</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">所属团队</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">专长服务</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">线索 / 客户</th>
                   <th className="px-4 py-3"></th>
@@ -265,6 +269,9 @@ export default function UsersPage() {
                     <td className="px-4 py-3 text-gray-500">{user.phone ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3">
                       <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-sm">
+                      {user.teamName ?? <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       {(() => {

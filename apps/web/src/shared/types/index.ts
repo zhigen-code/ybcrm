@@ -21,6 +21,7 @@ export interface User {
   phone: string | null
   role: UserRole
   teamId: string | null
+  teamName: string | null
   capacity: number
   specialization: string[]
   currentLeadsCount: number
