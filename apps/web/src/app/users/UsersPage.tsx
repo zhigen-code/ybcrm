@@ -32,7 +32,6 @@ const editSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(['admin', 'operations', 'sales']),
   teamId: z.string().optional(),
-  capacity: z.coerce.number().int().min(1).max(100),
   specialization: z.array(z.string()),
 })
 
@@ -113,7 +112,6 @@ export default function UsersPage() {
       phone: u.phone ?? '',
       role: u.role,
       teamId: u.teamId ?? '',
-      capacity: u.capacity,
       specialization: parseSpecialization(u.specialization),
     })
     setEditTarget(u)
@@ -204,16 +202,9 @@ export default function UsersPage() {
                   <Badge variant={roleBadge[user.role]}>{roleLabel[user.role]}</Badge>
                 </div>
 
-                {/* 容量进度条 */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-gray-500 shrink-0">线索容量</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-gray-200">
-                    <div
-                      className="h-full rounded-full bg-primary-500"
-                      style={{ width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-600 shrink-0">{user.currentLeadsCount}/{user.capacity}</span>
+                <div className="flex items-center gap-3 mb-2 text-xs text-gray-500">
+                  <span>线索 <span className="font-medium text-gray-700">{user.currentLeadsCount}</span></span>
+                  <span>客户 <span className="font-medium text-gray-700">{user.currentClientsCount ?? 0}</span></span>
                 </div>
 
                 {/* 专长 */}
@@ -259,7 +250,7 @@ export default function UsersPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">电话</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">角色</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">专长服务</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">当前线索 / 容量</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">线索 / 客户</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -289,16 +280,10 @@ export default function UsersPage() {
                         )
                       })()}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-gray-200 max-w-[80px]">
-                          <div
-                            className="h-full rounded-full bg-primary-500"
-                            style={{ width: `${Math.min(100, (user.currentLeadsCount / user.capacity) * 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs">{user.currentLeadsCount}/{user.capacity}</span>
-                      </div>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      <span>线索 <span className="font-medium text-gray-800">{user.currentLeadsCount}</span></span>
+                      <span className="mx-1.5 text-gray-300">/</span>
+                      <span>客户 <span className="font-medium text-gray-800">{user.currentClientsCount ?? 0}</span></span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 justify-end">
@@ -397,7 +382,6 @@ export default function UsersPage() {
               {...editForm.register('role')}
             />
             <Select label="所属团队" options={teamOptions} {...editForm.register('teamId')} />
-            <Input label="线索容量" type="number" {...editForm.register('capacity')} />
             <div>
               <p className="mb-1.5 text-sm font-medium text-gray-700">
                 专长服务

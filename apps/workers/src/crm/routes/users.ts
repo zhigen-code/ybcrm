@@ -24,7 +24,9 @@ usersRoutes.get('/', async (c) => {
 
   const [results, countResult] = await Promise.all([
     c.env.DB.prepare(
-      `SELECT id, email, name, phone, role, team_id, capacity, specialization, current_leads_count, is_active, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
+      `SELECT id, email, name, phone, role, team_id, capacity, specialization, current_leads_count,
+        (SELECT COUNT(*) FROM clients WHERE assigned_sales_userId = users.id AND deleted_at IS NULL) as current_clients_count,
+        is_active, created_at FROM users ${where} ORDER BY name LIMIT ? OFFSET ?`,
     ).bind(...params, Number(pageSize), offset).all(),
     c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`)
       .bind(...params).first<{ total: number }>(),

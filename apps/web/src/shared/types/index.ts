@@ -24,6 +24,7 @@ export interface User {
   capacity: number
   specialization: string[]
   currentLeadsCount: number
+  currentClientsCount: number
   createdAt: string
   isActive: number
 }
