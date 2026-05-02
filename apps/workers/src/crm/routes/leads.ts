@@ -213,21 +213,26 @@ leadsRoutes.put(
     if (body.status !== undefined) { updates.push('status = ?'); params.push(body.status) }
     if (body.notes !== undefined) { updates.push('notes = ?'); params.push(body.notes) }
     if (body.assignedToUserId !== undefined) {
-      updates.push('assigned_to_userId = ?')
-      params.push(body.assignedToUserId)
-      // 同步更新为该用户所属团队（body 未显式传 teamId 时）
-      if (body.assignedToTeamId === undefined) {
-        if (body.assignedToUserId === null) {
-          updates.push('assigned_to_teamId = ?')
-          params.push(null)
-        } else {
-          const assignedUser = await c.env.DB.prepare('SELECT team_id FROM users WHERE id = ?').bind(body.assignedToUserId).first<{ team_id: string | null }>()
-          updates.push('assigned_to_teamId = ?')
-          params.push(assignedUser?.team_id ?? null)
+      if (body.assignedToUserId !== null) {
+        // 校验被指派人是否属于该线索的团队
+        const targetUser = await c.env.DB.prepare('SELECT team_id FROM users WHERE id = ? AND is_active = 1').bind(body.assignedToUserId).first<{ team_id: string | null }>()
+        if (!targetUser) throw new HTTPException(400, { message: '指派目标用户不存在或已停用' })
+
+        const isChangingTeam = body.assignedToTeamId !== undefined
+        if (!isChangingTeam && lead.assigned_to_teamId && targetUser.team_id !== lead.assigned_to_teamId) {
+          throw new HTTPException(400, { message: '只能指派给本团队的销售，如需跨团队请同时指定新团队（assignedToTeamId）' })
         }
       }
+      updates.push('assigned_to_userId = ?')
+      params.push(body.assignedToUserId)
     }
-    if (body.assignedToTeamId !== undefined) { updates.push('assigned_to_teamId = ?'); params.push(body.assignedToTeamId) }
+    if (body.assignedToTeamId !== undefined) {
+      if (body.assignedToTeamId !== null && role !== 'admin') {
+        throw new HTTPException(403, { message: '只有管理员可以变更线索所属团队' })
+      }
+      updates.push('assigned_to_teamId = ?')
+      params.push(body.assignedToTeamId)
+    }
     if (body.contactInfo !== undefined) { updates.push('contact_info = ?'); params.push(body.contactInfo) }
     if (body.intendedServices !== undefined) {
       updates.push('intended_services = ?')
