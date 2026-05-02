@@ -1,4 +1,4 @@
-const FROM_EMAIL = 'noreply@irfc.cn'
+const FROM_EMAIL = 'crm@1115.eu.org'
 const FROM_NAME = '辅助生殖 CRM'
 
 export async function sendEmail(
