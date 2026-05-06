@@ -4,7 +4,7 @@ import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Badge } from '@/shared/components/Badge'
 import { formatDate } from '@/shared/utils/format'
-import { useOptionGroup, getOptionLabel, useOptions } from '@/shared/hooks/useOptions'
+import { useOptionGroup, getOptionLabel, useOptions, parseActivityMeta } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
 import { AttachmentList } from '@/shared/components/AttachmentList'
@@ -333,15 +333,30 @@ export default function LeadDetailPage() {
         ) : (
           <div className="space-y-3">
             {activities.map((act) => (
-              <div key={act.id} className="flex gap-3 text-sm">
-                <span className="mt-0.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 h-fit">
-                  {getOptionLabel(activityTypeOpts, act.activityType)}
-                </span>
+              <div key={act.id} className="flex gap-3 text-sm border-l-2 border-gray-200 pl-3">
                 <div className="flex-1">
-                  <p className="text-gray-700 whitespace-pre-line">{act.description ?? '（无描述）'}</p>
-                  <p className="mt-0.5 text-xs text-gray-400">
-                    {act.userName ?? '—'} · {formatDate(act.activityDate)}
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-gray-600">
+                      {getOptionLabel(activityTypeOpts, act.activityType)}
+                    </span>
+                    <span className="text-xs text-gray-400">{act.userName ?? '—'}</span>
+                    <span className="text-xs text-gray-400">{formatDate(act.activityDate)}</span>
+                  </div>
+                  {act.description && (
+                    <p className="mt-1 text-gray-700 whitespace-pre-line">{act.description}</p>
+                  )}
+                  {act.extraData && Object.keys(act.extraData).length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5">
+                      {Object.entries(act.extraData as Record<string, unknown>).map(([k, v]) => {
+                        const field = parseActivityMeta(activityTypeOpts.find((o) => o.value === act.activityType) ?? {} as Parameters<typeof parseActivityMeta>[0])?.fields?.find((f) => f.key === k)
+                        return (
+                          <span key={k} className="text-xs text-gray-500">
+                            {field?.label ?? k}：<span className="font-medium text-gray-800">{String(v)}{field?.unit ? ` ${field.unit}` : ''}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
                   <AttachmentList attachments={act.attachments ?? []} />
                 </div>
               </div>
