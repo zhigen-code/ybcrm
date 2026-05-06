@@ -165,6 +165,12 @@ export default function ClientDetailPage() {
             <span className="text-gray-500">更新时间</span>
             <p className="mt-0.5 text-gray-700">{formatDate(client.updatedAt)}</p>
           </div>
+          {client.nextContactDate && (
+            <div className="col-span-2">
+              <span className="text-gray-500">下次联系</span>
+              <p className="mt-0.5 font-medium text-primary-600">{formatDate(client.nextContactDate)}</p>
+            </div>
+          )}
         </div>
 
         {client.detailedProfile?.notes && (
@@ -197,6 +203,9 @@ export default function ClientDetailPage() {
                   </div>
                   {act.description && (
                     <p className="mt-1 text-gray-700 whitespace-pre-line">{act.description}</p>
+                  )}
+                  {act.nextContactDate && (
+                    <p className="mt-1 text-xs text-primary-600">下次联系：{formatDate(act.nextContactDate)}</p>
                   )}
                   {act.extraData && Object.keys(act.extraData).length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5">

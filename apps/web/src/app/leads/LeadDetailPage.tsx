@@ -345,6 +345,9 @@ export default function LeadDetailPage() {
                   {act.description && (
                     <p className="mt-1 text-gray-700 whitespace-pre-line">{act.description}</p>
                   )}
+                  {act.nextContactDate && (
+                    <p className="mt-1 text-xs text-primary-600">下次联系：{formatDate(act.nextContactDate)}</p>
+                  )}
                   {act.extraData && Object.keys(act.extraData).length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5">
                       {Object.entries(act.extraData as Record<string, unknown>).map(([k, v]) => {
