@@ -123,59 +123,48 @@ export default function ClientDetailPage() {
               {client.phone ?? '无电话'} · {client.email ?? '无邮箱'}
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => setShowEdit(true)}>
-            编辑
-          </Button>
+          <div className="flex flex-wrap gap-1 max-w-[50%] justify-end">
+            {(client.servicePlans ?? []).map((p) => <Badge key={p} variant="blue">{p}</Badge>)}
+          </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-3 text-sm">
-          <div>
-            <span className="text-gray-500">服务套餐</span>
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {(client.servicePlans ?? []).length > 0
-                ? (client.servicePlans ?? []).map((p) => <Badge key={p} variant="blue">{p}</Badge>)
-                : <span className="text-gray-400">—</span>}
-            </div>
-          </div>
-          <div>
-            <span className="text-gray-500">合同状态</span>
-            <p className="mt-0.5">
-              {client.contractStatus ? (
-                <Badge variant={getOptionColor(contractStatusOpts, client.contractStatus)}>
-                  {client.contractStatus}
-                </Badge>
-              ) : '—'}
-            </p>
-          </div>
-          {client.detailedProfile?.source && (
-            <div>
-              <span className="text-gray-500">来源</span>
-              <p className="mt-0.5 text-gray-700">{String(client.detailedProfile.source)}</p>
-            </div>
+        {/* 合同状态 */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-gray-600">合同状态：</span>
+          {client.contractStatus ? (
+            <Badge variant={getOptionColor(contractStatusOpts, client.contractStatus)}>
+              {getOptionLabel(contractStatusOpts, client.contractStatus)}
+            </Badge>
+          ) : (
+            <span className="text-sm text-gray-400">未设置</span>
           )}
-          <div>
-            <span className="text-gray-500">创建人</span>
-            <p className="mt-0.5 text-gray-700">{client.createdByName ?? '—'}</p>
-          </div>
-          <div>
-            <span className="text-gray-500">创建时间</span>
-            <p className="mt-0.5 text-gray-700">{formatDate(client.createdAt)}</p>
-          </div>
-          <div>
-            <span className="text-gray-500">更新时间</span>
-            <p className="mt-0.5 text-gray-700">{formatDate(client.updatedAt)}</p>
-          </div>
-          {client.nextContactDate && (
-            <div className="col-span-2">
-              <span className="text-gray-500">下次联系</span>
-              <p className="mt-0.5 font-medium text-primary-600">{formatDate(client.nextContactDate)}</p>
-            </div>
-          )}
+          <button
+            onClick={() => setShowEdit(true)}
+            className="text-xs text-primary-600 hover:text-primary-800 underline"
+          >
+            编辑
+          </button>
         </div>
 
         {client.detailedProfile?.notes && (
           <p className="mt-3 text-sm text-gray-600 bg-gray-50 rounded p-3">{String(client.detailedProfile.notes)}</p>
         )}
+
+        {/* 附加字段：下次联系 */}
+        {client.nextContactDate && (
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            <span className="text-gray-600">
+              下次联系：<span className="font-medium text-gray-900">{formatDate(client.nextContactDate)}</span>
+            </span>
+          </div>
+        )}
+
+        {/* 元信息 */}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+          {client.detailedProfile?.source && <span>来源：{String(client.detailedProfile.source)}</span>}
+          <span>创建人：{client.createdByName ?? '—'}</span>
+          <span>创建于 {formatDate(client.createdAt)}</span>
+        </div>
       </div>
 
       {/* 跟进记录 */}
