@@ -280,6 +280,36 @@ export function ActivityModal({
                   </div>
                 )
               }
+              if (f.type === 'date') {
+                return (
+                  <div key={f.key}>
+                    <label className="block text-xs text-gray-600 mb-1">{f.label}</label>
+                    <input
+                      type="date"
+                      className="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      value={(extraData[f.key] as string) ?? ''}
+                      onChange={(e) => setExtraField(f.key, e.target.value)}
+                    />
+                  </div>
+                )
+              }
+              if (f.type === 'select') {
+                return (
+                  <div key={f.key}>
+                    <label className="block text-xs text-gray-600 mb-1">{f.label}</label>
+                    <select
+                      className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      value={(extraData[f.key] as string) ?? ''}
+                      onChange={(e) => setExtraField(f.key, e.target.value)}
+                    >
+                      <option value="">请选择...</option>
+                      {(f.options ?? []).map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              }
               return (
                 <div key={f.key}>
                   <label className="block text-xs text-gray-600 mb-1">{f.label}{f.unit ? `（${f.unit}）` : ''}</label>

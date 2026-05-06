@@ -105,30 +105,47 @@ function ActivityMetaEditor({
         ) : (
           <div className="space-y-2">
             {fields.map((f, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  placeholder="字段名"
-                  className="h-7 flex-1 rounded border border-gray-300 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  value={f.label}
-                  onChange={(e) => setField(i, { label: e.target.value, key: e.target.value.replace(/\s+/g, '_').toLowerCase() || f.key })}
-                />
-                <select
-                  className="h-7 rounded border border-gray-300 px-1 text-xs focus:outline-none"
-                  value={f.type}
-                  onChange={(e) => setField(i, { type: e.target.value as 'text' | 'number' })}
-                >
-                  <option value="text">文本</option>
-                  <option value="number">数字</option>
-                </select>
-                {f.type === 'number' && (
+              <div key={i} className="space-y-1.5">
+                <div className="flex items-center gap-2">
                   <input
-                    placeholder="单位"
-                    className="h-7 w-14 rounded border border-gray-300 px-2 text-xs focus:outline-none"
-                    value={f.unit ?? ''}
-                    onChange={(e) => { const u = e.target.value; setField(i, u ? { unit: u } : { unit: '' }) }}
+                    placeholder="字段名"
+                    className="h-7 flex-1 rounded border border-gray-300 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    value={f.label}
+                    onChange={(e) => setField(i, { label: e.target.value, key: e.target.value.replace(/\s+/g, '_').toLowerCase() || f.key })}
                   />
+                  <select
+                    className="h-7 rounded border border-gray-300 px-1 text-xs focus:outline-none"
+                    value={f.type}
+                    onChange={(e) => setField(i, { type: e.target.value as ActivityMetaField['type'], options: [], unit: '' })}
+                  >
+                    <option value="text">文本</option>
+                    <option value="number">数字</option>
+                    <option value="date">日期</option>
+                    <option value="select">选择</option>
+                    <option value="product_select">产品选择</option>
+                  </select>
+                  {f.type === 'number' && (
+                    <input
+                      placeholder="单位"
+                      className="h-7 w-14 rounded border border-gray-300 px-2 text-xs focus:outline-none"
+                      value={f.unit ?? ''}
+                      onChange={(e) => { const u = e.target.value; setField(i, { unit: u }) }}
+                    />
+                  )}
+                  <button type="button" onClick={() => removeField(i)} className="text-xs text-red-400 hover:text-red-600">×</button>
+                </div>
+                {f.type === 'select' && (
+                  <div className="ml-2 pl-2 border-l border-gray-200">
+                    <p className="text-xs text-gray-400 mb-1">选项（每行一个）</p>
+                    <textarea
+                      rows={3}
+                      placeholder={"选项A\n选项B\n选项C"}
+                      className="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+                      value={(f.options ?? []).join('\n')}
+                      onChange={(e) => setField(i, { options: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
+                    />
+                  </div>
                 )}
-                <button type="button" onClick={() => removeField(i)} className="text-xs text-red-400 hover:text-red-600">×</button>
               </div>
             ))}
           </div>

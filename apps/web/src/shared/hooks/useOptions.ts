@@ -4,8 +4,9 @@ import { crmApi } from '@/shared/utils/request'
 export interface ActivityMetaField {
   key: string
   label: string
-  type: 'text' | 'number' | 'product_select'
+  type: 'text' | 'number' | 'product_select' | 'date' | 'select'
   unit?: string
+  options?: string[]  // select 类型的选项列表
 }
 
 export interface ActivityMeta {
