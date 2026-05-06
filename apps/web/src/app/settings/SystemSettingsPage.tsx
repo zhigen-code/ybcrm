@@ -1594,41 +1594,61 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                 ) : (
                   <div className="space-y-2">
                     {editFields.map((f, idx) => (
-                      <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
-                        <input
-                          placeholder="字段键（英文）"
-                          value={f.key}
-                          onChange={(e) => updateField(idx, { key: e.target.value })}
-                          className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
-                        />
-                        <input
-                          placeholder="显示名称"
-                          value={f.label}
-                          onChange={(e) => updateField(idx, { label: e.target.value })}
-                          className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
-                        />
-                        <select
-                          value={f.type}
-                          onChange={(e) => updateField(idx, { type: e.target.value as 'text' | 'number' | 'product_select' })}
-                          className="col-span-2 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
-                        >
-                          <option value="text">文本</option>
-                          <option value="number">数字</option>
-                          <option value="product_select">产品选择</option>
-                        </select>
-                        <input
-                          placeholder="单位（可选）"
-                          value={f.unit ?? ''}
-                          onChange={(e) => updateField(idx, { unit: e.target.value })}
-                          className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setEditFields((prev) => prev.filter((_, i) => i !== idx))}
-                          className="col-span-1 text-gray-400 hover:text-red-500 text-sm text-center"
-                        >
-                          ×
-                        </button>
+                      <div key={idx} className="space-y-1">
+                        <div className="grid grid-cols-12 gap-1.5 items-center">
+                          <input
+                            placeholder="字段键（英文）"
+                            value={f.key}
+                            onChange={(e) => updateField(idx, { key: e.target.value })}
+                            className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          />
+                          <input
+                            placeholder="显示名称"
+                            value={f.label}
+                            onChange={(e) => updateField(idx, { label: e.target.value })}
+                            className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          />
+                          <select
+                            value={f.type}
+                            onChange={(e) => updateField(idx, { type: e.target.value as ActivityMetaField['type'], options: [], unit: '' })}
+                            className="col-span-2 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          >
+                            <option value="text">文本</option>
+                            <option value="number">数字</option>
+                            <option value="date">日期</option>
+                            <option value="select">选择</option>
+                            <option value="product_select">产品选择</option>
+                          </select>
+                          {f.type === 'number' ? (
+                            <input
+                              placeholder="单位（可选）"
+                              value={f.unit ?? ''}
+                              onChange={(e) => updateField(idx, { unit: e.target.value })}
+                              className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                            />
+                          ) : (
+                            <div className="col-span-3" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEditFields((prev) => prev.filter((_, i) => i !== idx))}
+                            className="col-span-1 text-gray-400 hover:text-red-500 text-sm text-center"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {f.type === 'select' && (
+                          <div className="ml-1 pl-2 border-l border-gray-200">
+                            <p className="text-xs text-gray-400 mb-1">选项（每行一个）</p>
+                            <textarea
+                              rows={3}
+                              placeholder={"选项A\n选项B\n选项C"}
+                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+                              value={(f.options ?? []).join('\n')}
+                              onChange={(e) => updateField(idx, { options: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                     <p className="text-xs text-gray-400">字段键用英文，如 amount、hospital；单位如 元、个（可留空）</p>
