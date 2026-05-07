@@ -87,13 +87,14 @@ app.route('/api/options', optionsRoutes)
 // 公开接口（无需登录）
 app.get('/api/public/settings', async (c) => {
   const rows = await c.env.DB.prepare(
-    "SELECT key, value FROM system_settings WHERE key IN ('system_name', 'timezone')",
+    "SELECT key, value FROM system_settings WHERE key IN ('system_name', 'timezone', 'ai_agent_enabled')",
   ).all<{ key: string; value: string }>()
   const map = Object.fromEntries(rows.results.map((r) => [r.key, r.value]))
   return c.json({
     data: {
       systemName: map['system_name'] ?? '辅助生殖 CRM',
       timezone: map['timezone'] ?? 'Asia/Shanghai',
+      aiAgentEnabled: map['ai_agent_enabled'] !== 'false',
     },
   })
 })

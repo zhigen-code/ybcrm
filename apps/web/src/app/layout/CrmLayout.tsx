@@ -41,7 +41,7 @@ export default function CrmLayout() {
 
   const { data: publicSettings } = useQuery({
     queryKey: ['public-settings'],
-    queryFn: () => crmApi.get<{ data: { systemName: string; timezone: string } }>('/public/settings').then((r) => r.data.data),
+    queryFn: () => crmApi.get<{ data: { systemName: string; timezone: string; aiAgentEnabled: boolean } }>('/public/settings').then((r) => r.data.data),
     staleTime: 1000 * 60 * 60,
   })
   const systemName = publicSettings?.systemName ?? 'CRM'
@@ -155,7 +155,7 @@ export default function CrmLayout() {
       </main>
 
       {/* AI 助手悬浮对话框 */}
-      <AiAgentChat />
+      {publicSettings?.aiAgentEnabled !== false && <AiAgentChat />}
     </div>
   )
 }
