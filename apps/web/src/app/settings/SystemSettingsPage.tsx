@@ -1973,32 +1973,6 @@ export default function SystemSettingsPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border bg-white p-4 sm:p-6">
-                <h2 className="text-sm font-semibold text-gray-700 mb-3">功能开关</h2>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">AI 助手</p>
-                    <p className="text-xs text-gray-400 mt-0.5">开启后右下角显示 AI 对话浮窗，可通过自然语言操作系统</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = data?.ai_agent_enabled !== 'false' ? 'false' : 'true'
-                      crmApi.put('/admin/settings', { ai_agent_enabled: next }).then(() =>
-                        queryClient.invalidateQueries({ queryKey: ['system-settings'] })
-                      )
-                    }}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                      data?.ai_agent_enabled !== 'false' ? 'bg-primary-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                      data?.ai_agent_enabled !== 'false' ? 'translate-x-6' : 'translate-x-1'
-                    }`} />
-                  </button>
-                </div>
-              </div>
-
             </div>
           )}
 
@@ -2012,6 +1986,37 @@ export default function SystemSettingsPage() {
           )}
         </div>
       </form>
+
+      {/* 功能开关（在 form 外避免 react-hook-form 干扰） */}
+      {activeTab === 'basic' && (
+        <div className="max-w-2xl mt-4">
+          <div className="rounded-lg border bg-white p-4 sm:p-6">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">功能开关</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">AI 助手</p>
+                <p className="text-xs text-gray-400 mt-0.5">开启后右下角显示 AI 对话浮窗，可通过自然语言操作系统</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = data?.ai_agent_enabled !== 'false' ? 'false' : 'true'
+                  crmApi.put('/admin/settings', { ai_agent_enabled: next }).then(() =>
+                    queryClient.invalidateQueries({ queryKey: ['system-settings'] })
+                  )
+                }}
+                className={`relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition-colors focus:outline-none ${
+                  data?.ai_agent_enabled !== 'false' ? 'bg-primary-600' : 'bg-gray-200'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  data?.ai_agent_enabled !== 'false' ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 团队编辑 / 新建弹窗（挂在顶层，供选项配置子 Tab 使用） */}
       {editTarget && (
