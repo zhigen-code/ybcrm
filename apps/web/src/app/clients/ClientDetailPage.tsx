@@ -269,7 +269,8 @@ export default function ClientDetailPage() {
               label="合同状态"
               options={toSelectOptions(contractStatusOpts)}
               placeholder="请选择..."
-              {...editForm.register('contractStatus')}
+              value={editForm.watch('contractStatus') ?? ''}
+              onChange={(e) => editForm.setValue('contractStatus', e.target.value || null)}
             />
           </div>
         </Modal>
