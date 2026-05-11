@@ -31,6 +31,8 @@ settingsRoutes.put(
       smtp_from_email:      z.string().optional(),
       smtp_from_name:       z.string().optional(),
       auto_assign_enabled:  z.string().optional(),
+      ai_agent_enabled:     z.string().optional(),
+      timezone:             z.string().optional(),
     }),
   ),
   async (c) => {
