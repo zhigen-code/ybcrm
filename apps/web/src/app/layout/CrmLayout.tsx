@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 import { Button } from '@/shared/components/Button'
 import { cn } from '@/shared/utils/cn'
@@ -8,22 +9,23 @@ import { crmApi } from '@/shared/utils/request'
 import { setAppTimezone } from '@/shared/utils/format'
 import { AiAgentChat } from '@/shared/components/AiAgentChat'
 
-const navItems = [
-  { to: '/app/leads', label: '线索管理' },
-  { to: '/app/clients', label: '客户档案' },
-  { to: '/app/activities', label: '销售活动' },
-  { to: '/app/products', label: '产品库', roles: ['admin', 'operations'] },
-]
-
-const adminNavItems = [
-  { to: '/app/users', label: '用户管理' },
-  { to: '/app/settings', label: '系统管理' },
-]
-
 export default function CrmLayout() {
+  const { t, i18n } = useTranslation()
   const { user, logout } = useCrmAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const navItems = [
+    { to: '/app/leads', label: t('nav.leads') },
+    { to: '/app/clients', label: t('nav.clients') },
+    { to: '/app/activities', label: t('nav.activities') },
+    { to: '/app/products', label: t('nav.products'), roles: ['admin', 'operations'] },
+  ]
+
+  const adminNavItems = [
+    { to: '/app/users', label: t('nav.users') },
+    { to: '/app/settings', label: t('nav.settings') },
+  ]
 
   const { data: newLeadsData } = useQuery({
     queryKey: ['leads-new-count'],
@@ -39,6 +41,11 @@ export default function CrmLayout() {
     navigate('/app/login')
   }
 
+  const toggleLang = () => {
+    const next = i18n.language === 'zh' ? 'en' : 'zh'
+    i18n.changeLanguage(next)
+  }
+
   const { data: publicSettings } = useQuery({
     queryKey: ['public-settings'],
     queryFn: () => crmApi.get<{ data: { systemName: string; timezone: string; aiAgentEnabled: boolean } }>('/public/settings').then((r) => r.data.data),
@@ -50,7 +57,7 @@ export default function CrmLayout() {
     if (publicSettings?.timezone) setAppTimezone(publicSettings.timezone)
   }, [publicSettings?.timezone])
 
-  const docsItem = { to: '/app/docs', label: '文档' }
+  const docsItem = { to: '/app/docs', label: t('nav.docs') }
   const filteredNavItems = navItems.filter(
     (item) => !item.roles || item.roles.includes(user?.role ?? ''),
   )
@@ -104,8 +111,16 @@ export default function CrmLayout() {
           {user?.name}
           <span className="ml-1.5 text-xs font-normal text-gray-400">· {user?.role}</span>
         </NavLink>
+        <button
+          type="button"
+          onClick={toggleLang}
+          className="w-full flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+        >
+          <span className="mr-2 text-base">{i18n.language === 'zh' ? '🌐' : '🌐'}</span>
+          {i18n.language === 'zh' ? 'English' : '中文'}
+        </button>
         <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleLogout}>
-          退出登录
+          {t('nav.logout')}
         </Button>
       </div>
     </>
@@ -113,7 +128,7 @@ export default function CrmLayout() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* 移动端顶部栏 */}
+      {/* mobile top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between bg-white px-4 shadow-sm">
         <span className="font-bold text-gray-900">{systemName}</span>
         <button
@@ -126,7 +141,6 @@ export default function CrmLayout() {
         </button>
       </div>
 
-      {/* 移动端侧边栏遮罩 */}
       {sidebarOpen && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/40"
@@ -134,7 +148,6 @@ export default function CrmLayout() {
         />
       )}
 
-      {/* 移动端侧边栏（抽屉） */}
       <aside
         className={cn(
           'md:hidden fixed left-0 top-0 bottom-0 z-50 flex w-64 flex-col bg-white shadow-xl transition-transform duration-300',
@@ -144,17 +157,14 @@ export default function CrmLayout() {
         <Sidebar onNavClick={() => setSidebarOpen(false)} />
       </aside>
 
-      {/* 桌面端侧边栏（固定） */}
       <aside className="hidden md:flex w-56 flex-col bg-white shadow-sm flex-shrink-0">
         <Sidebar />
       </aside>
 
-      {/* 主内容区 */}
       <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
         <Outlet />
       </main>
 
-      {/* AI 助手悬浮对话框 */}
       {publicSettings?.aiAgentEnabled !== false && <AiAgentChat />}
     </div>
   )

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 
 interface Message {
@@ -6,13 +7,9 @@ interface Message {
   content: string
 }
 
-const SUGGESTIONS = [
-  '今天需要联系哪些客户？',
-  '有哪些已逾期的线索？',
-  '帮我查一下最近新建的线索',
-]
-
 export function AiAgentChat() {
+  const { t } = useTranslation()
+  const SUGGESTIONS: string[] = t('ai.agent.examples', { returnObjects: true }) as string[]
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -48,7 +45,7 @@ export function AiAgentChat() {
       setMessages((prev) => [...prev, { role: 'assistant', content: res.data.data.message }])
     } catch (err) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg ?? '请求失败，请检查 AI 模型配置')
+      setError(msg ?? t('ai.agent.error'))
     } finally {
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 50)
@@ -78,7 +75,7 @@ export function AiAgentChat() {
             ? 'bg-gray-700 hover:bg-gray-800'
             : 'bg-violet-600 hover:bg-violet-700'
         }`}
-        title="AI 助手"
+        title={t('ai.agent.title')}
       >
         {open ? (
           <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,15 +95,15 @@ export function AiAgentChat() {
           {/* 头部 */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-violet-600 to-violet-500">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-white">AI 助手</span>
-              <span className="text-xs text-violet-200">口述指令，自动操作</span>
+              <span className="text-sm font-semibold text-white">{t('ai.agent.title')}</span>
+              <span className="text-xs text-violet-200">{t('ai.agent.subtitle')}</span>
             </div>
             {messages.length > 0 && (
               <button
                 onClick={clearChat}
                 className="text-xs text-violet-200 hover:text-white transition-colors"
               >
-                清空
+                {t('ai.agent.clear')}
               </button>
             )}
           </div>
@@ -115,7 +112,7 @@ export function AiAgentChat() {
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && !loading && (
               <div className="pt-4">
-                <p className="text-center text-xs text-gray-400 mb-4">你可以试试：</p>
+                <p className="text-center text-xs text-gray-400 mb-4">{t('ai.agent.suggestions')}</p>
                 <div className="space-y-2">
                   {SUGGESTIONS.map((s) => (
                     <button
@@ -173,7 +170,7 @@ export function AiAgentChat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="输入指令…（Enter 发送，Shift+Enter 换行）"
+                placeholder={t('ai.agent.placeholder')}
                 rows={1}
                 disabled={loading}
                 className="flex-1 resize-none bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none disabled:opacity-50"

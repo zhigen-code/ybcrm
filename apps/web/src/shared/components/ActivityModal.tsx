@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Modal } from './Modal'
 import { Button } from './Button'
@@ -16,9 +17,9 @@ import type { ActivityAttachment } from '@/shared/types'
 import type { ActivityConfig } from '@/shared/hooks/useWorkflows'
 
 const schema = z.object({
-  activityType: z.string().min(1, '请选择跟进类型'),
+  activityType: z.string().min(1),
   description: z.string().optional(),
-  activityDate: z.string().min(1, '请选择时间'),
+  activityDate: z.string().min(1),
   nextContactDate: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -54,6 +55,7 @@ function formatSize(bytes: number) {
 export function ActivityModal({
   title, onClose, onSubmit, loading, activityConfig, initialPolicyValues, serverError, showNextContact, entityType,
 }: ActivityModalProps) {
+  const { t } = useTranslation()
   const { options: allActivityTypeOpts } = useOptionGroup('activity_type')
   const activityTypeOpts = allActivityTypeOpts.filter((o) => {
     if (o.value === 'System') return false
@@ -132,13 +134,13 @@ export function ActivityModal({
   const handleSave = handleSubmit(async (formData) => {
     // 校验策略必填字段
     if (activityConfig?.contentRequired && !formData.description?.trim()) {
-      setPolicyError('请填写跟进内容')
+      setPolicyError(t('activityModal.content'))
       return
     }
     for (const rf of activityConfig?.requiredFields ?? []) {
       const val = policyFields[rf.field]
       if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
-        setPolicyError(`请填写${rf.label}`)
+        setPolicyError(rf.label)
         return
       }
     }
@@ -158,7 +160,7 @@ export function ActivityModal({
         )
         attachmentKeys = results
       } catch {
-        setUploadError('文件上传失败，请重试')
+        setUploadError(t('common.uploadFailed'))
         setUploading(false)
         return
       }
@@ -181,9 +183,9 @@ export function ActivityModal({
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>取消</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
           <Button loading={busy} onClick={handleSave}>
-            {uploading ? '上传中...' : '保存'}
+            {uploading ? t('common.uploading') : t('common.save')}
           </Button>
         </>
       }
@@ -192,7 +194,7 @@ export function ActivityModal({
         {/* 跟进类型和时间置顶，统一 h-8 高度 */}
         <div className="flex gap-2">
           <div className="flex-1 min-w-0">
-            <label className="block text-xs text-gray-500 mb-1">跟进类型</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('activityModal.type')}</label>
             <select
               className="w-full h-8 rounded-md border border-gray-300 bg-white px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
               {...register('activityType', { onChange: () => setExtraData({}) })}
@@ -203,7 +205,7 @@ export function ActivityModal({
             </select>
           </div>
           <div className="flex-none">
-            <label className="block text-xs text-gray-500 mb-1">时间</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('activityModal.time')}</label>
             <input
               type="datetime-local"
               className="h-8 rounded-md border border-gray-300 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -218,7 +220,7 @@ export function ActivityModal({
         {/* 快选预设 */}
         {(activityConfig?.contentPresets?.length ?? 0) > 0 && (
           <div>
-            <p className="mb-1.5 text-xs text-gray-500">快速选择</p>
+            <p className="mb-1.5 text-xs text-gray-500">{t('activityModal.quickSelect')}</p>
             <div className="flex flex-wrap gap-1.5">
               {activityConfig!.contentPresets!.map((preset) => (
                 <button
@@ -239,15 +241,14 @@ export function ActivityModal({
         )}
 
         <Textarea
-          label={activityConfig?.contentRequired ? '内容（必填）' : '内容'}
-          placeholder="记录本次跟进的要点..."
+          label={activityConfig?.contentRequired ? t('activityModal.content') : t('activityModal.type')}
           {...register('description')}
         />
 
         {/* 当前跟进类型的自定义字段 */}
         {extraFields.length > 0 && (
           <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 space-y-2">
-            <p className="text-xs font-medium text-amber-700">补充信息</p>
+            <p className="text-xs font-medium text-amber-700">{t('activityModal.extra')}</p>
             {extraFields.map((f) => {
               if (f.type === 'product_select') {
                 return (
@@ -270,7 +271,7 @@ export function ActivityModal({
                         }
                       }}
                     >
-                      <option value="">请选择产品...</option>
+                      <option value="">{t('activityModal.productPlaceholder')}</option>
                       {allProducts.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name} — {p.partnerName}{p.price != null ? ` (${p.currency} ${p.price.toLocaleString()})` : ''}
@@ -302,7 +303,7 @@ export function ActivityModal({
                       value={(extraData[f.key] as string) ?? ''}
                       onChange={(e) => setExtraField(f.key, e.target.value)}
                     >
-                      <option value="">请选择...</option>
+                      <option value="">{t('activityModal.selectPlaceholder')}</option>
                       {(f.options ?? []).map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
@@ -327,14 +328,14 @@ export function ActivityModal({
 
         {showNextContact && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">下次联系时间（可选）</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('activityModal.nextContact')}</label>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="date"
                 className="h-8 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                 {...register('nextContactDate')}
               />
-              {[{ label: '3天后', days: 3 }, { label: '1周后', days: 7 }, { label: '1个月后', days: 30 }].map(({ label, days }) => (
+              {[{ label: t('activityModal.in3days'), days: 3 }, { label: t('activityModal.in1week'), days: 7 }, { label: t('activityModal.in1month'), days: 30 }].map(({ label, days }) => (
                 <button
                   key={days}
                   type="button"
@@ -355,7 +356,7 @@ export function ActivityModal({
         {/* 策略要求的额外字段 */}
         {(activityConfig?.requiredFields?.length ?? 0) > 0 && (
           <div className="border-t pt-3 space-y-3">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">必填信息</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('activityModal.required')}</p>
             {activityConfig!.requiredFields!.map((rf) => {
               if (rf.type === 'select' && rf.optionGroup) {
                 const opts = allOptions?.[rf.optionGroup] ?? []
@@ -367,7 +368,7 @@ export function ActivityModal({
                       value={(policyFields[rf.field] as string) ?? ''}
                       onChange={(e) => setPolicyField(rf.field, e.target.value)}
                     >
-                      <option value="">请选择...</option>
+                      <option value="">{t('activityModal.selectPlaceholder')}</option>
                       {toSelectOptions(opts).map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
@@ -386,7 +387,7 @@ export function ActivityModal({
                         value={(policyFields[rf.field] as string) ?? ''}
                         onChange={(e) => setPolicyField(rf.field, e.target.value)}
                       />
-                      {[{ label: '3天后', days: 3 }, { label: '1周后', days: 7 }, { label: '1个月后', days: 30 }].map(({ label, days }) => (
+                      {[{ label: t('activityModal.in3days'), days: 3 }, { label: t('activityModal.in1week'), days: 7 }, { label: t('activityModal.in1month'), days: 30 }].map(({ label, days }) => (
                         <button
                           key={days}
                           type="button"
@@ -440,7 +441,7 @@ export function ActivityModal({
 
         {/* 文件上传 */}
         <div>
-          <p className="mb-1.5 text-sm font-medium text-gray-700">附件（可选）</p>
+          <p className="mb-1.5 text-sm font-medium text-gray-700">{t('activityModal.attachments')}</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -457,7 +458,7 @@ export function ActivityModal({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
-            选择文件
+            {t('activityModal.selectFile')}
           </button>
 
           {files.length > 0 && (

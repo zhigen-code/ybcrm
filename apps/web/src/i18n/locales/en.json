@@ -1,0 +1,785 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "confirm": "Confirm",
+    "close": "Close",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data",
+    "reset": "Reset",
+    "enable": "Enable",
+    "disable": "Disable",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "add": "Add",
+    "remove": "Remove",
+    "restore": "Restore",
+    "back": "Back",
+    "detail": "Detail",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "total": "Total",
+    "items": "items",
+    "all": "All",
+    "none": "—",
+    "unset": "Not set",
+    "notSet": "Not specified",
+    "copyNumber": "Copy",
+    "call": "Call",
+    "download": "Download",
+    "upload": "Upload",
+    "uploading": "Uploading...",
+    "uploadFailed": "Upload failed, please retry",
+    "saved": "Saved",
+    "saveFailed": "Save failed",
+    "createFailed": "Create failed",
+    "resetFailed": "Reset failed",
+    "opFailed": "Operation failed",
+    "confirmDelete": "Delete \"{{name}}\"? This cannot be undone.",
+    "irreversible": "This cannot be undone.",
+    "pagination": {
+      "prev": "Previous",
+      "next": "Next",
+      "showing": "{{total}} items, showing {{from}}–{{to}}"
+    }
+  },
+  "nav": {
+    "leads": "Leads",
+    "clients": "Clients",
+    "activities": "Activities",
+    "products": "Products",
+    "users": "Users",
+    "settings": "Settings",
+    "docs": "Docs",
+    "logout": "Logout",
+    "language": "语言"
+  },
+  "auth": {
+    "title": "CRM System",
+    "email": "Email",
+    "password": "Password",
+    "enterPassword": "Enter password",
+    "login": "Sign in",
+    "invalidEmail": "Enter a valid email",
+    "passwordMin": "Password must be at least 6 characters",
+    "loginFailed": "Invalid email or password"
+  },
+  "leads": {
+    "title": "Leads",
+    "count": "leads",
+    "new": "New Lead",
+    "search": "Search name, contact, source, ID...",
+    "filter": "Filter",
+    "resetFilter": "Reset filters",
+    "columns": "Columns",
+    "restoreDefault": "Restore default",
+    "noMatch": "No matching leads",
+    "empty": "No leads yet",
+    "myLeads": "My Leads",
+    "allLeads": "All",
+    "addActivity": "+ Follow-up",
+    "converted": "Converted",
+    "convertedNotice": "This lead has been converted to a client. Read-only.",
+    "convertToClient": "Convert to Client",
+    "cols": {
+      "id": "ID",
+      "name": "Name",
+      "contact": "Contact",
+      "service": "Intended Service",
+      "status": "Status",
+      "source": "Source",
+      "owner": "Owner",
+      "nextContact": "Next Contact",
+      "activityCount": "Follow-ups",
+      "createdAt": "Created"
+    },
+    "filter": {
+      "allSources": "All Sources",
+      "allOwners": "All Owners",
+      "allServices": "All Services",
+      "allTime": "All Time",
+      "overdue": "Overdue",
+      "dueToday": "Due Today",
+      "next7Days": "Next 7 Days",
+      "today": "Today",
+      "last7Days": "Last 7 Days",
+      "last30Days": "Last 30 Days",
+      "noActivity": "No follow-ups",
+      "activity1to3": "1–3 times",
+      "activity3plus": "3+ times"
+    },
+    "detail": {
+      "basicInfo": "Basic Info",
+      "status": "Status:",
+      "owner": "Owner:",
+      "unassigned": "Unassigned",
+      "change": "Change",
+      "assign": "Assign",
+      "unassign": "Unassign",
+      "lostReason": "Lost reason:",
+      "adInfo": "Ad Info",
+      "createdBy": "Created by:",
+      "createdAt": "Created",
+      "activities": "Follow-up Records",
+      "addActivity": "Add Record",
+      "noActivities": "No follow-up records yet",
+      "nextContact": "Next Contact:",
+      "changeStatus": "Change to \"{{status}}\" — please add a follow-up record"
+    },
+    "deleteConfirm": "Delete lead \"{{name}}\"? This cannot be undone.",
+    "columnSettings": "Column Settings"
+  },
+  "clients": {
+    "title": "Clients",
+    "count": "clients",
+    "search": "Search name, email, phone...",
+    "noMatch": "No matching clients",
+    "empty": "No clients yet",
+    "addActivity": "+ Follow-up",
+    "cols": {
+      "id": "ID",
+      "name": "Name",
+      "contact": "Contact",
+      "plan": "Service Plan",
+      "contractStatus": "Contract Status",
+      "owner": "Sales Rep",
+      "createdBy": "Created By",
+      "createdAt": "Added",
+      "nextContact": "Next Contact"
+    },
+    "filter": {
+      "allStatus": "All Statuses"
+    },
+    "detail": {
+      "noPhone": "No phone",
+      "noEmail": "No email",
+      "contractStatus": "Contract Status:",
+      "notSet": "Not set",
+      "source": "Source:",
+      "createdAt": "Created",
+      "activities": "Follow-up Records",
+      "addActivity": "Add Record",
+      "noActivities": "No follow-up records yet",
+      "nextContact": "Next Contact:",
+      "editTitle": "Edit Client",
+      "planPlaceholder": "Select...",
+      "noPlan": "No plan"
+    },
+    "deleteConfirm": "Delete client \"{{name}}\"? This cannot be undone."
+  },
+  "activities": {
+    "title": "Activities",
+    "count": "records",
+    "search": "Search content, client/lead, owner...",
+    "filter": "Filter",
+    "resetFilter": "Reset filters",
+    "noMatch": "No matching records",
+    "empty": "No activity records",
+    "cols": {
+      "type": "Type",
+      "content": "Content",
+      "target": "Related",
+      "owner": "Owner",
+      "time": "Time",
+      "nextContact": "Next Contact"
+    },
+    "filter": {
+      "allTypes": "All Types",
+      "allTargets": "All",
+      "leads": "Leads",
+      "clients": "Clients",
+      "allOwners": "All Owners",
+      "allTime": "All Time",
+      "today": "Today",
+      "last7Days": "Last 7 Days",
+      "last30Days": "Last 30 Days",
+      "overdue": "Overdue",
+      "dueToday": "Due Today",
+      "next7Days": "Next 7 Days",
+      "type": "Type",
+      "target": "Related",
+      "owner": "Owner",
+      "time": "Time",
+      "nextContact": "Next Contact"
+    }
+  },
+  "activityModal": {
+    "title": "Add Follow-up Record",
+    "type": "Type",
+    "typePlaceholder": "Select type",
+    "time": "Time",
+    "timePlaceholder": "Select time",
+    "quickSelect": "Quick select",
+    "content": "Content (required)",
+    "contentPlaceholder": "Note key points of this follow-up...",
+    "extra": "Extra Info",
+    "productPlaceholder": "Select product...",
+    "selectPlaceholder": "Select...",
+    "nextContact": "Next contact date (optional)",
+    "in3days": "In 3 days",
+    "in1week": "In 1 week",
+    "in1month": "In 1 month",
+    "required": "Required fields",
+    "attachments": "Attachments (optional)",
+    "selectFile": "Select file",
+    "save": "Save",
+    "lead": "Lead",
+    "client": "Client",
+    "followUp": "Follow-up: "
+  },
+  "users": {
+    "title": "Users",
+    "count": "users",
+    "search": "Search name, email...",
+    "new": "New User",
+    "roles": {
+      "admin": "Admin",
+      "operator": "Operator",
+      "sales": "Sales"
+    },
+    "cols": {
+      "leads": "Leads",
+      "clients": "Clients",
+      "team": "Team",
+      "skills": "Skills",
+      "skillsEmpty": "No skills set"
+    },
+    "form": {
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "initPassword": "Initial Password",
+      "role": "Role",
+      "team": "Team",
+      "optional": "Optional",
+      "skills": "Skill Services",
+      "skillsHint": "Used for skill-based auto-assignment",
+      "skillsEmpty": "Create services in {{link}} first",
+      "skillsLink": "Services",
+      "editTitle": "Edit User · {{name}}",
+      "resetTitle": "Reset Password · {{name}}",
+      "resetHint": "Set a new password for {{name}}. They must use this password on next login.",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "confirmReset": "Confirm Reset"
+    },
+    "validation": {
+      "invalidEmail": "Enter a valid email",
+      "passwordMin": "Password must be at least 8 characters",
+      "nameRequired": "Name is required",
+      "passwordMismatch": "Passwords do not match"
+    },
+    "deleteConfirm": "Delete user \"{{name}}\"?",
+    "disableConfirm": "Disable user \"{{name}}\"?"
+  },
+  "partners": {
+    "title": "Partners",
+    "count": "partners",
+    "search": "Search name, contact...",
+    "new": "New Partner",
+    "empty": "No partners yet",
+    "form": {
+      "name": "Name",
+      "type": "Type",
+      "contact": "Contact",
+      "contactInfo": "Contact Info",
+      "contactInfoHint": "Phone, email, etc.",
+      "services": "Service Scope",
+      "servicesHint": "Comma-separated, e.g.: IVF USA, Surrogacy"
+    },
+    "detail": {
+      "info": "Partner Info",
+      "products": "Products",
+      "noProducts": "No products yet",
+      "addProduct": "+ Add Product",
+      "productCount": "{{count}} products from {{partners}} partners",
+      "contact": "Contact",
+      "productInfo": "Product Info"
+    },
+    "product": {
+      "add": "Add Product",
+      "edit": "Edit Product",
+      "name": "Product Name",
+      "description": "Description",
+      "price": "Price",
+      "currency": "Currency",
+      "service": "Related Service"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "typeRequired": "Select a type",
+      "serviceRequired": "Select a service",
+      "productNameRequired": "Product name is required"
+    },
+    "deleteConfirm": "Delete \"{{name}}\"?"
+  },
+  "services": {
+    "title": "Services",
+    "new": "New Service",
+    "editTitle": "Edit Service",
+    "empty": "No services yet",
+    "form": {
+      "name": "Name",
+      "description": "Description",
+      "price": "Price",
+      "steps": "Service steps (one per line)",
+      "available": "Available Products",
+      "noProducts": "No products yet, add them in {{link}}",
+      "partnersLink": "Partners"
+    },
+    "validation": {
+      "nameRequired": "Name is required"
+    },
+    "deleteConfirm": "Delete \"{{name}}\"?"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure system information and parameters",
+    "tabs": {
+      "basic": "General",
+      "ai": "AI",
+      "options": "Options",
+      "workflow": "Workflows",
+      "trash": "Trash"
+    },
+    "basic": {
+      "title": "Basic Info",
+      "systemName": "System Name",
+      "timezone": "Timezone",
+      "timezoneHint": "Affects how all times are displayed",
+      "save": "Save Settings",
+      "saved": "Saved"
+    },
+    "features": {
+      "title": "Feature Flags",
+      "aiAgent": "AI Assistant",
+      "aiAgentHint": "Show AI chat widget in bottom-right corner"
+    },
+    "teams": {
+      "title": "Teams",
+      "list": "Team List",
+      "new": "New Team",
+      "edit": "Edit Team: {{name}}",
+      "name": "Team Name",
+      "region": "Region (optional)",
+      "regionPlaceholder": "e.g. East China, Beijing",
+      "cols": {
+        "name": "Name",
+        "region": "Region"
+      },
+      "deleteConfirm": "Delete team \"{{name}}\"? Members will be removed."
+    },
+    "options": {
+      "leadStatus": "Lead Status",
+      "contractStatus": "Contract Status",
+      "activityTypes": "Follow-up Types",
+      "partnerTypes": "Partner Types",
+      "valueRequired": "Value is required",
+      "labelRequired": "Label is required",
+      "addOption": "Add Option",
+      "value": "Value (unique key)",
+      "label": "Label (display text)",
+      "color": "Color",
+      "valueFixed": "Value (fixed, not editable)",
+      "customFields": "Custom Fields",
+      "addField": "+ Add Field",
+      "noFields": "No custom fields. Click \"Add Field\" to create one.",
+      "fieldKey": "Field Key (English)",
+      "fieldLabel": "Display Name",
+      "fieldType": "Type",
+      "fieldUnit": "Unit (optional)",
+      "fieldUnitHint": "e.g. USD, pcs (can be empty)",
+      "fieldOptions": "Options (one per line)",
+      "types": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "select": "Select",
+        "product_select": "Product Select"
+      },
+      "fieldKeyPlaceholder": "e.g. InProgress",
+      "fieldLabelPlaceholder": "e.g. In Progress"
+    },
+    "ai": {
+      "provider": "Model Providers",
+      "addProvider": "+ Add",
+      "name": "Name",
+      "namePlaceholder": "e.g. OpenAI",
+      "type": "Type",
+      "apiKey": "API Key",
+      "baseUrl": "Base URL (optional)",
+      "baseUrlPlaceholder": "https://api.openai.com/v1",
+      "baseUrlHint": "Include up to /v1, not /chat/completions",
+      "noProviders": "No providers added yet",
+      "queryModels": "Fetch Models",
+      "querying": "Fetching...",
+      "deleteConfirm": "Delete provider \"{{name}}\" and all its models?",
+      "availableModels": "Available Models —",
+      "manualInput": "This provider doesn't support auto-fetch. Enter model ID manually:",
+      "modelId": "Model ID",
+      "modelIdPlaceholder": "e.g. @cf/meta/llama-3.1-8b-instruct",
+      "displayName": "Display Name",
+      "displayNamePlaceholder": "e.g. Llama 3.1 8B",
+      "addModel": "Add",
+      "modelEnabled": "Enabled",
+      "enableModel": "Enable",
+      "collapse": "Collapse",
+      "test": "Test",
+      "removeModelConfirm": "Remove model \"{{name}}\"?",
+      "requesting": "Requesting...",
+      "responseTime": "Response time: ",
+      "promptTitle": "AI Analysis Prompts",
+      "promptSubtitle": "Configure prompts used for lead and client AI analysis",
+      "systemPrompt": "System Prompt",
+      "userPrompt": "User Prompt Template",
+      "collapseVars": "Hide Variables",
+      "showVars": "Show Available Variables",
+      "systemRole": "System Role",
+      "userPromptLabel": "User Prompt Template",
+      "noPrompt": "No prompt configured",
+      "notConfigured": "Not configured"
+    },
+    "workflow": {
+      "title": "Workflows",
+      "subtitle": "Configure triggers and actions to automate tasks.",
+      "new": "New Workflow",
+      "empty": "No workflows yet",
+      "deleteConfirm": "Delete this workflow?",
+      "cols": {
+        "target": "Target",
+        "trigger": "Trigger",
+        "actions": "Actions",
+        "status": "Status"
+      },
+      "autoAssign": {
+        "title": "Auto-Assignment",
+        "toggle": "Auto-Assignment",
+        "toggleHint": "When enabled, new leads are automatically assigned based on the rules below",
+        "rules": "Assignment Rules",
+        "rulesHint": "Rules are tried in priority order; the first match wins",
+        "empty": "No rules yet",
+        "new": "New Workflow",
+        "cols": {
+          "priority": "Priority",
+          "name": "Rule Name",
+          "desc": "Description",
+          "status": "Enabled"
+        },
+        "reorder": "Reorder"
+      },
+      "trigger": {
+        "title": "Trigger",
+        "subtitle": "Select the event that starts this workflow",
+        "target": "Target",
+        "type": "Trigger Type",
+        "conditions": "Conditions",
+        "conditionsHint": "Conditions that must be met after trigger fires",
+        "noCondition": "Fires immediately on creation, no conditions needed",
+        "watchField": "Watch Field",
+        "placeholder": "Select...",
+        "changeTo": "Change to",
+        "anyChange": "— Any change —",
+        "anyChangeHint": "Fires whenever the field value changes",
+        "dailyScanHint": "Scans all records daily at 09:00 (CST) and executes actions for matching entities",
+        "matchConditions": "Match Conditions",
+        "dateField": "Date Field",
+        "daysThreshold": "Days Threshold",
+        "daysNoActivity": "days without follow-up",
+        "types": {
+          "field_change": "Field Change",
+          "field_changeHint": "Fires when a field changes to a target value",
+          "on_create": "On Create",
+          "on_createHint": "Fires when a lead or client is created",
+          "scheduled": "Scheduled",
+          "scheduledHint": "Daily check, executes for matching entities",
+          "date_equals_today": "Date field = today",
+          "date_overdue": "Date field is overdue (< today)",
+          "no_activity": "No activity for N days"
+        },
+        "targets": {
+          "lead": "Lead",
+          "client": "Client"
+        }
+      },
+      "actions": {
+        "title": "Actions",
+        "subtitle": "Actions executed in sequence after trigger",
+        "empty": "No actions yet. Add one below.",
+        "pending": "This action type is not yet implemented. Config will be saved but won't execute.",
+        "noTemplates": "No templates in Action Library. Create one in the Action Library tab first.",
+        "addFromLib": "Add from Library",
+        "selectTemplate": "Select Template",
+        "workflowName": "Workflow name (auto-generated if empty)",
+        "types": {
+          "require_activity": "Require Follow-up",
+          "require_fields": "Require Fields",
+          "set_field": "Set Field Value",
+          "send_email": "Send Email",
+          "webhook": "Webhook",
+          "ai_analysis": "AI Auto-Analysis"
+        },
+        "requireActivity": {
+          "required": "Content required",
+          "presets": "Quick presets (comma-separated)",
+          "presetsDefault": "No answer,Added on WeChat",
+          "noFields": "No fields available"
+        },
+        "setField": {
+          "fieldType": {
+            "select": "Select",
+            "datetime": "DateTime",
+            "service": "Intended Service",
+            "text": "Text"
+          },
+          "targetField": "Target Field",
+          "setValue": "Set Value"
+        },
+        "sendEmail": {
+          "to": "To",
+          "subject": "Subject",
+          "subjectDefault": "Notification: ",
+          "body": "Body",
+          "variables": "Available Variables",
+          "variablesHint": "Use in text fields as",
+          "varLead": "Lead Fields",
+          "varClient": "Client Fields",
+          "varTime": "Time Variables",
+          "method": "Method",
+          "bodyJson": "Body (JSON, supports variables)"
+        },
+        "aiAnalysis": {
+          "autoActions": "Auto-execute suggested actions (comma-separated, optional)",
+          "autoActionsDefault": "set_next_contact_date,update_lead_status",
+          "autoActionsHint": "Leave empty to only save the analysis. Options: set_next_contact_date / update_lead_status / update_contract_status"
+        }
+      },
+      "actionLib": {
+        "title": "Action Library",
+        "subtitle": "Pre-defined action configs that can be loaded when creating workflows.",
+        "new": "+ New Template",
+        "empty": "No templates yet",
+        "templateName": "Template Name",
+        "templateNamePlaceholder": "e.g. Send Sales Notification",
+        "target": "Target (affects available fields)",
+        "actionType": "Action Type",
+        "pending": "Not implemented",
+        "cols": {
+          "name": "Name",
+          "type": "Type",
+          "status": "Status"
+        },
+        "deleteConfirm": "Delete this template?"
+      }
+    },
+    "trash": {
+      "title": "Trash",
+      "subtitle": "Deleted records. Restore or permanently delete.",
+      "count": "records",
+      "empty": "Trash is empty",
+      "cols": {
+        "type": "Type",
+        "name": "Name",
+        "extra": "Extra Info",
+        "deletedAt": "Deleted At"
+      },
+      "hardDeleteConfirm": "Permanently delete \"{{name}}\"? This cannot be undone. Related follow-up records will also be deleted.",
+      "hardDelete": "Delete Permanently"
+    },
+    "timezones": {
+      "Asia/Shanghai": "China Standard Time (UTC+8)",
+      "Asia/Hong_Kong": "Hong Kong Time (UTC+8)",
+      "Asia/Taipei": "Taiwan Time (UTC+8)",
+      "Asia/Singapore": "Singapore Time (UTC+8)",
+      "Asia/Tokyo": "Japan Standard Time (UTC+9)",
+      "Asia/Seoul": "Korea Standard Time (UTC+9)",
+      "America/New_York": "US Eastern Time (UTC-5/-4)",
+      "America/Chicago": "US Central Time (UTC-6/-5)",
+      "America/Denver": "US Mountain Time (UTC-7/-6)",
+      "America/Los_Angeles": "US Pacific Time (UTC-8/-7)",
+      "Europe/London": "UK Time (UTC+0/+1)",
+      "Europe/Paris": "Central European Time (UTC+1/+2)"
+    }
+  },
+  "profile": {
+    "title": "Account Settings",
+    "subtitle": "Manage your account, change password, and create API keys",
+    "tabs": {
+      "basic": "Profile",
+      "password": "Password",
+      "api": "API Access",
+      "notifications": "Notifications"
+    },
+    "basic": {
+      "displayName": "Display Name",
+      "save": "Save Name",
+      "email": "Email",
+      "role": "Role"
+    },
+    "password": {
+      "current": "Current Password",
+      "new": "New Password",
+      "confirm": "Confirm Password",
+      "submit": "Change Password",
+      "changed": "Password changed"
+    },
+    "api": {
+      "notice": "Copy your API Key now — it won't be shown again",
+      "copied": "Copied",
+      "copy": "Copy",
+      "dismiss": "I've saved it, close this",
+      "keys": "API Keys",
+      "generate": "Generate New Key",
+      "empty": "No API keys. Click the button above to generate one.",
+      "cols": {
+        "usage": "Usage",
+        "prefix": "Key Prefix",
+        "createdAt": "Created",
+        "lastUsed": "Last Used",
+        "never": "Never"
+      },
+      "revoke": "Revoke",
+      "revokeConfirm": "Revoke \"{{name}}",
+      "docs": {
+        "title": "API Reference",
+        "submit": "Submit a New Lead",
+        "headers": "Headers",
+        "body": "Request Body (JSON)",
+        "adInfo": "Optional fields for ad tracking (ip, url, account, campaign, ad group, ad). Viewable in lead details.",
+        "curl": "cURL Example",
+        "response": "Success Response (201)"
+      }
+    },
+    "notifications": {
+      "email": "Email Notifications",
+      "emailHint": "Send email when triggered",
+      "emailTo": "Recipient Email",
+      "webhook": "Webhook Notifications",
+      "webhookHint": "Send POST request when triggered (WeCom, DingTalk bots, etc.)",
+      "webhookUrl": "Webhook URL",
+      "test": "Test",
+      "sent": "Sent",
+      "sendFailed": "Send failed",
+      "save": "Save Settings",
+      "rules": {
+        "leadAssigned": "Lead assigned to me",
+        "leadAssignedHint": "Fires when a lead is assigned to you (manually or automatically)"
+      }
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "currentRequired": "Enter your current password",
+      "newMin": "New password must be at least 8 characters",
+      "confirmRequired": "Confirm your new password",
+      "mismatch": "Passwords do not match",
+      "usageRequired": "Usage description is required"
+    }
+  },
+  "ai": {
+    "agent": {
+      "title": "AI Assistant",
+      "subtitle": "Speak naturally, act automatically",
+      "clear": "Clear",
+      "suggestions": "Try asking:",
+      "placeholder": "Type a command… (Enter to send, Shift+Enter for newline)",
+      "error": "Request failed. Check AI model configuration.",
+      "examples": [
+        "Which clients need to be contacted today?",
+        "Show me overdue leads",
+        "List recently created leads"
+      ]
+    },
+    "analysis": {
+      "title": "AI Analysis",
+      "analyzing": "Analyzing...",
+      "start": "Start Analysis",
+      "regenerate": "Regenerate",
+      "error": "Analysis failed. Check AI model configuration.",
+      "loading": "Analyzing, please wait...",
+      "suggestions": "Suggested Actions",
+      "executed": "Done",
+      "execute": "Execute →",
+      "empty": "Click \"Start Analysis\" to generate an AI report",
+      "waitTypes": "Follow-up types not loaded yet, please wait",
+      "opFailed": "Error: ",
+      "opError": "Action failed, please handle manually",
+      "loading2": "Loading...",
+      "suggestions": {
+        "updateLeadStatus": "AI suggests: Update lead status to \"{{value}}\"",
+        "updateContractStatus": "AI suggests: Update contract status to \"{{value}}\"",
+        "updateService": "AI suggests: Update intended service to \"{{value}}\"",
+        "updatePlan": "AI suggests: Update service plan to \"{{value}}\"",
+        "reassign": "AI suggests: Reassign sales to \"{{value}}\"",
+        "nextContact": "AI suggests: Schedule next contact for {{value}}"
+      }
+    }
+  },
+  "portal": {
+    "auth": {
+      "title": "Customer Portal",
+      "subtitle": "Welcome back. Sign in to view your service progress.",
+      "passwordTab": "Password",
+      "magicTab": "Magic Link",
+      "email": "Email",
+      "password": "Password",
+      "enterPassword": "Enter password",
+      "login": "Sign in",
+      "loginFailed": "Invalid email or password",
+      "sendFailed": "Send failed. Check your email address.",
+      "sendLink": "Send Login Link",
+      "linkSent": "Link sent!",
+      "linkSentHint": "Check your email and click the link. Valid for 15 minutes.",
+      "resend": "Resend",
+      "linkExpired": "Link expired. Please sign in again.",
+      "invalidEmail": "Enter a valid email",
+      "passwordMin": "Password must be at least 6 characters"
+    },
+    "profile": {
+      "title": "Profile",
+      "email": "Email",
+      "plan": "Service Plan",
+      "noPlan": "None",
+      "contractStatus": "Contract Status",
+      "registeredAt": "Registered",
+      "editName": "Edit Name",
+      "displayName": "Display Name",
+      "save": "Save",
+      "saved": "Saved",
+      "editPhone": "Update Phone",
+      "phonePlaceholder": "Enter phone number",
+      "phoneUpdated": "Updated",
+      "password": "Change Password",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Change Password"
+    },
+    "services": {
+      "title": "Service Progress",
+      "empty": "No services yet. Contact your consultant for details.",
+      "progress": "Progress",
+      "contract": "Contract",
+      "process": "Service Steps"
+    },
+    "resources": {
+      "loading": "Loading..."
+    }
+  },
+  "fileManager": {
+    "loading": "Loading...",
+    "empty": "No files",
+    "deleteConfirm": "Delete file \"{{name}}\"?",
+    "upload": "+ Upload",
+    "clickToDownload": "Click to download",
+    "loadFailed": "Failed to load file"
+  },
+  "attachments": {
+    "loading": "Loading...",
+    "loadFailed": "Failed to load",
+    "download": "Download"
+  }
+}
