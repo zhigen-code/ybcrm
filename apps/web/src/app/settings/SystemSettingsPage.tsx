@@ -1108,7 +1108,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
         if (a.contentRequired) parts.push(t('settings.workflow.actions.requireActivity.required'))
         if (a.contentPresets?.length) parts.push(`${a.contentPresets.join(' / ')}`)
       } else if (a.type === 'require_fields') {
-        parts.push(`${a.fields.map((f) => f.label).join('、')}`)
+        parts.push(a.fields.map((f) => f.label).join(' / '))
       }
     }
     return parts.join('；') || '—'
@@ -1783,7 +1783,7 @@ export default function SystemSettingsPage() {
   const [modelsError, setModelsError] = useState<string | null>(null)
   const [manualModel, setManualModel] = useState({ modelId: '', displayName: '' })
   const [testModelId, setTestModelId] = useState<string | null>(null)
-  const [testPrompt, setTestPrompt] = useState('你好，请用一句话介绍你自己。')
+  const [testPrompt, setTestPrompt] = useState('')
   const [testResult, setTestResult] = useState<{ reply: string; latencyMs: number } | null>(null)
   const [testError, setTestError] = useState<string | null>(null)
   const [testLoading, setTestLoading] = useState(false)
@@ -2447,27 +2447,27 @@ interface AiPrompt {
   isActive: number
 }
 
-const PROMPT_VARS: Record<string, { key: string; desc: string }[]> = {
+const PROMPT_VARS: Record<string, { key: string; descKey: string }[]> = {
   lead_analysis: [
-    { key: 'today',            desc: '当前日期' },
-    { key: 'name',             desc: '姓名' },
-    { key: 'source',           desc: '来源' },
-    { key: 'status',           desc: '当前状态' },
-    { key: 'intended_services',desc: '意向服务' },
-    { key: 'next_contact_date',desc: '下次联系时间' },
-    { key: 'assigned_to_name', desc: '负责销售' },
-    { key: 'activities',       desc: '跟进记录（最近20条）' },
-    { key: 'activity_types',   desc: '可用跟进类型列表' },
+    { key: 'today',            descKey: 'settings.prompts.vars.today' },
+    { key: 'name',             descKey: 'settings.prompts.vars.name' },
+    { key: 'source',           descKey: 'settings.prompts.vars.source' },
+    { key: 'status',           descKey: 'settings.prompts.vars.status' },
+    { key: 'intended_services',descKey: 'settings.prompts.vars.intendedServices' },
+    { key: 'next_contact_date',descKey: 'settings.prompts.vars.nextContactDate' },
+    { key: 'assigned_to_name', descKey: 'settings.prompts.vars.assignedName' },
+    { key: 'activities',       descKey: 'settings.prompts.vars.activities' },
+    { key: 'activity_types',   descKey: 'settings.prompts.vars.activityTypes' },
   ],
   client_analysis: [
-    { key: 'today',               desc: '当前日期' },
-    { key: 'name',                desc: '姓名' },
-    { key: 'contract_status',     desc: '合同状态' },
-    { key: 'service_plans',       desc: '服务套餐' },
-    { key: 'next_contact_date',   desc: '下次联系时间' },
-    { key: 'assigned_sales_name', desc: '负责销售' },
-    { key: 'activities',          desc: '跟进记录（最近20条）' },
-    { key: 'activity_types',      desc: '可用跟进类型列表' },
+    { key: 'today',               descKey: 'settings.prompts.vars.today' },
+    { key: 'name',                descKey: 'settings.prompts.vars.name' },
+    { key: 'contract_status',     descKey: 'settings.prompts.vars.contractStatus' },
+    { key: 'service_plans',       descKey: 'settings.prompts.vars.servicePlans' },
+    { key: 'next_contact_date',   descKey: 'settings.prompts.vars.nextContactDate' },
+    { key: 'assigned_sales_name', descKey: 'settings.prompts.vars.assignedSalesName' },
+    { key: 'activities',          descKey: 'settings.prompts.vars.activities' },
+    { key: 'activity_types',      descKey: 'settings.prompts.vars.activityTypes' },
   ],
 }
 
@@ -2566,7 +2566,7 @@ function AiPromptsPanel() {
                           {(PROMPT_VARS[p.key] ?? []).map((v) => (
                             <div key={v.key} className="flex items-baseline gap-1.5 text-xs">
                               <code className="font-mono text-primary-700 bg-white border border-gray-200 rounded px-1">{`{{${v.key}}}`}</code>
-                              <span className="text-gray-400">{v.desc}</span>
+                              <span className="text-gray-400">{t(v.descKey)}</span>
                             </div>
                           ))}
                         </div>

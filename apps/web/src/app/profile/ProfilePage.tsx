@@ -239,16 +239,16 @@ function ApiTab() {
           </div>
           <div>
             <p className="text-gray-500 mb-1">{t('profile.api.docs.headers')}</p>
-            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`Content-Type: application/json\nX-API-Key: <你的 API Key>`}</code>
+            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`Content-Type: application/json\nX-API-Key: <${t('profile.api.docs.yourApiKey')}>`}</code>
           </div>
           <div>
             <p className="text-gray-500 mb-1">{t('profile.api.docs.body')}</p>
-            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`{\n  "source": "官网表单",\n  "name": "张三",\n  "contactInfo": "13800138000",\n  "intendedServices": ["赴美试管"],\n  "notes": "备注（可选）",\n  "adInfo": {\n    "ip": "1.2.3.4",\n    "url": "https://landing.example.com",\n    "账户": "百度账户A",\n    "广告计划": "试管婴儿-全国",\n    "广告组": "25-35岁女性",\n    "广告": "创意文案01"\n  }\n}`}</code>
+            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{t('profile.api.docs.bodyExample')}</code>
           </div>
           <p className="text-xs text-gray-400">{t('profile.api.docs.adInfo')}</p>
           <div>
             <p className="text-gray-500 mb-1">{t('profile.api.docs.curl')}</p>
-            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`curl -X POST ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: crm_your_key_here" \\\n  -d '{"source":"官网","name":"张三","contactInfo":"138xxxx","intendedServices":["赴美试管"],"adInfo":{"ip":"1.2.3.4","广告计划":"试管-全国"}}'`}</code>
+            <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{t('profile.api.docs.curlExample', { endpoint })}</code>
           </div>
           <div>
             <p className="text-gray-500 mb-1">{t('profile.api.docs.response')}</p>
@@ -272,7 +272,7 @@ function ApiTab() {
         >
           <Input
             label={t('profile.api.cols.usage')}
-            placeholder="如：官网表单、小程序接入"
+            placeholder={t('profile.api.namePlaceholder')}
             error={form.formState.errors.name?.message}
             {...form.register('name')}
           />
@@ -390,16 +390,7 @@ function NotifyTab() {
               error={form.formState.errors.webhookUrl?.message}
               {...form.register('webhookUrl')}
             />
-            <div className="rounded-md bg-gray-50 border px-3 py-2.5 text-xs text-gray-500 font-mono whitespace-pre-wrap">{`POST <你的 URL>
-Content-Type: application/json
-
-{
-  "event": "lead_assigned",
-  "leadName": "张三",
-  "contactInfo": "138xxxx",
-  "source": "百度推广",
-  "assigneeName": "你的姓名"
-}`}</div>
+            <div className="rounded-md bg-gray-50 border px-3 py-2.5 text-xs text-gray-500 font-mono whitespace-pre-wrap">{t('profile.notifications.webhookExample')}</div>
             <Button
               type="button"
               size="sm"

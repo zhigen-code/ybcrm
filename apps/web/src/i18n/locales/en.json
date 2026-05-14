@@ -36,7 +36,10 @@
     "uploading": "Uploading...",
     "uploadFailed": "Upload failed, please retry",
     "saved": "Saved",
-    "saveFailed": "Save failed",
+    "saveFailed": "Save failed, please retry",
+    "copied": "Copied",
+    "value": "Value",
+    "selectPlaceholder": "Select",
     "createFailed": "Create failed",
     "resetFailed": "Reset failed",
     "opFailed": "Operation failed",
@@ -46,7 +49,8 @@
       "prev": "Previous",
       "next": "Next",
       "showing": "{{total}} items, showing {{from}}–{{to}}"
-    }
+    },
+    "sep": ", "
   },
   "nav": {
     "leads": "Leads",
@@ -320,6 +324,17 @@
     },
     "deleteConfirm": "Delete \"{{name}}\"?"
   },
+  "products": {
+    "title": "Product Library",
+    "noServices": "No services yet. Click the button above to create one.",
+    "noProducts": "No products yet. Click the button above to add one.",
+    "docsLabel": "Service Documents",
+    "partnerDisabled": "(Disabled)",
+    "serviceForm": {
+      "steps": "Service steps (one per line)",
+      "stepsPlaceholder": "Initial consultation\nMedical evaluation\nPlan development"
+    }
+  },
   "services": {
     "title": "Services",
     "new": "New Service",
@@ -380,6 +395,8 @@
       "deleteConfirm": "Delete team \"{{name}}\"? Members will be removed."
     },
     "options": {
+      "title": "Options",
+      "subtitle": "Manage dropdown options, status labels and colors for each module",
       "leadStatus": "Lead Status",
       "contractStatus": "Contract Status",
       "activityTypes": "Follow-up Types",
@@ -548,8 +565,10 @@
         },
         "targets": {
           "lead": "Lead",
-          "client": "Client"
-        }
+          "client": "Client",
+          "activity": "Activity"
+        },
+        "targetValueHint": "Target value (empty = any)"
       },
       "actions": {
         "title": "Actions",
@@ -572,6 +591,7 @@
           "required": "Content required",
           "presets": "Quick presets (comma-separated)",
           "presetsDefault": "No answer,Added on WeChat",
+          "presetsPlaceholder": "No answer,Added on WeChat",
           "noFields": "No fields available"
         },
         "setField": {
@@ -582,7 +602,13 @@
             "text": "Text"
           },
           "targetField": "Target Field",
-          "setValue": "Set Value"
+          "setValue": "Set Value",
+          "selectSales": "Select sales rep",
+          "selectTeam": "Select team",
+          "setValueHint": "Set value (supports {{var}} interpolation)",
+          "salesPlaceholder": "Select sales rep...",
+          "teamPlaceholder": "Select team...",
+          "valuePlaceholder": "Target value, e.g. {{today}}"
         },
         "sendEmail": {
           "to": "To",
@@ -640,6 +666,27 @@
           "status": "Status"
         },
         "deleteConfirm": "Delete this template?"
+      },
+      "createTitle": "New Workflow",
+      "editTitle": "Edit Workflow",
+      "dragSort": "Drag to reorder",
+      "templateVars": "Template Variables",
+      "templateVarsHint": "Click to insert at cursor, or copy and paste manually",
+      "toggleAndOr": "Click to toggle AND/OR",
+      "selectField": "Select field",
+      "addCondition": "Add Condition",
+      "conditionOptional": "Conditions (optional)",
+      "conditionHint": "Only execute actions for entities that match these conditions after trigger",
+      "needsAction": "Add at least one action before saving",
+      "namePlaceholder": "e.g. Lead Lost – Send Notification",
+      "onCreateNoConfig": "Fires immediately on creation, no extra config needed",
+      "operators": {
+        "eq": "Equals",
+        "neq": "Not equals",
+        "contains": "Contains",
+        "not_contains": "Not contains",
+        "is_empty": "Is empty",
+        "is_not_empty": "Is not empty"
       }
     },
     "trash": {
@@ -854,7 +901,8 @@
         "type": "File Type",
         "selectFile": "Select File",
         "modalTitle": "Upload File",
-        "uploadAction": "Upload"
+        "uploadAction": "Upload",
+        "titlePlaceholder": "e.g. Medical Report 2024-04"
       },
       "download": "Download"
     },
@@ -863,6 +911,249 @@
       "services": "Services",
       "resources": "My Files",
       "logout": "Logout"
+    }
+  },
+  "clients": {
+    "noContact": "No contact info"
+  },
+  "leads": {
+    "form": {
+      "sourcePlaceholder": "Type or select existing source...",
+      "notes": "Notes"
+    }
+  },
+  "ai": {
+    "fallbackDesc": "AI suggestion: {{label}} ({{value}}). {{reason}}"
+  },
+  "settings": {
+    "prompts": {
+      "vars": {
+        "today": "Current date",
+        "name": "Name",
+        "source": "Source",
+        "status": "Current status",
+        "intendedServices": "Intended services",
+        "nextContactDate": "Next contact date",
+        "assignedName": "Assigned sales",
+        "activities": "Follow-up records (last 20)",
+        "activityTypes": "Available activity types",
+        "contractStatus": "Contract status",
+        "servicePlans": "Service plans",
+        "assignedSalesName": "Assigned sales"
+      }
+    }
+  },
+  "profile": {
+    "api": {
+      "namePlaceholder": "e.g. Website Form, Mini Program",
+      "docs": {
+        "yourApiKey": "your API Key",
+        "bodyExample": "{\n  \"source\": \"website-form\",\n  \"name\": \"Jane Smith\",\n  \"contactInfo\": \"+1-555-0100\",\n  \"intendedServices\": [\"IVF Abroad\"],\n  \"notes\": \"notes (optional)\",\n  \"adInfo\": {\n    \"ip\": \"1.2.3.4\",\n    \"url\": \"https://landing.example.com\",\n    \"account\": \"Google Ads Account A\",\n    \"campaign\": \"IVF-Global\",\n    \"adGroup\": \"Women 25-35\",\n    \"ad\": \"Creative Copy 01\"\n  }\n}",
+        "curlExample": "curl -X POST {{endpoint}} \\\n  -H \"Content-Type: application/json\" \\\n  -H \"X-API-Key: crm_your_key_here\" \\\n  -d '{\"source\":\"website\",\"name\":\"Jane Smith\",\"contactInfo\":\"+1-555-0100\",\"intendedServices\":[\"IVF Abroad\"],\"adInfo\":{\"ip\":\"1.2.3.4\",\"campaign\":\"IVF-Global\"}}'"
+      }
+    },
+    "notifications": {
+      "webhookExample": "POST <your URL>\nContent-Type: application/json\n\n{\n  \"event\": \"lead_assigned\",\n  \"leadName\": \"Jane Smith\",\n  \"contactInfo\": \"+1-555-0100\",\n  \"source\": \"Google Ads\",\n  \"assigneeName\": \"Your Name\"\n}"
+    }
+  },
+  "products": {
+    "title": "Product Library",
+    "noServices": "No services yet. Click the button above to create one.",
+    "noProducts": "No products yet. Click the button above to add one.",
+    "docsLabel": "Service Documents",
+    "partnerDisabled": "(Disabled)",
+    "serviceForm": {
+      "steps": "Service steps (one per line)",
+      "stepsPlaceholder": "Initial consultation\nMedical evaluation\nPlan development"
+    }
+  },
+  "docs": {
+    "title": "Docs",
+    "copyBtn": "Copy",
+    "copied": "Copied",
+    "nav": { "workflow": "Workflow Automation", "api": "API Integration" },
+    "sections": {
+      "intro": "Overview", "vars": "Template Variables", "actions": "Action Types",
+      "tips": "Notes", "apiOverview": "Auth & Overview", "apiLeads": "Submit Lead"
+    },
+    "intro": {
+      "title": "Workflow Automation",
+      "subtitle": "Understand how workflows run, trigger conditions, and execution flow",
+      "body": "Workflows automatically execute a series of actions when specific conditions are met, reducing manual work and ensuring consistent business processes. You can configure and enable workflows in System Settings → Workflows.",
+      "flowTitle": "Execution Flow",
+      "steps": {
+        "trigger": { "title": "Trigger", "desc": "Entity created, or field changed to a specified value" },
+        "match":   { "title": "Match",   "desc": "Find all enabled workflows and check each trigger condition" },
+        "execute": { "title": "Execute", "desc": "Run actions in order; earlier results are available to later template variables" }
+      },
+      "triggerTitle": "Trigger Types",
+      "triggers": {
+        "onCreate":    { "label": "On Create",    "badge": "on_create",    "desc": "Fires immediately when an entity (lead/client) is created. Good for welcome notifications or initializing default field values." },
+        "fieldChange": { "label": "Field Change", "badge": "field_change", "desc": "Fires when a specified field changes to a particular value, e.g. Status → Confirmed, or Owner → Any. Supports 'Any' to fire on any change." },
+        "scheduled":   { "label": "Scheduled",   "badge": "scheduled",    "desc": "Auto-scans all records daily at 09:00 (Asia/Shanghai) and executes actions on matching entities. Supports: date field = today, date field expired, no activity for N days." }
+      },
+      "asyncTitle": "Async Execution Note",
+      "asyncDescPre": "All workflow actions run asynchronously in the background (fire-and-forget) and do not block the frontend response.",
+      "asyncDescPost": "action's database writes happen in real time, but you need to refresh the page to see the updated values."
+    },
+    "vars": {
+      "title": "Template Variables",
+      "subtitle": "Dynamically reference entity data and time in emails, webhooks, and field assignments",
+      "syntaxTitle": "Syntax",
+      "basicUsageLabel": "Basic usage",
+      "namespaceUsageLabel": "With namespace (equivalent)",
+      "unrecognizedPre": "Unrecognized variable names are ",
+      "unrecognizedHighlight": "kept as-is",
+      "unrecognizedPost": " (not replaced with empty), making configuration errors easy to spot.",
+      "colVar": "Variable", "colDesc": "Description", "colExample": "Example",
+      "tabLead": "Lead Fields", "tabClient": "Client Fields", "tabTime": "Time Variables",
+      "timeNote": "Time variables are calculated based on the timezone in system settings (default Asia/Shanghai). Week starts on Monday; month follows the calendar month.",
+      "leadNotePost": "come from the linked user table; other fields are read directly from the lead record.",
+      "clientNotePost": "come from the linked user table.",
+      "clientNoteServicePlans": "is an array; multiple items are joined with a comma."
+    },
+    "varGroups": { "lead": "Lead Fields", "client": "Client Fields", "activity": "Activity Fields", "time": "Time Variables" },
+    "varDescs": {
+      "lead": {
+        "name": "Lead name", "contactInfo": "Contact info", "source": "Source channel",
+        "status": "Current status", "intendedServices": "Intended services (comma-separated)",
+        "lostReason": "Lost reason", "nextContactDate": "Next contact date",
+        "notes": "Notes", "assignedToName": "Owner name",
+        "assignedToEmail": "Owner email", "createdAt": "Created at"
+      },
+      "client": {
+        "name": "Client name", "phone": "Phone", "email": "Email",
+        "contractStatus": "Contract status", "servicePlans": "Service plans (comma-separated)",
+        "assignedSalesName": "Sales rep name", "assignedSalesEmail": "Sales rep email",
+        "createdAt": "Created at"
+      },
+      "activity": {
+        "activityType": "Activity type", "description": "Follow-up content",
+        "activityDate": "Activity date", "nextContactDate": "Next contact date",
+        "recorderName": "Recorder name", "recorderEmail": "Recorder email",
+        "leadName": "Related lead name", "clientName": "Related client name"
+      },
+      "time": {
+        "now": "Current time (precise to minute)", "today": "Today YYYY-MM-DD",
+        "tomorrow": "Tomorrow's date", "yesterday": "Yesterday's date",
+        "weekStart": "This week's Monday", "weekEnd": "This week's Sunday",
+        "monthStart": "First day of month", "monthEnd": "Last day of month"
+      }
+    },
+    "actionsSection": {
+      "title": "Action Types",
+      "subtitle": "Five actions available after a workflow triggers, with configuration guides",
+      "configExampleLabel": "Configuration Example",
+      "notesLabel": "Notes"
+    },
+    "actions": {
+      "set_field": {
+        "label": "Auto Set Field",
+        "desc": "Automatically set a field to a specified value when trigger conditions are met. Field values support template variables.",
+        "example": "Trigger: Lead status → Confirmed\nField: Next Contact Date\nValue: {{tomorrow}}",
+        "notes": ["Actions execute in list order; a previous action's result is immediately available to subsequent template variables", "Field values can use template variables such as {{today}}, {{name}}, etc."]
+      },
+      "send_email": {
+        "label": "Send Email",
+        "desc": "Send a notification email to specified recipients on trigger. Recipients, subject, and body all support template variables.",
+        "example": "To: {{assignedToEmail}}\nSubject: New Lead Alert: {{name}}\nBody: Hi,\n\nLead {{name}} ({{contactInfo}}) has been assigned to you.\nSource: {{source}}\nIntended Services: {{intendedServices}}\n\nPlease complete the first follow-up by {{tomorrow}}.",
+        "notes": ["Email is sent via SendGrid; configure SENDGRID_API_KEY in Cloudflare Workers environment variables", "Recipient can be a fixed address or dynamic via {{assignedToEmail}} / {{assignedSalesEmail}}", "Body is plain text; line breaks are preserved"]
+      },
+      "webhook": {
+        "label": "Webhook",
+        "desc": "Send an HTTP request to an external system on trigger. URL and body both support template variables.",
+        "example": "URL: https://hooks.example.com/crm\nMethod: POST\nBody: {\n  \"event\": \"lead_confirmed\",\n  \"name\": \"{{name}}\",\n  \"phone\": \"{{contactInfo}}\",\n  \"assignee\": \"{{assignedToName}}\",\n  \"date\": \"{{today}}\"\n}",
+        "notes": ["Body should be valid JSON; string values can embed {{variables}}", "Request includes Content-Type: application/json header", "GET requests do not send a body"]
+      },
+      "require_activity": {
+        "label": "Require Follow-up",
+        "desc": "Intercept user actions on the frontend and require a follow-up record before a status change can complete.",
+        "example": "Trigger: Lead status → Lost\nRequire reason: Yes\nPreset options: No interest, Price too high, Chose another provider",
+        "notes": ["Frontend only; backend API does not validate", "Preset options are comma-separated"]
+      },
+      "require_fields": {
+        "label": "Require Fields",
+        "desc": "Require the user to fill in specified fields before completing an action; cannot proceed if fields are empty.",
+        "example": "Trigger: Lead status → Confirmed\nRequired fields: Next Contact Date, Intended Services",
+        "notes": ["Frontend only; backend API does not validate"]
+      }
+    },
+    "tipsSection": { "title": "Notes", "subtitle": "Edge behaviors and security notes when using workflows" },
+    "tips": {
+      "actionOrder": {
+        "title": "Action Execution Order",
+        "items": ["Actions within the same workflow run serially in list order", "After set_field runs, the new value is immediately available to subsequent template variables", "A failing action does not stop subsequent actions (each action has its own try-catch)"]
+      },
+      "emailConfig": {
+        "title": "Email Configuration",
+        "items": ["Uses SendGrid for sending; configure SENDGRID_API_KEY in Cloudflare Workers environment variables", "If SENDGRID_API_KEY is not set, send-email actions are silently skipped without error", "Sender is fixed as noreply@irfc.cn (Fertility CRM)"]
+      },
+      "unmatched": {
+        "title": "Behavior When Variables Don't Match",
+        "items": ["Using a non-existent variable name (e.g. {{xyz}}) keeps {{xyz}} as-is rather than replacing it with an empty string", "This makes configuration errors easy to spot and avoids silently sending broken notifications", "If a field value is null, the variable is not in the context and referencing it also keeps it as-is"]
+      },
+      "timing": {
+        "title": "Trigger Timing & Frontend Refresh",
+        "items": ["Workflows run asynchronously in the background (fire-and-forget); frontend operations do not wait for completion", "set_field writes to the database in real time, but you need to manually refresh the page to see the latest value", "require_activity and require_fields only intercept on the frontend; backend API does not validate"]
+      },
+      "webhookSecurity": {
+        "title": "Webhook Security",
+        "items": ["Webhook URLs support template variables; ensure URLs come from trusted sources to avoid SSRF risks", "Request signing and HMAC verification are not yet supported; receivers should verify source IP or add a token parameter", "Variable substitution in the body happens before sending; sensitive data (e.g. passwords) should not be passed via variables"]
+      }
+    },
+    "api": {
+      "overview": {
+        "title": "API Integration — Auth & Overview",
+        "subtitle": "Automatically import leads from external systems (landing pages, ad platforms, etc.) via REST API",
+        "authTitle": "Authentication",
+        "authDesc": "All API requests must include an",
+        "authDescPost": "header for authentication.",
+        "keyNote": "API Keys are created and managed by admins in System Settings → API Keys. Keys start with",
+        "keyNotePost": "— keep them secret; never expose them in frontend code or public repositories.",
+        "endpointsTitle": "Endpoints",
+        "submitLeadsLabel": "Submit Lead",
+        "errorsTitle": "Error Codes",
+        "autoAssignTitle": "Auto Assignment",
+        "autoAssignDesc": "Leads submitted via API automatically enter the assignment queue and are assigned to the right sales rep based on rules configured in System Settings → Assignment Rules."
+      },
+      "errorCodes": {
+        "401": "Missing or invalid X-API-Key",
+        "400": "Request validation failed; the message field explains the specific reason",
+        "500": "Internal server error"
+      },
+      "leads": {
+        "title": "Submit Lead",
+        "subtitle": "Submit customer information collected from landing pages or ad platforms to the CRM",
+        "headerNote": "Content-Type: application/json · X-API-Key header required",
+        "reqFieldsTitle": "Request Fields",
+        "cols": { "field": "Field", "type": "Type", "required": "Required", "desc": "Description" },
+        "requiredLabel": "Required",
+        "optionalLabel": "Optional",
+        "adInfoTitle": "adInfo Ad Fields",
+        "adInfoCols": { "field": "Field", "desc": "Description" },
+        "adInfoNote": "All adInfo sub-fields are optional. After submission they appear on the lead detail page in the Ad Info card.",
+        "reqExampleLabel": "Request Example",
+        "successLabel": "Success Response (201)",
+        "fallbackTitle": "Intended Services Fallback Rules",
+        "fallbackItems": [
+          "The system validates each item in intendedServices against the service list",
+          "Unrecognized service names are automatically replaced with 'Other' and the original name is appended to notes",
+          "If you submit an 'Other' service not configured in the system, first add it in System Settings → Service Management"
+        ],
+        "fields": {
+          "source": "Lead source channel, e.g. \"Baidu\", \"TikTok\"",
+          "name": "Lead name",
+          "contactInfo": "Contact info (phone / WeChat / email, etc.)",
+          "intendedServices": "List of intended services, at least one. Unrecognized services fall back to 'Other' and are noted",
+          "notes": "Additional notes (optional)",
+          "adInfo": "Ad tracking info (optional); see ad fields below"
+        },
+        "adInfoFields": {
+          "ip": "User IP address", "url": "Landing page or ad URL",
+          "account": "Ad account name", "plan": "Ad campaign name",
+          "group": "Ad group name", "ad": "Ad creative name"
+        }
+      }
     }
   },
   "fileManager": {

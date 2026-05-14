@@ -23,7 +23,7 @@ const typeBadge: Record<ResourceType, 'blue' | 'green' | 'yellow' | 'gray'> = {
 }
 
 const uploadSchema = z.object({
-  title: z.string().min(1, '请填写文件名称'),
+  title: z.string().min(1),
   resourceType: z.enum(['MedicalReport', 'Contract', 'PassportCopy', 'PartnerContact']),
 })
 type UploadForm = z.infer<typeof uploadSchema>
@@ -176,7 +176,7 @@ export default function ResourcesPage() {
           <div className="space-y-3">
             <Input
               label={t('portal.resources.form.title')}
-              placeholder="如：体检报告 2024-04"
+              placeholder={t('portal.resources.form.titlePlaceholder')}
               error={form.formState.errors.title?.message}
               {...form.register('title')}
             />

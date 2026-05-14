@@ -113,7 +113,7 @@ export function AiAnalysisCard({ entityType, entityId, onActionExecuted }: Props
       } else {
         await crmApi.post('/activities', {
           ...base,
-          description: ACTION_DESCRIPTIONS[action.type] ?? `AI 建议：${action.label}（${action.value}）。${action.reason}`,
+          description: ACTION_DESCRIPTIONS[action.type] ?? t('ai.fallbackDesc', { label: action.label, value: action.value, reason: action.reason }),
         })
       }
 

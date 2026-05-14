@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,15 +25,15 @@ const COLOR_CLASS: Record<Color, string> = {
 }
 
 const GROUPS = [
-  { key: 'lead_status',     label: '线索状态',     noAdd: true },
-  { key: 'contract_status', label: '合同状态',     noAdd: false },
-  { key: 'activity_type',   label: '跟进类型',     noAdd: false },
-  { key: 'partner_type',    label: '合作伙伴类型', noAdd: false },
+  { key: 'lead_status',     labelKey: 'settings.options.leadStatus',     noAdd: true },
+  { key: 'contract_status', labelKey: 'settings.options.contractStatus',  noAdd: false },
+  { key: 'activity_type',   labelKey: 'settings.options.activityTypes',   noAdd: false },
+  { key: 'partner_type',    labelKey: 'settings.options.partnerTypes',    noAdd: false },
 ]
 
 const itemSchema = z.object({
-  value: z.string().min(1, '请填写值'),
-  label: z.string().min(1, '请填写标签'),
+  value: z.string().min(1),
+  label: z.string().min(1),
   color: z.enum(VALID_COLORS).default('gray'),
 })
 type ItemForm = z.infer<typeof itemSchema>
@@ -63,6 +64,7 @@ function ActivityMetaEditor({
   metadata: string | null | undefined
   onChange: (meta: string | null) => void
 }) {
+  const { t } = useTranslation()
   const parsed = parseActivityMeta({ metadata } as OptionItem)
   const scope: Scope[] = parsed.scope ?? ['lead', 'client']
   const fields: ActivityMetaField[] = parsed.fields ?? []
@@ -85,9 +87,9 @@ function ActivityMetaEditor({
   return (
     <div className="space-y-3 border-t pt-3">
       <div>
-        <p className="text-sm font-medium text-gray-700 mb-1.5">适用范围</p>
+        <p className="text-sm font-medium text-gray-700 mb-1.5">{t('settings.options.cols.scope')}</p>
         <div className="flex gap-4">
-          {([['lead', '线索'], ['client', '客户']] as [Scope, string][]).map(([val, label]) => (
+          {([['lead', t('settings.workflow.trigger.targets.lead')], ['client', t('settings.workflow.trigger.targets.client')]] as [Scope, string][]).map(([val, label]) => (
             <label key={val} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
               <input type="checkbox" checked={scope.includes(val)} onChange={() => toggleScope(val)} className="rounded" />
               {label}
@@ -97,18 +99,18 @@ function ActivityMetaEditor({
       </div>
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-sm font-medium text-gray-700">自定义字段</p>
-          <button type="button" onClick={addField} className="text-xs text-primary-600 hover:text-primary-800">+ 添加字段</button>
+          <p className="text-sm font-medium text-gray-700">{t('settings.options.customFields')}</p>
+          <button type="button" onClick={addField} className="text-xs text-primary-600 hover:text-primary-800">{t('settings.options.addField')}</button>
         </div>
         {fields.length === 0 ? (
-          <p className="text-xs text-gray-400">无自定义字段</p>
+          <p className="text-xs text-gray-400">{t('settings.options.noFields')}</p>
         ) : (
           <div className="space-y-2">
             {fields.map((f, i) => (
               <div key={i} className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <input
-                    placeholder="字段名"
+                    placeholder={t('settings.options.fieldLabel')}
                     className="h-7 flex-1 rounded border border-gray-300 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
                     value={f.label}
                     onChange={(e) => setField(i, { label: e.target.value, key: e.target.value.replace(/\s+/g, '_').toLowerCase() || f.key })}
@@ -118,15 +120,15 @@ function ActivityMetaEditor({
                     value={f.type}
                     onChange={(e) => setField(i, { type: e.target.value as ActivityMetaField['type'], options: [], unit: '' })}
                   >
-                    <option value="text">文本</option>
-                    <option value="number">数字</option>
-                    <option value="date">日期</option>
-                    <option value="select">选择</option>
-                    <option value="product_select">产品选择</option>
+                    <option value="text">{t('settings.options.types.text')}</option>
+                    <option value="number">{t('settings.options.types.number')}</option>
+                    <option value="date">{t('settings.options.types.date')}</option>
+                    <option value="select">{t('settings.options.types.select')}</option>
+                    <option value="product_select">{t('settings.options.types.product_select')}</option>
                   </select>
                   {f.type === 'number' && (
                     <input
-                      placeholder="单位"
+                      placeholder={t('settings.options.fieldUnit')}
                       className="h-7 w-14 rounded border border-gray-300 px-2 text-xs focus:outline-none"
                       value={f.unit ?? ''}
                       onChange={(e) => { const u = e.target.value; setField(i, { unit: u }) }}
@@ -136,10 +138,10 @@ function ActivityMetaEditor({
                 </div>
                 {f.type === 'select' && (
                   <div className="ml-2 pl-2 border-l border-gray-200">
-                    <p className="text-xs text-gray-400 mb-1">选项（每行一个）</p>
+                    <p className="text-xs text-gray-400 mb-1">{t('settings.options.fieldOptions')}</p>
                     <textarea
                       rows={3}
-                      placeholder={"选项A\n选项B\n选项C"}
+                      placeholder={"Option A\nOption B\nOption C"}
                       className="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
                       value={(f.options ?? []).join('\n')}
                       onChange={(e) => setField(i, { options: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
@@ -156,6 +158,7 @@ function ActivityMetaEditor({
 }
 
 function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolean }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editTarget, setEditTarget] = useState<OptionItem | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -210,7 +213,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
     editForm.reset({ value: item.value, label: item.label, color: item.color })
   }
 
-  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">{t('common.loading')}</div>
 
   return (
     <div>
@@ -218,11 +221,11 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">色</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">值</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">标签</th>
-              {isActivityType && <th className="px-4 py-3 text-left font-medium text-gray-700">适用范围</th>}
-              <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">{t('settings.options.cols.color')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.value')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.label')}</th>
+              {isActivityType && <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.scope')}</th>}
+              <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.status')}</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -258,7 +261,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                               : 'bg-gray-50 border-gray-200 text-gray-400'
                           }`}
                         >
-                          {s === 'lead' ? '线索' : '客户'}
+                          {s === 'lead' ? t('settings.workflow.trigger.targets.lead') : t('settings.workflow.trigger.targets.client')}
                         </button>
                       ))}
                     </div>
@@ -266,7 +269,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                 )}
                 <td className="px-4 py-3">
                   <Badge variant={item.isActive ? 'green' : 'gray'}>
-                    {item.isActive ? '启用' : '禁用'}
+                    {item.isActive ? t('common.enabled') : t('common.disabled')}
                   </Badge>
                 </td>
                 <td className="px-4 py-3">
@@ -275,7 +278,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                       onClick={() => openEdit(item)}
                       className="text-xs text-primary-600 hover:text-primary-800"
                     >
-                      编辑
+                      {t('common.edit')}
                     </button>
                     {!item.isSystem && (
                       <>
@@ -284,16 +287,16 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                           onClick={() => toggleActive.mutate({ id: item.id, isActive: !item.isActive })}
                           className="text-xs text-gray-500 hover:text-gray-700"
                         >
-                          {item.isActive ? '禁用' : '启用'}
+                          {item.isActive ? t('common.disable') : t('common.enable')}
                         </button>
                         <span className="text-gray-300">|</span>
                         <button
                           onClick={() => {
-                            if (confirm(`确认删除「${item.label}」？`)) deleteMutation.mutate(item.id)
+                            if (confirm(t('settings.options.deleteConfirm', { name: item.label }))) deleteMutation.mutate(item.id)
                           }}
                           className="text-xs text-red-500 hover:text-red-700"
                         >
-                          删除
+                          {t('common.delete')}
                         </button>
                       </>
                     )}
@@ -308,7 +311,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
       {!noAdd && (
         <div className="mt-3">
           <Button variant="secondary" size="sm" onClick={() => setShowAdd(true)}>
-            + 添加选项
+            {t('settings.options.addOption')}
           </Button>
         </div>
       )}
@@ -316,18 +319,18 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
       {/* 编辑弹窗 */}
       {editTarget && (
         <Modal
-          title={`编辑：${editTarget.label}`}
+          title={t('settings.options.editOption', { name: editTarget.label })}
           onClose={() => setEditTarget(null)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
+              <Button variant="secondary" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
               <Button
                 loading={updateMutation.isPending}
                 onClick={editForm.handleSubmit((d) =>
                   updateMutation.mutate({ id: editTarget.id, ...d, color: editColor })
                 )}
               >
-                保存
+                {t('common.save')}
               </Button>
             </>
           }
@@ -335,15 +338,15 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
           <div className="space-y-3">
             {editTarget.isSystem ? (
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">值（系统固定，不可修改）</p>
+                <p className="text-sm font-medium text-gray-700 mb-1">{t('settings.options.valueFixed')}</p>
                 <p className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-500 font-mono">{editTarget.value}</p>
               </div>
             ) : (
-              <Input label="值" error={editForm.formState.errors.value?.message} {...editForm.register('value')} />
+              <Input label={t('settings.options.valueLabel')} error={editForm.formState.errors.value?.message} {...editForm.register('value')} />
             )}
-            <Input label="标签" error={editForm.formState.errors.label?.message} {...editForm.register('label')} />
+            <Input label={t('settings.options.labelLabel')} error={editForm.formState.errors.label?.message} {...editForm.register('label')} />
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">颜色</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('settings.options.colorLabel')}</p>
               <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
             {isActivityType && <ActivityMetaEditor metadata={editMeta} onChange={setEditMeta} />}
@@ -354,25 +357,25 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
       {/* 添加弹窗 */}
       {showAdd && (
         <Modal
-          title="添加选项"
+          title={t('settings.options.addOptionTitle')}
           onClose={() => { setShowAdd(false); addForm.reset(); setAddColor('gray') }}
           footer={
             <>
-              <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset(); setAddColor('gray') }}>取消</Button>
+              <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset(); setAddColor('gray') }}>{t('common.cancel')}</Button>
               <Button
                 loading={addMutation.isPending}
                 onClick={addForm.handleSubmit((d) => addMutation.mutate({ ...d, color: addColor }))}
               >
-                添加
+                {t('common.add')}
               </Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="值（唯一标识）" placeholder="如 InProgress" error={addForm.formState.errors.value?.message} {...addForm.register('value')} />
-            <Input label="标签（显示文本）" placeholder="如 进行中" error={addForm.formState.errors.label?.message} {...addForm.register('label')} />
+            <Input label={t('settings.options.optionValue')} placeholder={t('settings.options.optionValuePlaceholder')} error={addForm.formState.errors.value?.message} {...addForm.register('value')} />
+            <Input label={t('settings.options.optionLabel')} placeholder={t('settings.options.optionLabelPlaceholder')} error={addForm.formState.errors.label?.message} {...addForm.register('label')} />
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">颜色</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('settings.options.optionColor')}</p>
               <ColorPicker value={addColor} onChange={setAddColor} />
             </div>
             {isActivityType && <ActivityMetaEditor metadata={addMeta} onChange={setAddMeta} />}
@@ -384,14 +387,15 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
 }
 
 export default function OptionsPage() {
+  const { t } = useTranslation()
   const [activeGroup, setActiveGroup] = useState(GROUPS[0]!.key)
   const current = GROUPS.find((g) => g.key === activeGroup) ?? GROUPS[0]!
 
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">选项配置</h1>
-        <p className="mt-0.5 text-sm text-gray-500">管理各业务模块的下拉选项、状态标签和颜色</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('settings.options.title')}</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{t('settings.options.subtitle')}</p>
       </div>
 
       {/* Tab 切换 */}
@@ -406,7 +410,7 @@ export default function OptionsPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {g.label}
+            {t(g.labelKey)}
           </button>
         ))}
       </div>

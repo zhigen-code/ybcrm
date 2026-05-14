@@ -519,7 +519,7 @@ export default function LeadsPage() {
               value={watch('source') ?? ''}
               onChange={(v) => setValue('source', v, { shouldValidate: true })}
               options={sourceOptions}
-              placeholder="输入或选择已有来源..."
+              placeholder={t('leads.form.sourcePlaceholder')}
             />
             <Input label={t('common.name')} error={errors.name?.message} {...register('name')} />
             <Input label={t('leads.cols.contact')} error={errors.contactInfo?.message} {...register('contactInfo')} />
@@ -534,7 +534,7 @@ export default function LeadsPage() {
               </div>
               {errors.intendedServices && <p className="mt-1 text-xs text-red-500">{errors.intendedServices.message}</p>}
             </div>
-            <Textarea label="备注" {...register('notes')} />
+            <Textarea label={t('leads.form.notes')} {...register('notes')} />
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="secondary" type="button" onClick={() => { setShowCreate(false); reset() }}>{t('common.cancel')}</Button>
               <Button type="submit" loading={isSubmitting || createMutation.isPending}>{t('common.create')}</Button>

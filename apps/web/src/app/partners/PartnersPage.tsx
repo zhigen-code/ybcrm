@@ -31,8 +31,8 @@ interface PartnerProduct {
 }
 
 const partnerSchema = z.object({
-  name: z.string().min(1, '请填写名称'),
-  type: z.string().min(1, '请选择类型'),
+  name: z.string().min(1),
+  type: z.string().min(1),
   contactPerson: z.string().nullable().optional(),
   contactInfo: z.string().nullable().optional(),
   serviceScope: z.string().optional(),
@@ -40,8 +40,8 @@ const partnerSchema = z.object({
 type PartnerForm = z.infer<typeof partnerSchema>
 
 const productSchema = z.object({
-  serviceId: z.string().min(1, '请选择关联服务'),
-  name: z.string().min(1, '请填写产品名称'),
+  serviceId: z.string().min(1),
+  name: z.string().min(1),
   description: z.string().nullable().optional(),
   price: z.coerce.number().nullable().optional(),
   currency: z.string().default('USD'),
@@ -312,7 +312,7 @@ export default function PartnersPage() {
   }
 
   const openEdit = (p: Partner) => {
-    form.reset({ name: p.name, type: p.type, contactPerson: p.contactPerson, contactInfo: p.contactInfo, serviceScope: (p.serviceScope ?? []).join('、') })
+    form.reset({ name: p.name, type: p.type, contactPerson: p.contactPerson, contactInfo: p.contactInfo, serviceScope: (p.serviceScope ?? []).join(t('common.sep')) })
     setEditTarget(p)
     setShowForm(true)
   }

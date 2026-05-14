@@ -219,7 +219,7 @@ export default function ClientsPage() {
                       {client.email && <div className="text-xs text-gray-400">{client.email}</div>}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
-                      {(client.servicePlans ?? []).join('、') || '—'}
+                      {(client.servicePlans ?? []).join(t('common.sep')) || '—'}
                     </td>
                     <td className="px-4 py-3">
                       {client.contractStatus ? (
@@ -283,7 +283,7 @@ export default function ClientsPage() {
                         {client.leadNo != null && (
                           <span className="font-mono text-gray-400 mr-1">L-{String(client.leadNo).padStart(4, '0')}</span>
                         )}
-                        {client.phone ?? client.email ?? '无联系方式'}
+                        {client.phone ?? client.email ?? t('clients.noContact')}
                       </p>
                     </div>
                     {client.contractStatus ? (

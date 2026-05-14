@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
   useSensor, useSensors, type DragEndEvent,
@@ -64,82 +65,89 @@ interface EditorForm {
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────────
 
-const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户', activity: '跟进' }
-
-const TRIGGER_TYPES: { type: WfTriggerType; label: string; desc: string }[] = [
-  { type: 'field_change', label: '字段变更', desc: '字段值变更为目标值时触发' },
-  { type: 'on_create',    label: '新建时',   desc: '实体被新建时自动触发' },
-  { type: 'scheduled',    label: '定时触发', desc: '每天定时扫描，满足条件自动执行' },
+const TRIGGER_TYPES: { type: WfTriggerType; labelKey: string; descKey: string }[] = [
+  { type: 'field_change', labelKey: 'settings.workflow.trigger.types.field_change', descKey: 'settings.workflow.trigger.types.field_changeHint' },
+  { type: 'on_create',    labelKey: 'settings.workflow.trigger.types.on_create',    descKey: 'settings.workflow.trigger.types.on_createHint' },
+  { type: 'scheduled',    labelKey: 'settings.workflow.trigger.types.scheduled',    descKey: 'settings.workflow.trigger.types.scheduledHint' },
 ]
 
-const SCHEDULED_CONDITIONS: { value: ScheduledCondition; label: string; needsField: boolean; needsDays: boolean }[] = [
-  { value: 'date_is_today',    label: '日期字段 = 今天',        needsField: true,  needsDays: false },
-  { value: 'date_overdue',     label: '日期字段已过期（< 今天）', needsField: true,  needsDays: false },
-  { value: 'no_activity_days', label: '超过 N 天未跟进',         needsField: false, needsDays: true  },
+const SCHEDULED_CONDITIONS: { value: ScheduledCondition; labelKey: string; needsField: boolean; needsDays: boolean }[] = [
+  { value: 'date_is_today',    labelKey: 'settings.workflow.trigger.types.date_equals_today', needsField: true,  needsDays: false },
+  { value: 'date_overdue',     labelKey: 'settings.workflow.trigger.types.date_overdue',      needsField: true,  needsDays: false },
+  { value: 'no_activity_days', labelKey: 'settings.workflow.trigger.types.no_activity',       needsField: false, needsDays: true  },
 ]
 
-const ACTION_TYPES: { type: WfActionForm['type']; label: string }[] = [
-  { type: 'require_activity', label: '要求跟进记录' },
-  { type: 'require_fields',   label: '强制填写字段' },
-  { type: 'set_field',        label: '自动赋值字段' },
-  { type: 'send_email',       label: '发送邮件' },
-  { type: 'webhook',          label: 'Webhook 通知' },
+const ACTION_TYPES: { type: WfActionForm['type']; labelKey: string }[] = [
+  { type: 'require_activity', labelKey: 'settings.workflow.actions.types.require_activity' },
+  { type: 'require_fields',   labelKey: 'settings.workflow.actions.types.require_fields' },
+  { type: 'set_field',        labelKey: 'settings.workflow.actions.types.set_field' },
+  { type: 'send_email',       labelKey: 'settings.workflow.actions.types.send_email' },
+  { type: 'webhook',          labelKey: 'settings.workflow.actions.types.webhook' },
 ]
 
-const ACTION_LABELS: Record<WfActionForm['type'], string> = {
-  require_activity: '要求跟进记录',
-  require_fields:   '强制填写字段',
-  set_field:        '自动赋值字段',
-  send_email:       '发送邮件',
-  webhook:          'Webhook 通知',
-}
-
-const CONDITION_OPERATORS: { value: ConditionOperator; label: string; needsValue: boolean }[] = [
-  { value: 'eq',           label: '等于',   needsValue: true  },
-  { value: 'neq',          label: '不等于', needsValue: true  },
-  { value: 'contains',     label: '包含',   needsValue: true  },
-  { value: 'not_contains', label: '不包含', needsValue: true  },
-  { value: 'is_empty',     label: '为空',   needsValue: false },
-  { value: 'is_not_empty', label: '不为空', needsValue: false },
+const CONDITION_OPERATORS: { value: ConditionOperator; labelKey: string; needsValue: boolean }[] = [
+  { value: 'eq',           labelKey: 'settings.workflow.operators.eq',           needsValue: true  },
+  { value: 'neq',          labelKey: 'settings.workflow.operators.neq',          needsValue: true  },
+  { value: 'contains',     labelKey: 'settings.workflow.operators.contains',     needsValue: true  },
+  { value: 'not_contains', labelKey: 'settings.workflow.operators.not_contains', needsValue: true  },
+  { value: 'is_empty',     labelKey: 'settings.workflow.operators.is_empty',     needsValue: false },
+  { value: 'is_not_empty', labelKey: 'settings.workflow.operators.is_not_empty', needsValue: false },
 ]
 
-const TEMPLATE_VAR_GROUPS = [
+const TEMPLATE_VAR_GROUPS: { labelKey: string; entityType: 'lead' | 'client' | 'activity' | null; vars: { key: string; descKey: string }[] }[] = [
   {
-    label: '线索字段', entityType: 'lead' as const,
+    labelKey: 'settings.workflow.actions.sendEmail.varLead', entityType: 'lead' as const,
     vars: [
-      { key: 'name', desc: '线索姓名' }, { key: 'contactInfo', desc: '联系方式' },
-      { key: 'source', desc: '来源渠道' }, { key: 'status', desc: '当前状态' },
-      { key: 'intendedServices', desc: '意向服务' }, { key: 'lostReason', desc: '丢失原因' },
-      { key: 'nextContactDate', desc: '下次联系时间' }, { key: 'notes', desc: '备注' },
-      { key: 'assignedToName', desc: '负责人姓名' }, { key: 'assignedToEmail', desc: '负责人邮箱' },
-      { key: 'createdAt', desc: '创建时间' },
+      { key: 'name', descKey: 'settings.workflow.actions.sendEmail.vars.lead.name' },
+      { key: 'contactInfo', descKey: 'settings.workflow.actions.sendEmail.vars.lead.contactInfo' },
+      { key: 'source', descKey: 'settings.workflow.actions.sendEmail.vars.lead.source' },
+      { key: 'status', descKey: 'settings.workflow.actions.sendEmail.vars.lead.status' },
+      { key: 'intendedServices', descKey: 'settings.workflow.actions.sendEmail.vars.lead.intendedServices' },
+      { key: 'lostReason', descKey: 'settings.workflow.actions.sendEmail.vars.lead.lostReason' },
+      { key: 'nextContactDate', descKey: 'settings.workflow.actions.sendEmail.vars.lead.nextContactDate' },
+      { key: 'notes', descKey: 'settings.workflow.actions.sendEmail.vars.lead.notes' },
+      { key: 'assignedToName', descKey: 'settings.workflow.actions.sendEmail.vars.lead.assignedToName' },
+      { key: 'assignedToEmail', descKey: 'settings.workflow.actions.sendEmail.vars.lead.assignedToEmail' },
+      { key: 'createdAt', descKey: 'settings.workflow.actions.sendEmail.vars.lead.createdAt' },
     ],
   },
   {
-    label: '客户字段', entityType: 'client' as const,
+    labelKey: 'settings.workflow.actions.sendEmail.varClient', entityType: 'client' as const,
     vars: [
-      { key: 'name', desc: '客户姓名' }, { key: 'phone', desc: '电话' },
-      { key: 'email', desc: '邮箱' }, { key: 'contractStatus', desc: '合同状态' },
-      { key: 'servicePlans', desc: '服务套餐' }, { key: 'assignedSalesName', desc: '负责销售姓名' },
-      { key: 'assignedSalesEmail', desc: '负责销售邮箱' }, { key: 'createdAt', desc: '创建时间' },
+      { key: 'name', descKey: 'settings.workflow.actions.sendEmail.vars.client.name' },
+      { key: 'phone', descKey: 'settings.workflow.actions.sendEmail.vars.client.phone' },
+      { key: 'email', descKey: 'settings.workflow.actions.sendEmail.vars.client.email' },
+      { key: 'contractStatus', descKey: 'settings.workflow.actions.sendEmail.vars.client.contractStatus' },
+      { key: 'servicePlans', descKey: 'settings.workflow.actions.sendEmail.vars.client.servicePlans' },
+      { key: 'assignedSalesName', descKey: 'settings.workflow.actions.sendEmail.vars.client.assignedSalesName' },
+      { key: 'assignedSalesEmail', descKey: 'settings.workflow.actions.sendEmail.vars.client.assignedSalesEmail' },
+      { key: 'createdAt', descKey: 'settings.workflow.actions.sendEmail.vars.client.createdAt' },
     ],
   },
   {
-    label: '跟进字段', entityType: 'activity' as const,
+    labelKey: 'settings.workflow.trigger.targets.activity', entityType: 'activity' as const,
     vars: [
-      { key: 'activityType', desc: '跟进类型' }, { key: 'description', desc: '跟进内容' },
-      { key: 'activityDate', desc: '跟进时间' }, { key: 'nextContactDate', desc: '下次联系时间' },
-      { key: 'recorderName', desc: '记录人姓名' }, { key: 'recorderEmail', desc: '记录人邮箱' },
-      { key: 'leadName', desc: '关联线索名' }, { key: 'clientName', desc: '关联客户名' },
+      { key: 'activityType', descKey: 'settings.workflow.actions.sendEmail.vars.lead.status' },
+      { key: 'description', descKey: 'settings.workflow.actions.sendEmail.vars.lead.notes' },
+      { key: 'activityDate', descKey: 'settings.workflow.actions.sendEmail.vars.lead.createdAt' },
+      { key: 'nextContactDate', descKey: 'settings.workflow.actions.sendEmail.vars.lead.nextContactDate' },
+      { key: 'recorderName', descKey: 'settings.workflow.actions.sendEmail.vars.lead.assignedToName' },
+      { key: 'recorderEmail', descKey: 'settings.workflow.actions.sendEmail.vars.lead.assignedToEmail' },
+      { key: 'leadName', descKey: 'settings.workflow.actions.sendEmail.vars.lead.name' },
+      { key: 'clientName', descKey: 'settings.workflow.actions.sendEmail.vars.client.name' },
     ],
   },
   {
-    label: '时间变量', entityType: null,
+    labelKey: 'settings.workflow.actions.sendEmail.varTime', entityType: null,
     vars: [
-      { key: 'now', desc: '当前时间' }, { key: 'today', desc: '今天 YYYY-MM-DD' },
-      { key: 'tomorrow', desc: '明天' }, { key: 'yesterday', desc: '昨天' },
-      { key: 'weekStart', desc: '本周一' }, { key: 'weekEnd', desc: '本周日' },
-      { key: 'monthStart', desc: '本月第一天' }, { key: 'monthEnd', desc: '本月最后一天' },
+      { key: 'now', descKey: 'settings.workflow.actions.sendEmail.vars.time.now' },
+      { key: 'today', descKey: 'settings.workflow.actions.sendEmail.vars.time.today' },
+      { key: 'tomorrow', descKey: 'settings.workflow.actions.sendEmail.vars.time.tomorrow' },
+      { key: 'yesterday', descKey: 'settings.workflow.actions.sendEmail.vars.time.yesterday' },
+      { key: 'weekStart', descKey: 'settings.workflow.actions.sendEmail.vars.time.weekStart' },
+      { key: 'weekEnd', descKey: 'settings.workflow.actions.sendEmail.vars.time.weekEnd' },
+      { key: 'monthStart', descKey: 'settings.workflow.actions.sendEmail.vars.time.monthStart' },
+      { key: 'monthEnd', descKey: 'settings.workflow.actions.sendEmail.vars.time.monthEnd' },
     ],
   },
 ]
@@ -162,11 +170,13 @@ function buildTrigger(f: EditorForm) {
 }
 
 function buildPayload(f: EditorForm) {
-  const entityLabel = ENTITY_LABELS[f.entityType] ?? f.entityType
-  const triggerDesc = f.triggerType === 'on_create' ? '新建时'
+  const ENTITY_LABELS_STATIC: Record<string, string> = { lead: 'lead', client: 'client', activity: 'activity' }
+  const entityLabel = ENTITY_LABELS_STATIC[f.entityType] ?? f.entityType
+  const schedCondValue = SCHEDULED_CONDITIONS.find((c) => c.value === f.scheduledCondition)?.value ?? f.scheduledCondition
+  const triggerDesc = f.triggerType === 'on_create' ? 'on_create'
     : f.triggerType === 'scheduled'
-    ? `定时·${SCHEDULED_CONDITIONS.find((c) => c.value === f.scheduledCondition)?.label ?? f.scheduledCondition}`
-    : `${f.triggerField} → ${f.triggerValue === '*' ? '任意值' : f.triggerValue}`
+    ? `scheduled·${schedCondValue}`
+    : `${f.triggerField} → ${f.triggerValue === '*' ? '*' : f.triggerValue}`
   const name = f.name.trim() || `${entityLabel} · ${triggerDesc}`
   const conditions = f.conditions
     .filter((c) => c.field)
@@ -245,16 +255,18 @@ function ActionConfigEditor({
   salesUsers: { id: string; name: string }[]
   teams: { id: string; name: string }[]
 }) {
+  const { t } = useTranslation()
+
   if (action.type === 'require_activity') return (
     <div className="space-y-2">
       <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
         <input type="checkbox" className="rounded border-gray-300" checked={action.contentRequired}
           onChange={(e) => onChange({ contentRequired: e.target.checked })} />
-        跟进内容必填
+        {t('settings.workflow.actions.requireActivity.required')}
       </label>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">快选预设（逗号分隔）</label>
-        <input className={CLS.inp} placeholder="电话未接通,已加微信未回" value={action.contentPresets}
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.requireActivity.presets')}</label>
+        <input className={CLS.inp} placeholder={t('settings.workflow.actions.requireActivity.presetsPlaceholder')} value={action.contentPresets}
           onChange={(e) => onChange({ contentPresets: e.target.value })}
           onFocus={(e) => onFocusTextarea(e.target)} />
       </div>
@@ -264,7 +276,7 @@ function ActionConfigEditor({
   if (action.type === 'require_fields') return (
     <div className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">
       {requirableFields.length === 0
-        ? <p className="px-3 py-2 text-xs text-gray-400">暂无可选字段</p>
+        ? <p className="px-3 py-2 text-xs text-gray-400">{t('settings.workflow.actions.requireActivity.noFields')}</p>
         : requirableFields.map((ef) => {
           const checked = action.fields.some((f) => f.field === ef.field)
           return (
@@ -277,7 +289,7 @@ function ActionConfigEditor({
                 }} />
               <span className="flex-1 text-sm text-gray-700">{ef.label}</span>
               <span className="text-xs text-gray-400">
-                {ef.type === 'select' ? '下拉' : ef.type === 'datetime' ? '日期时间' : ef.type === 'services' ? '意向服务' : '文本'}
+                {ef.type === 'select' ? t('settings.workflow.actions.setField.fieldType.select') : ef.type === 'datetime' ? t('settings.workflow.actions.setField.fieldType.datetime') : ef.type === 'services' ? t('settings.workflow.actions.setField.fieldType.service') : t('settings.workflow.actions.setField.fieldType.text')}
               </span>
             </label>
           )
@@ -293,29 +305,29 @@ function ActionConfigEditor({
     return (
       <div className="space-y-2">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">目标字段</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.setField.targetField')}</label>
           <select className={CLS.sel} value={action.field}
             onChange={(e) => { const ef = entityFields.find((f) => f.field === e.target.value); onChange({ field: e.target.value, label: ef?.label ?? '', value: '' }) }}>
-            <option value="">请选择...</option>
+            <option value="">{t('settings.workflow.trigger.placeholder')}</option>
             {entityFields.filter((f) => !f.triggerOnly).map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">
-            {isUserField ? '选择销售人员' : isTeamField ? '选择团队' : '设为值（支持 {{变量}} 插值）'}
+            {isUserField ? t('settings.workflow.actions.setField.selectSales') : isTeamField ? t('settings.workflow.actions.setField.selectTeam') : t('settings.workflow.actions.setField.setValueHint')}
           </label>
           {isUserField ? (
             <select className={CLS.sel} value={action.value} onChange={(e) => onChange({ value: e.target.value })}>
-              <option value="">请选择销售...</option>
+              <option value="">{t('settings.workflow.actions.setField.salesPlaceholder')}</option>
               {salesUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           ) : isTeamField ? (
             <select className={CLS.sel} value={action.value} onChange={(e) => onChange({ value: e.target.value })}>
-              <option value="">请选择团队...</option>
-              {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              <option value="">{t('settings.workflow.actions.setField.teamPlaceholder')}</option>
+              {teams.map((tm) => <option key={tm.id} value={tm.id}>{tm.name}</option>)}
             </select>
           ) : (
-            <input className={CLS.inp} placeholder="目标值，如 {{today}}" value={action.value}
+            <input className={CLS.inp} placeholder={t('settings.workflow.actions.setField.valuePlaceholder')} value={action.value}
               onChange={(e) => onChange({ value: e.target.value })}
               onFocus={(e) => onFocusTextarea(e.target)} />
           )}
@@ -327,19 +339,19 @@ function ActionConfigEditor({
   if (action.type === 'send_email') return (
     <div className="space-y-2">
       <div>
-        <label className="block text-xs text-gray-500 mb-1">收件人</label>
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.to')}</label>
         <input className={CLS.inp} placeholder="{{assignedToEmail}}" value={action.to}
           onChange={(e) => onChange({ to: e.target.value })}
           onFocus={(e) => onFocusTextarea(e.target)} />
       </div>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">主题</label>
-        <input className={CLS.inp} placeholder="通知：{{name}}" value={action.subject}
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.subject')}</label>
+        <input className={CLS.inp} placeholder="{{name}}" value={action.subject}
           onChange={(e) => onChange({ subject: e.target.value })}
           onFocus={(e) => onFocusTextarea(e.target)} />
       </div>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">正文</label>
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.body')}</label>
         <textarea className={CLS.ta} rows={5} value={action.body}
           onChange={(e) => onChange({ body: e.target.value })}
           onFocus={(e) => onFocusTextarea(e.target)} />
@@ -351,7 +363,7 @@ function ActionConfigEditor({
     <div className="space-y-2">
       <div className="flex gap-2">
         <div className="flex-none w-24">
-          <label className="block text-xs text-gray-500 mb-1">方法</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.method')}</label>
           <select className={CLS.sel} value={action.method} onChange={(e) => onChange({ method: e.target.value })}>
             <option value="POST">POST</option><option value="GET">GET</option>
           </select>
@@ -364,7 +376,7 @@ function ActionConfigEditor({
         </div>
       </div>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Body（JSON，支持变量）</label>
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.bodyJson')}</label>
         <textarea className={CLS.ta} rows={5} value={action.body}
           onChange={(e) => onChange({ body: e.target.value })}
           onFocus={(e) => onFocusTextarea(e.target)} />
@@ -390,6 +402,7 @@ function SortableActionCard({
   salesUsers: { id: string; name: string }[]
   teams: { id: string; name: string }[]
 }) {
+  const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: action.id })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -406,13 +419,13 @@ function SortableActionCard({
           {...attributes}
           {...listeners}
           className="flex-none cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 touch-none"
-          title="拖拽排序"
+          title={t('settings.workflow.dragSort')}
         >
           <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
             <path d="M7 2a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 8a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 14a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4z" />
           </svg>
         </button>
-        <span className="flex-1 text-xs font-semibold text-gray-700">{ACTION_LABELS[action.type]}</span>
+        <span className="flex-1 text-xs font-semibold text-gray-700">{t(`settings.workflow.actions.types.${action.type}`)}</span>
         <button type="button" onClick={onRemove} className="text-gray-400 hover:text-red-500 transition-colors">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -440,6 +453,7 @@ function VariablePanel({
   entityType: string
   onInsert: (varStr: string) => void
 }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState<string | null>(null)
   const groups = TEMPLATE_VAR_GROUPS.filter((g) => g.entityType === null || g.entityType === entityType)
 
@@ -454,12 +468,12 @@ function VariablePanel({
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-xs font-semibold text-gray-600 mb-1">模板变量</p>
-        <p className="text-xs text-gray-400">点击变量插入到当前焦点位置，或复制后手动粘贴</p>
+        <p className="text-xs font-semibold text-gray-600 mb-1">{t('settings.workflow.templateVars')}</p>
+        <p className="text-xs text-gray-400">{t('settings.workflow.templateVarsHint')}</p>
       </div>
       {groups.map((g) => (
-        <div key={g.label}>
-          <p className="text-xs font-medium text-gray-500 mb-1.5">{g.label}</p>
+        <div key={g.labelKey}>
+          <p className="text-xs font-medium text-gray-500 mb-1.5">{t(g.labelKey)}</p>
           <div className="space-y-1">
             {g.vars.map((v) => (
               <button
@@ -475,7 +489,7 @@ function VariablePanel({
                 }`}>
                   {`{{${v.key}}}`}
                 </code>
-                <span className="text-xs text-gray-400 truncate">{copied === v.key ? '已复制' : v.desc}</span>
+                <span className="text-xs text-gray-400 truncate">{copied === v.key ? t('common.copied') : t(v.descKey)}</span>
               </button>
             ))}
           </div>
@@ -499,12 +513,13 @@ function ConditionsBuilder({
   onPatch: (id: string, patch: Partial<ConditionRow>) => void
   onLogicChange: (l: ConditionLogic) => void
 }) {
+  const { t } = useTranslation()
   const { data: allOptions } = useOptions()
 
   return (
     <div className="space-y-3">
       {conditions.length === 0 && (
-        <p className="text-sm text-gray-400 italic py-1">无额外条件，触发即执行动作</p>
+        <p className="text-sm text-gray-400 italic py-1">{t('settings.workflow.trigger.noCondition')}</p>
       )}
 
       {conditions.map((cond, idx) => {
@@ -521,7 +536,7 @@ function ConditionsBuilder({
                   type="button"
                   onClick={() => onLogicChange(logic === 'and' ? 'or' : 'and')}
                   className="flex-none rounded-full border border-gray-300 bg-white px-3 py-0.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-                  title="点击切换 AND/OR"
+                  title={t('settings.workflow.toggleAndOr')}
                 >
                   {logic === 'and' ? 'AND' : 'OR'}
                 </button>
@@ -535,7 +550,7 @@ function ConditionsBuilder({
                   value={cond.field}
                   onChange={(e) => onPatch(cond.id, { field: e.target.value, value: '' })}
                 >
-                  <option value="">选择字段</option>
+                  <option value="">{t('settings.workflow.selectField')}</option>
                   {entityFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
                 </select>
                 <select
@@ -543,16 +558,16 @@ function ConditionsBuilder({
                   value={cond.operator}
                   onChange={(e) => onPatch(cond.id, { operator: e.target.value as ConditionOperator })}
                 >
-                  {CONDITION_OPERATORS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {CONDITION_OPERATORS.map((o) => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
                 </select>
                 {opDef?.needsValue ? (
                   valueOptions.length > 0 ? (
                     <select className={CLS.sel} value={cond.value} onChange={(e) => onPatch(cond.id, { value: e.target.value })}>
-                      <option value="">请选择</option>
+                      <option value="">{t('common.selectPlaceholder')}</option>
                       {valueOptions.map((o: OptionItem) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   ) : (
-                    <input className={CLS.inp} placeholder="值" value={cond.value}
+                    <input className={CLS.inp} placeholder={t('common.value')} value={cond.value}
                       onChange={(e) => onPatch(cond.id, { value: e.target.value })} />
                   )
                 ) : (
@@ -574,7 +589,7 @@ function ConditionsBuilder({
         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
-        添加条件
+        {t('settings.workflow.addCondition')}
       </button>
     </div>
   )
@@ -596,6 +611,7 @@ export default function WorkflowEditorPage() {
   const isNew = !wfId || wfId === 'new'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
   const focusedRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
   const [form, setForm] = useState<EditorForm>(emptyForm)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -640,7 +656,7 @@ export default function WorkflowEditorPage() {
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setSaveError(msg ?? '保存失败，请重试')
+      setSaveError(msg ?? t('common.saveFailed'))
     },
   })
 
@@ -726,7 +742,7 @@ export default function WorkflowEditorPage() {
   }
 
   if (!isNew && wfLoading) {
-    return <div className="p-6 text-sm text-gray-500">加载中...</div>
+    return <div className="p-6 text-sm text-gray-500">{t('common.loading')}</div>
   }
 
   return (
@@ -737,14 +753,14 @@ export default function WorkflowEditorPage() {
         onClick={() => navigate('/app/settings?tab=policies')}
         className="mb-4 text-sm text-gray-500 hover:text-gray-700"
       >
-        ← 返回
+        ← {t('common.back')}
       </button>
 
       {/* 页面标题行 */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
-            {isNew ? '新建工作流' : '编辑工作流'}
+            {isNew ? t('settings.workflow.createTitle') : t('settings.workflow.editTitle')}
           </h1>
           {!isNew && form.name && (
             <p className="mt-0.5 text-sm text-gray-500">{form.name}</p>
@@ -753,7 +769,7 @@ export default function WorkflowEditorPage() {
         <div className="flex items-center gap-3">
           {/* 启用开关 */}
           <label className="flex items-center gap-2 cursor-pointer select-none">
-            <span className="text-sm text-gray-600">启用</span>
+            <span className="text-sm text-gray-600">{t('common.enable')}</span>
             <button
               type="button"
               onClick={() => set({ isActive: !form.isActive })}
@@ -763,7 +779,7 @@ export default function WorkflowEditorPage() {
             </button>
           </label>
           <Button variant="secondary" size="sm" onClick={() => navigate('/app/settings?tab=policies')}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button
             size="sm"
@@ -771,7 +787,7 @@ export default function WorkflowEditorPage() {
             disabled={!canSave}
             onClick={() => { setSaveError(null); saveMutation.mutate(buildPayload(form)) }}
           >
-            保存
+            {t('common.save')}
           </Button>
         </div>
       </div>
@@ -791,24 +807,24 @@ export default function WorkflowEditorPage() {
           <div className="rounded-lg border bg-white p-4 sm:p-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">工作流名称（留空自动生成）</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.actions.workflowName')}</label>
                 <input
                   className={CLS.inp}
-                  placeholder="如：线索丢失 - 发送通知"
+                  placeholder={t('settings.workflow.namePlaceholder')}
                   value={form.name}
                   onChange={(e) => set({ name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">适用对象</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.target')}</label>
                 <select
                   className={CLS.sel}
                   value={form.entityType}
                   onChange={(e) => set({ entityType: e.target.value, triggerField: '', triggerValue: '', conditions: [], actions: [] })}
                 >
-                  <option value="lead">线索</option>
-                  <option value="client">客户</option>
-                  <option value="activity">跟进</option>
+                  <option value="lead">{t('settings.workflow.trigger.targets.lead')}</option>
+                  <option value="client">{t('settings.workflow.trigger.targets.client')}</option>
+                  <option value="activity">{t('settings.workflow.trigger.targets.activity')}</option>
                 </select>
               </div>
             </div>
@@ -819,8 +835,8 @@ export default function WorkflowEditorPage() {
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex-none w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">1</span>
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">触发器</p>
-                  <p className="text-xs text-gray-400">选择启动此工作流的事件类型</p>
+                  <p className="text-sm font-semibold text-gray-800">{t('settings.workflow.trigger.title')}</p>
+                  <p className="text-xs text-gray-400">{t('settings.workflow.trigger.subtitle')}</p>
                 </div>
               </div>
 
@@ -833,8 +849,8 @@ export default function WorkflowEditorPage() {
                     className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
                       form.triggerType === tt.type ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
                     }`}>
-                    <p className={`text-sm font-medium ${form.triggerType === tt.type ? 'text-primary-700' : 'text-gray-700'}`}>{tt.label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{tt.desc}</p>
+                    <p className={`text-sm font-medium ${form.triggerType === tt.type ? 'text-primary-700' : 'text-gray-700'}`}>{t(tt.labelKey)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{t(tt.descKey)}</p>
                   </button>
                 ))}
               </div>
@@ -843,29 +859,29 @@ export default function WorkflowEditorPage() {
               {form.triggerType === 'field_change' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">监听字段</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.watchField')}</label>
                     <select className={CLS.sel} value={form.triggerField}
                       onChange={(e) => set({ triggerField: e.target.value, triggerValue: '' })}>
-                      <option value="">请选择...</option>
+                      <option value="">{t('settings.workflow.trigger.placeholder')}</option>
                       {entityFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">变更为</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.changeTo')}</label>
                     {triggerValueOptions.length > 0 ? (
                       <select className={CLS.sel} value={form.triggerValue}
                         onChange={(e) => set({ triggerValue: e.target.value })}>
-                        <option value="">请选择...</option>
-                        <option value="*">— 任意值（发生变更即触发）—</option>
+                        <option value="">{t('settings.workflow.trigger.placeholder')}</option>
+                        <option value="*">{t('settings.workflow.trigger.anyChange')}</option>
                         {triggerValueOptions.map((o: OptionItem) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     ) : (
-                      <input className={CLS.inp} placeholder="目标值（留空 = 任意）"
+                      <input className={CLS.inp} placeholder={t('settings.workflow.trigger.targetValueHint')}
                         value={form.triggerValue === '*' ? '' : form.triggerValue}
                         onChange={(e) => set({ triggerValue: e.target.value || '*' })} />
                     )}
                     {form.triggerValue === '*' && (
-                      <p className="text-xs text-amber-600 mt-1">字段值发生任何变化时均会触发</p>
+                      <p className="text-xs text-amber-600 mt-1">{t('settings.workflow.trigger.anyChangeHint')}</p>
                     )}
                   </div>
                 </div>
@@ -873,41 +889,41 @@ export default function WorkflowEditorPage() {
 
               {/* 新建时：无配置 */}
               {form.triggerType === 'on_create' && (
-                <p className="text-sm text-gray-400 italic">新建时立即触发，无需额外配置</p>
+                <p className="text-sm text-gray-400 italic">{t('settings.workflow.onCreateNoConfig')}</p>
               )}
 
               {/* 定时触发配置 */}
               {form.triggerType === 'scheduled' && (
                 <div className="space-y-3">
                   <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
-                    每天 09:00（北京时间）自动扫描全量数据，对满足条件的实体执行动作
+                    {t('settings.workflow.trigger.dailyScanHint')}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">匹配条件</label>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.matchConditions')}</label>
                       <select className={CLS.sel} value={form.scheduledCondition}
                         onChange={(e) => set({ scheduledCondition: e.target.value as ScheduledCondition, triggerField: '' })}>
-                        {SCHEDULED_CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        {SCHEDULED_CONDITIONS.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}
                       </select>
                     </div>
                     {scheduledCondDef?.needsField && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">日期字段</label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.dateField')}</label>
                         <select className={CLS.sel} value={form.triggerField}
                           onChange={(e) => set({ triggerField: e.target.value })}>
-                          <option value="">请选择...</option>
+                          <option value="">{t('settings.workflow.trigger.placeholder')}</option>
                           {dateFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
                         </select>
                       </div>
                     )}
                     {scheduledCondDef?.needsDays && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">天数阈值</label>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.daysThreshold')}</label>
                         <div className="flex items-center gap-2">
                           <input type="number" min={1} max={365} className={`${CLS.inp} w-24`}
                             value={form.scheduledDays}
                             onChange={(e) => set({ scheduledDays: Math.max(1, Number(e.target.value)) })} />
-                          <span className="text-sm text-gray-500">天内无跟进记录时触发</span>
+                          <span className="text-sm text-gray-500">{t('settings.workflow.trigger.daysNoActivity')}</span>
                         </div>
                       </div>
                     )}
@@ -921,8 +937,8 @@ export default function WorkflowEditorPage() {
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex-none w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">2</span>
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">条件（可选）</p>
-                  <p className="text-xs text-gray-400">触发后，仅对满足以下条件的实体执行动作</p>
+                  <p className="text-sm font-semibold text-gray-800">{t('settings.workflow.conditionOptional')}</p>
+                  <p className="text-xs text-gray-400">{t('settings.workflow.conditionHint')}</p>
                 </div>
               </div>
               <ConditionsBuilder
@@ -941,8 +957,8 @@ export default function WorkflowEditorPage() {
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex-none w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">3</span>
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">动作</p>
-                  <p className="text-xs text-gray-400">满足条件后依次执行以下动作，可拖拽调整顺序</p>
+                  <p className="text-sm font-semibold text-gray-800">{t('settings.workflow.actions.title')}</p>
+                  <p className="text-xs text-gray-400">{t('settings.workflow.actions.subtitle')}</p>
                 </div>
               </div>
 
@@ -950,7 +966,7 @@ export default function WorkflowEditorPage() {
                 <SortableContext items={form.actions.map((a) => a.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-3 mb-4">
                     {form.actions.length === 0 && (
-                      <p className="text-sm text-gray-400 italic py-1">暂无动作，请从下方添加</p>
+                      <p className="text-sm text-gray-400 italic py-1">{t('settings.workflow.actions.empty')}</p>
                     )}
                     {form.actions.map((action) => (
                       <SortableActionCard
@@ -983,7 +999,7 @@ export default function WorkflowEditorPage() {
                     <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    {at.label}
+                    {t(at.labelKey)}
                   </button>
                 ))}
               </div>
@@ -991,7 +1007,7 @@ export default function WorkflowEditorPage() {
 
             {/* 保存提示 */}
             {!canSave && form.actions.length === 0 && (
-              <p className="text-xs text-amber-600 text-center">请至少添加一个动作才能保存</p>
+              <p className="text-xs text-amber-600 text-center">{t('settings.workflow.needsAction')}</p>
             )}
           </div>
 
