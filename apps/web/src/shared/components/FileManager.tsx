@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 
 interface Attachment {
@@ -44,6 +45,7 @@ interface PreviewState {
 }
 
 function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => void }) {
+  const { t } = useTranslation()
   const fileType = getFileType(state.att.name)
 
   const handleDownload = () => {
@@ -67,7 +69,7 @@ function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => 
             disabled={!state.objectUrl}
             className="rounded bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40"
           >
-            下载
+            {t('common.download')}
           </button>
           <button
             onClick={onClose}
@@ -78,7 +80,7 @@ function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => 
         </div>
       </div>
       <div className="flex flex-1 items-center justify-center overflow-hidden px-4 pb-4">
-        {state.loading && <div className="text-sm text-gray-400">加载中...</div>}
+        {state.loading && <div className="text-sm text-gray-400">{t('common.loading')}</div>}
         {!state.loading && state.objectUrl && (
           <>
             {fileType === 'image' && (
@@ -99,7 +101,7 @@ function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => 
                 <div className="mb-4 text-5xl">📎</div>
                 <p className="mb-4 text-sm text-gray-300">{state.att.name}</p>
                 <button onClick={handleDownload} className="rounded bg-white/20 px-4 py-2 text-sm text-white hover:bg-white/30">
-                  点击下载
+                  {t('common.download')}
                 </button>
               </div>
             )}
@@ -117,6 +119,7 @@ interface Props {
 }
 
 export function FileManager({ entityType, entityId, readonly = false }: Props) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -193,9 +196,9 @@ export function FileManager({ entityType, entityId, readonly = false }: Props) {
   return (
     <div>
       {isLoading ? (
-        <p className="text-xs text-gray-400">加载中...</p>
+        <p className="text-xs text-gray-400">{t('common.loading')}</p>
       ) : attachments.length === 0 && readonly ? (
-        <p className="text-xs text-gray-400">暂无文件</p>
+        <p className="text-xs text-gray-400">{t('fileManager.empty')}</p>
       ) : (
         <div className="space-y-1">
           {attachments.map((att) => {
@@ -219,10 +222,10 @@ export function FileManager({ entityType, entityId, readonly = false }: Props) {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm(`确认删除文件「${att.name}」？`)) deleteMutation.mutate(att.id)
+                      if (confirm(t('fileManager.deleteConfirm', { name: att.name }))) deleteMutation.mutate(att.id)
                     }}
                     className="flex-shrink-0 text-gray-300 hover:text-red-400 text-lg leading-none"
-                    title="删除"
+                    title={t('common.delete')}
                   >
                     ×
                   </button>
@@ -242,7 +245,7 @@ export function FileManager({ entityType, entityId, readonly = false }: Props) {
             disabled={uploading}
             className="inline-flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 disabled:opacity-50 transition-colors"
           >
-            {uploading ? '上传中...' : '+ 上传文件'}
+            {uploading ? t('common.uploading') : t('fileManager.upload')}
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
@@ -50,16 +51,14 @@ type ProductForm = z.infer<typeof productSchema>
 // ─── 产品卡片 ──────────────────────────────────────────────────────────────────
 
 function ProductCard({
-  product,
-  onEdit,
-  onDelete,
-  onToggleActive,
+  product, onEdit, onDelete, onToggleActive,
 }: {
   product: PartnerProduct
   onEdit: (p: PartnerProduct) => void
   onDelete: (p: PartnerProduct) => void
   onToggleActive: (p: PartnerProduct) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className={`rounded-lg border bg-white ${product.isActive ? '' : 'opacity-60'}`}>
       <div className="p-3">
@@ -68,7 +67,7 @@ function ProductCard({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-sm text-gray-900">{product.name}</span>
               <span className="text-xs bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{product.serviceName}</span>
-              {!product.isActive && <span className="text-xs text-gray-400">（已禁用）</span>}
+              {!product.isActive && <span className="text-xs text-gray-400">（{t('common.disabled')}）</span>}
             </div>
             {product.price != null && (
               <p className="text-sm font-semibold text-primary-600 mt-0.5">
@@ -80,17 +79,16 @@ function ProductCard({
             )}
           </div>
           <div className="flex gap-1.5 flex-shrink-0">
-            <button onClick={() => onEdit(product)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+            <button onClick={() => onEdit(product)} className="text-xs text-primary-600 hover:text-primary-800">{t('common.edit')}</button>
             <button onClick={() => onToggleActive(product)} className="text-xs text-gray-400 hover:text-gray-600">
-              {product.isActive ? '禁用' : '启用'}
+              {product.isActive ? t('common.disable') : t('common.enable')}
             </button>
-            <button onClick={() => onDelete(product)} className="text-xs text-red-400 hover:text-red-600">删除</button>
+            <button onClick={() => onDelete(product)} className="text-xs text-red-400 hover:text-red-600">{t('common.delete')}</button>
           </div>
         </div>
       </div>
-      {/* 资料直接展示在产品卡片下方 */}
       <div className="border-t bg-gray-50 px-3 py-2.5 rounded-b-lg">
-        <p className="text-xs font-medium text-gray-400 mb-1.5">产品资料</p>
+        <p className="text-xs font-medium text-gray-400 mb-1.5">{t('partners.detail.productInfo')}</p>
         <FileManager entityType="product" entityId={product.id} />
       </div>
     </div>
@@ -100,16 +98,14 @@ function ProductCard({
 // ─── 合作伙伴区块 ──────────────────────────────────────────────────────────────
 
 function PartnerSection({
-  partner,
-  partnerTypeOpts,
-  onEdit,
-  onDelete,
+  partner, partnerTypeOpts, onEdit, onDelete,
 }: {
   partner: Partner
   partnerTypeOpts: ReturnType<typeof useOptionGroup>['options']
   onEdit: (p: Partner) => void
   onDelete: (p: Partner) => void
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [editProduct, setEditProduct] = useState<PartnerProduct | null>(null)
@@ -182,7 +178,7 @@ function PartnerSection({
             <h2 className="font-semibold text-gray-900">{partner.name}</h2>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
-            {partner.contactPerson && <span>联系人：{partner.contactPerson}</span>}
+            {partner.contactPerson && <span>{t('partners.detail.contact')}：{partner.contactPerson}</span>}
             {partner.contactInfo && <span>{partner.contactInfo}</span>}
             {(partner.serviceScope ?? []).map((s) => (
               <span key={s} className="bg-gray-100 rounded px-1.5 py-0.5">{s}</span>
@@ -190,13 +186,13 @@ function PartnerSection({
           </div>
         </div>
         <div className="flex gap-1 flex-shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => onEdit(partner)}>编辑</Button>
+          <Button variant="ghost" size="sm" onClick={() => onEdit(partner)}>{t('common.edit')}</Button>
           <Button
             variant="ghost" size="sm"
-            onClick={() => { if (confirm(`确认删除「${partner.name}」？`)) onDelete(partner) }}
+            onClick={() => { if (confirm(t('partners.deleteConfirm', { name: partner.name }))) onDelete(partner) }}
             className="text-red-500 hover:text-red-700"
           >
-            删除
+            {t('common.delete')}
           </Button>
         </div>
       </div>
@@ -207,19 +203,19 @@ function PartnerSection({
         <div className="lg:col-span-2 p-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-700">
-              产品 {products.length > 0 && <span className="text-gray-400 font-normal">({products.length})</span>}
+              {t('partners.detail.products')} {products.length > 0 && <span className="text-gray-400 font-normal">({products.length})</span>}
             </span>
             <button
               onClick={openAddProduct}
               className="text-xs text-primary-600 hover:text-primary-800 font-medium"
             >
-              + 添加产品
+              {t('partners.detail.addProduct')}
             </button>
           </div>
           {productsLoading ? (
-            <p className="text-xs text-gray-400 py-4 text-center">加载中...</p>
+            <p className="text-xs text-gray-400 py-4 text-center">{t('common.loading')}</p>
           ) : products.length === 0 ? (
-            <p className="text-xs text-gray-400 py-4 text-center">暂无产品</p>
+            <p className="text-xs text-gray-400 py-4 text-center">{t('partners.detail.noProducts')}</p>
           ) : (
             <div className="space-y-3">
               {products.map((p) => (
@@ -227,7 +223,7 @@ function PartnerSection({
                   key={p.id}
                   product={p}
                   onEdit={openEditProduct}
-                  onDelete={(p) => { if (confirm(`确认删除「${p.name}」？`)) deleteProduct.mutate(p.id) }}
+                  onDelete={(p) => { if (confirm(t('partners.deleteConfirm', { name: p.name }))) deleteProduct.mutate(p.id) }}
                   onToggleActive={(p) => toggleProductActive.mutate({ id: p.id, isActive: !p.isActive })}
                 />
               ))}
@@ -235,33 +231,31 @@ function PartnerSection({
           )}
         </div>
 
-        {/* 伙伴文件（占 1/3） */}
         <div className="p-4">
-          <p className="text-sm font-medium text-gray-700 mb-3">伙伴资料</p>
+          <p className="text-sm font-medium text-gray-700 mb-3">{t('partners.detail.info')}</p>
           <FileManager entityType="partner" entityId={partner.id} />
         </div>
       </div>
 
-      {/* 产品弹窗 */}
       {showAddProduct && (
         <Modal
-          title={editProduct ? '编辑产品' : '添加产品'}
+          title={editProduct ? t('partners.product.edit') : t('partners.product.add')}
           onClose={() => { setShowAddProduct(false); setEditProduct(null) }}
           footer={
             <>
-              <Button variant="secondary" onClick={() => { setShowAddProduct(false); setEditProduct(null) }}>取消</Button>
-              <Button loading={saveProduct.isPending} onClick={productForm.handleSubmit((d) => saveProduct.mutate(d))}>保存</Button>
+              <Button variant="secondary" onClick={() => { setShowAddProduct(false); setEditProduct(null) }}>{t('common.cancel')}</Button>
+              <Button loading={saveProduct.isPending} onClick={productForm.handleSubmit((d) => saveProduct.mutate(d))}>{t('common.save')}</Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Select label="关联服务" options={serviceOptions} error={productForm.formState.errors.serviceId?.message} {...productForm.register('serviceId')} />
-            <Input label="产品名称" error={productForm.formState.errors.name?.message} {...productForm.register('name')} />
-            <Textarea label="描述" rows={2} {...productForm.register('description')} />
+            <Select label={t('partners.product.service')} options={serviceOptions} error={productForm.formState.errors.serviceId?.message} {...productForm.register('serviceId')} />
+            <Input label={t('partners.product.name')} error={productForm.formState.errors.name?.message} {...productForm.register('name')} />
+            <Textarea label={t('partners.product.description')} rows={2} {...productForm.register('description')} />
             <div className="flex gap-2">
-              <Input label="价格" type="number" className="flex-1" {...productForm.register('price')} />
+              <Input label={t('partners.product.price')} type="number" className="flex-1" {...productForm.register('price')} />
               <div className="w-24">
-                <label className="block text-sm font-medium text-gray-700 mb-1">货币</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('partners.product.currency')}</label>
                 <select className="w-full rounded-md border border-gray-300 px-2.5 py-2 text-sm" {...productForm.register('currency')}>
                   <option value="USD">USD</option>
                   <option value="CNY">CNY</option>
@@ -280,6 +274,7 @@ function PartnerSection({
 // ─── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function PartnersPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editTarget, setEditTarget] = useState<Partner | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -339,18 +334,18 @@ export default function PartnersPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">合作伙伴</h1>
-          <p className="mt-0.5 text-sm text-gray-500">共 {total} 家</p>
+          <h1 className="text-xl font-semibold text-gray-900">{t('partners.title')}</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{t('common.total')} {total} {t('partners.count')}</p>
         </div>
-        <Button onClick={openCreate}>新建合作伙伴</Button>
+        <Button onClick={openCreate}>{t('partners.new')}</Button>
       </div>
 
       <div className="mb-4">
-        <Input placeholder="搜索名称、联系人..." value={search} onChange={(e) => handleSearch(e.target.value)} />
+        <Input placeholder={t('partners.search')} value={search} onChange={(e) => handleSearch(e.target.value)} />
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
+        <div className="py-12 text-center text-sm text-gray-500">{t('common.loading')}</div>
       ) : (
         <>
           <div className="space-y-6">
@@ -370,21 +365,21 @@ export default function PartnersPage() {
 
       {showForm && (
         <Modal
-          title={editTarget ? '编辑合作伙伴' : '新建合作伙伴'}
+          title={editTarget ? `${t('common.edit')} ${t('partners.title')}` : t('partners.new')}
           onClose={() => setShowForm(false)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setShowForm(false)}>取消</Button>
-              <Button loading={saveMutation.isPending} onClick={form.handleSubmit((d) => saveMutation.mutate(d))}>保存</Button>
+              <Button variant="secondary" onClick={() => setShowForm(false)}>{t('common.cancel')}</Button>
+              <Button loading={saveMutation.isPending} onClick={form.handleSubmit((d) => saveMutation.mutate(d))}>{t('common.save')}</Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="名称" error={form.formState.errors.name?.message} {...form.register('name')} />
-            <Select label="类型" options={toSelectOptions(partnerTypeOpts)} {...form.register('type')} />
-            <Input label="联系人" {...form.register('contactPerson')} />
-            <Input label="联系方式" placeholder="电话、邮箱等" {...form.register('contactInfo')} />
-            <Input label="服务范围" placeholder="用逗号或顿号分隔，如：赴美试管、代孕" {...form.register('serviceScope')} />
+            <Input label={t('partners.form.name')} error={form.formState.errors.name?.message} {...form.register('name')} />
+            <Select label={t('partners.form.type')} options={toSelectOptions(partnerTypeOpts)} {...form.register('type')} />
+            <Input label={t('partners.form.contact')} {...form.register('contactPerson')} />
+            <Input label={t('partners.form.contactInfo')} placeholder={t('partners.form.contactInfoHint')} {...form.register('contactInfo')} />
+            <Input label={t('partners.form.services')} placeholder={t('partners.form.servicesHint')} {...form.register('serviceScope')} />
           </div>
         </Modal>
       )}

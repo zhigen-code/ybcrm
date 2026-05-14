@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
@@ -24,7 +25,7 @@ interface PartnerProduct {
 }
 
 const schema = z.object({
-  name: z.string().min(1, '请填写名称'),
+  name: z.string().min(1),
   description: z.string().nullable().optional(),
   price: z.coerce.number().nullable().optional(),
   processSteps: z.string().optional(),
@@ -32,6 +33,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export default function ServicesPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editTarget, setEditTarget] = useState<Service | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -84,12 +86,12 @@ export default function ServicesPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">服务管理</h1>
-        <Button onClick={openCreate}>新建服务</Button>
+        <h1 className="text-xl font-semibold text-gray-900">{t('services.title')}</h1>
+        <Button onClick={openCreate}>{t('services.new')}</Button>
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
+        <div className="py-12 text-center text-sm text-gray-500">{t('common.loading')}</div>
       ) : (
         <div className="space-y-8">
           {(data?.data ?? []).map((service) => {
@@ -127,13 +129,13 @@ export default function ServicesPage() {
                     )}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(service)}>编辑</Button>
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(service)}>{t('common.edit')}</Button>
                     <Button
                       variant="ghost" size="sm"
-                      onClick={() => { if (confirm(`确认删除「${service.name}」？`)) deleteService.mutate(service.id) }}
+                      onClick={() => { if (confirm(t('services.deleteConfirm', { name: service.name }))) deleteService.mutate(service.id) }}
                       className="text-red-500 hover:text-red-700"
                     >
-                      删除
+                      {t('common.delete')}
                     </Button>
                   </div>
                 </div>
@@ -143,12 +145,12 @@ export default function ServicesPage() {
                   {/* 产品列表（占 2/3） */}
                   <div className="lg:col-span-2 p-4">
                     <p className="text-sm font-medium text-gray-600 mb-3">
-                      可选产品
-                      {products.length > 0 && <span className="ml-1.5 text-xs text-gray-400 font-normal">共 {products.length} 个，来自 {Object.keys(byPartner).length} 家合作伙伴</span>}
+                      {t('services.form.available')}
+                      {products.length > 0 && <span className="ml-1.5 text-xs text-gray-400 font-normal">{t('partners.detail.productCount', { count: products.length, partners: Object.keys(byPartner).length })}</span>}
                     </p>
                     {products.length === 0 ? (
                       <p className="text-xs text-gray-400 py-4 text-center">
-                        暂无产品，请在<span className="text-primary-500">合作伙伴</span>页面添加
+                        {t('services.form.noProducts', { link: t('services.form.partnersLink') })}
                       </p>
                     ) : (
                       <div className="space-y-4">
@@ -188,7 +190,7 @@ export default function ServicesPage() {
 
                   {/* 服务资料（占 1/3） */}
                   <div className="p-4">
-                    <p className="text-sm font-medium text-gray-600 mb-3">服务资料</p>
+                    <p className="text-sm font-medium text-gray-600 mb-3">{t('services.form.docs')}</p>
                     <FileManager entityType="service" entityId={service.id} />
                   </div>
                 </div>
@@ -200,20 +202,20 @@ export default function ServicesPage() {
 
       {showCreate && (
         <Modal
-          title={editTarget ? '编辑服务' : '新建服务'}
+          title={editTarget ? t('services.editTitle') : t('services.new')}
           onClose={() => setShowCreate(false)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setShowCreate(false)}>取消</Button>
-              <Button loading={saveMutation.isPending} onClick={form.handleSubmit((d) => saveMutation.mutate(d))}>保存</Button>
+              <Button variant="secondary" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
+              <Button loading={saveMutation.isPending} onClick={form.handleSubmit((d) => saveMutation.mutate(d))}>{t('common.save')}</Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="名称" error={form.formState.errors.name?.message} {...form.register('name')} />
-            <Textarea label="描述" {...form.register('description')} />
-            <Input label="价格（元）" type="number" {...form.register('price')} />
-            <Textarea label="服务流程（每行一个步骤）" rows={5} placeholder="初步咨询&#10;医疗评估&#10;方案制定" {...form.register('processSteps')} />
+            <Input label={t('services.form.name')} error={form.formState.errors.name?.message} {...form.register('name')} />
+            <Textarea label={t('services.form.description')} {...form.register('description')} />
+            <Input label={t('services.form.price')} type="number" {...form.register('price')} />
+            <Textarea label={t('services.form.steps')} rows={5} placeholder="初步咨询&#10;医疗评估&#10;方案制定" {...form.register('processSteps')} />
           </div>
         </Modal>
       )}

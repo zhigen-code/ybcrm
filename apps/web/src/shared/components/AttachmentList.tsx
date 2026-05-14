@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import type { ActivityAttachment } from '@/shared/types'
 
@@ -27,6 +28,7 @@ interface PreviewState {
 }
 
 function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => void }) {
+  const { t } = useTranslation()
   const fileType = getFileType(state.att.name)
 
   const handleDownload = () => {
@@ -51,7 +53,7 @@ function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => 
             disabled={!state.objectUrl}
             className="rounded bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-40"
           >
-            下载
+            {t('common.download')}
           </button>
           <button
             onClick={onClose}
@@ -65,10 +67,10 @@ function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => 
       {/* 内容区 */}
       <div className="flex flex-1 items-center justify-center overflow-hidden px-4 pb-4">
         {state.loading && (
-          <div className="text-sm text-gray-400">加载中...</div>
+          <div className="text-sm text-gray-400">{t('common.loading')}</div>
         )}
         {state.error && (
-          <div className="text-sm text-red-400">文件加载失败</div>
+          <div className="text-sm text-red-400">{t('attachments.loadFailed')}</div>
         )}
         {!state.loading && !state.error && state.objectUrl && (
           <>
@@ -101,7 +103,7 @@ function PreviewModal({ state, onClose }: { state: PreviewState; onClose: () => 
                   onClick={handleDownload}
                   className="rounded bg-white/20 px-4 py-2 text-sm text-white hover:bg-white/30"
                 >
-                  点击下载
+                  {t('common.download')}
                 </button>
               </div>
             )}

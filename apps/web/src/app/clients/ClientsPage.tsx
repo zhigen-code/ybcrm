@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Badge } from '@/shared/components/Badge'
 import { formatDate } from '@/shared/utils/format'
@@ -14,6 +15,7 @@ import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 const PAGE_SIZE = 20
 
 export default function ClientsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user } = useCrmAuth()
   const isAdmin = user?.role === 'admin'
@@ -99,8 +101,8 @@ export default function ClientsPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-900">客户档案</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">共 {total} 位客户</p>
+          <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('clients.title')}</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">{t('common.total')} {total} {t('clients.count')}</p>
         </div>
       </div>
 
@@ -109,7 +111,7 @@ export default function ClientsPage() {
         <div className="flex items-center rounded-md border border-gray-300 bg-white shadow-sm transition-colors focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500">
           <input
             className="flex-1 px-3 py-2 text-sm bg-transparent outline-none placeholder:text-gray-400"
-            placeholder="搜索姓名、邮箱、电话..."
+            placeholder={t('clients.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -120,7 +122,7 @@ export default function ClientsPage() {
             {hasFilter && (
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary-500" />
             )}
-            <span className="text-xs">筛选</span>
+            <span className="text-xs">{t('activities.filterLabel')}</span>
             <svg
               className={`w-3.5 h-3.5 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -135,9 +137,9 @@ export default function ClientsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {contractStatusOpts.length > 0 && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-500">合同状态</label>
+                  <label className="text-xs font-medium text-gray-500">{t('clients.cols.contractStatus')}</label>
                   <select value={contractStatusFilter} onChange={(e) => { setContractStatusFilter(e.target.value); setPage(1) }} className={selectClass}>
-                    <option value="">全部状态</option>
+                    <option value="">{t('clients.filter.allStatus')}</option>
                     {contractStatusOpts.filter((o) => o.isActive).map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
@@ -146,9 +148,9 @@ export default function ClientsPage() {
               )}
               {canFilterUser && usersData?.data && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-500">负责销售</label>
+                  <label className="text-xs font-medium text-gray-500">{t('clients.cols.owner')}</label>
                   <select value={assignedUserFilter} onChange={(e) => { setAssignedUserFilter(e.target.value); setPage(1) }} className={selectClass}>
-                    <option value="">全部</option>
+                    <option value="">{t('common.all')}</option>
                     {usersData.data.filter((u) => u.isActive).map((u) => (
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
@@ -156,27 +158,27 @@ export default function ClientsPage() {
                 </div>
               )}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">添加时间</label>
+                <label className="text-xs font-medium text-gray-500">{t('clients.cols.createdAt')}</label>
                 <select value={createdAtFilter} onChange={(e) => { setCreatedAtFilter(e.target.value); setPage(1) }} className={selectClass}>
-                  <option value="">全部时间</option>
-                  <option value="today">今天</option>
-                  <option value="week">最近 7 天</option>
-                  <option value="month">最近 30 天</option>
+                  <option value="">{t('leads.filter.allTime')}</option>
+                  <option value="today">{t('leads.filter.today')}</option>
+                  <option value="week">{t('leads.filter.last7Days')}</option>
+                  <option value="month">{t('leads.filter.last30Days')}</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">下次联系</label>
+                <label className="text-xs font-medium text-gray-500">{t('clients.cols.nextContact')}</label>
                 <select value={nextContactFilter} onChange={(e) => { setNextContactFilter(e.target.value); setPage(1) }} className={selectClass}>
-                  <option value="">全部</option>
-                  <option value="overdue">已逾期</option>
-                  <option value="today">今天到期</option>
-                  <option value="week">未来 7 天</option>
+                  <option value="">{t('common.all')}</option>
+                  <option value="overdue">{t('leads.filter.overdue')}</option>
+                  <option value="today">{t('leads.filter.dueToday')}</option>
+                  <option value="week">{t('leads.filter.next7Days')}</option>
                 </select>
               </div>
             </div>
             {hasFilter && (
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-end">
-                <button onClick={resetFilters} className="text-xs text-gray-400 hover:text-gray-600">重置筛选</button>
+                <button onClick={resetFilters} className="text-xs text-gray-400 hover:text-gray-600">{t('activities.resetFilter')}</button>
               </div>
             )}
           </div>
@@ -184,10 +186,10 @@ export default function ClientsPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
+        <div className="py-12 text-center text-sm text-gray-500">{t('common.loading')}</div>
       ) : !filtered?.length ? (
         <div className="py-12 text-center text-sm text-gray-500">
-          {debouncedSearch || hasFilter ? '未找到匹配客户' : '暂无客户'}
+          {debouncedSearch || hasFilter ? t('clients.noMatch') : t('clients.empty')}
         </div>
       ) : (
         <>
@@ -196,14 +198,14 @@ export default function ClientsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">编号</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">联系方式</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">服务套餐</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">合同状态</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">下次联系</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">创建人</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">创建时间</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('clients.cols.id')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('common.name')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('clients.cols.contact')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('clients.cols.plan')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('clients.cols.contractStatus')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('clients.cols.nextContact')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('clients.cols.createdBy')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('clients.cols.createdAt')}</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -241,20 +243,20 @@ export default function ClientsPage() {
                           onClick={(e) => openFollowUp(client, e)}
                           className="text-xs text-primary-600 hover:text-primary-800 font-medium"
                         >
-                          + 跟进
+                          {t('clients.addActivity')}
                         </button>
                         <span className="text-gray-300">|</span>
                         <Link to={`/app/clients/${client.id}`} className="text-xs text-gray-500 hover:text-gray-700">
-                          详情
+                          {t('common.detail')}
                         </Link>
                         {isAdmin && (
                           <>
                             <span className="text-gray-300">|</span>
                             <button
-                              onClick={() => { if (confirm(`确认删除客户「${client.name}」？此操作不可恢复。`)) deleteClient.mutate(client.id) }}
+                              onClick={() => { if (confirm(t('clients.deleteConfirm', { name: client.name }))) deleteClient.mutate(client.id) }}
                               className="text-xs text-red-500 hover:text-red-700"
                             >
-                              删除
+                              {t('common.delete')}
                             </button>
                           </>
                         )}
@@ -291,12 +293,12 @@ export default function ClientsPage() {
                     ) : null}
                   </div>
                   <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                    <span>{(client.servicePlans ?? []).join('、') || '未指定套餐'}</span>
+                    <span>{(client.servicePlans ?? []).join('、') || t('clients.detail.noPlan')}</span>
                     <span className="ml-auto">{formatDate(client.createdAt)}</span>
                   </div>
                   {client.nextContactDate && (
                     <div className="mt-1 text-xs text-gray-400">
-                      下次联系：<span className={new Date(client.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(client.nextContactDate)}</span>
+                      {t('clients.detail.nextContact')}<span className={new Date(client.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(client.nextContactDate)}</span>
                     </div>
                   )}
                 </Link>
@@ -305,7 +307,7 @@ export default function ClientsPage() {
                     onClick={(e) => openFollowUp(client, e)}
                     className="text-sm text-primary-600 font-medium"
                   >
-                    + 添加跟进记录
+                    {t('activityModal.title')}
                   </button>
                 </div>
               </div>
@@ -318,7 +320,7 @@ export default function ClientsPage() {
 
       {followUpTarget && (
         <ActivityModal
-          title={`跟进：${followUpTarget.name}`}
+          title={`${t('activityModal.followUp')}${followUpTarget.name}`}
           onClose={() => setFollowUpTarget(null)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}

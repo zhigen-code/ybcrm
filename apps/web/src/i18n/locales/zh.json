@@ -176,7 +176,7 @@
     "title": "销售活动",
     "count": "条记录",
     "search": "搜索内容、关联客户/线索、跟进人...",
-    "filter": "筛选",
+    "filterLabel": "筛选",
     "resetFilter": "重置筛选",
     "noMatch": "未找到匹配记录",
     "empty": "暂无活动记录",
@@ -275,7 +275,9 @@
       "passwordMismatch": "两次密码不一致"
     },
     "deleteConfirm": "确认删除用户「{{name}}」？",
-    "disableConfirm": "确认禁用用户「{{name}}」？"
+    "disableConfirm": "确认禁用用户「{{name}}」？",
+    "enableConfirm": "确认启用用户「{{name}}」？",
+    "resetPwdBtn": "重置密码"
   },
   "partners": {
     "title": "合作伙伴",
@@ -330,7 +332,8 @@
       "steps": "服务流程（每行一个步骤）",
       "available": "可选产品",
       "noProducts": "暂无产品，请在{{link}}页面添加",
-      "partnersLink": "合作伙伴"
+      "partnersLink": "合作伙伴",
+      "docs": "服务资料"
     },
     "validation": {
       "nameRequired": "请填写名称"
@@ -364,12 +367,14 @@
       "title": "团队管理",
       "list": "团队列表",
       "new": "新建团队",
+      "empty": "暂无团队",
       "edit": "编辑团队：{{name}}",
+      "createTitle": "新建团队",
       "name": "团队名称",
       "region": "区域（可选）",
       "regionPlaceholder": "如：华东、北京",
       "cols": {
-        "name": "名称",
+        "name": "团队名称",
         "region": "区域"
       },
       "deleteConfirm": "确认删除团队「{{name}}」？成员将被移出该团队。"
@@ -381,13 +386,27 @@
       "partnerTypes": "合作伙伴类型",
       "valueRequired": "请填写值",
       "labelRequired": "请填写标签",
-      "addOption": "添加选项",
+      "addOption": "+ 添加选项",
+      "addOptionTitle": "添加选项",
       "value": "值（唯一标识）",
       "label": "标签（显示文本）",
       "color": "颜色",
       "valueFixed": "值（系统固定，不可修改）",
+      "valueLabel": "值",
+      "labelLabel": "标签",
+      "colorLabel": "颜色",
+      "optionValue": "值（唯一标识）",
+      "optionValuePlaceholder": "如 InProgress",
+      "optionLabel": "标签（显示文本）",
+      "optionLabelPlaceholder": "如 进行中",
+      "optionColor": "颜色",
+      "scope": "范围：",
+      "customFieldCount": "个自定义字段",
+      "deleteConfirm": "确认删除「{{name}}」？",
+      "editOption": "编辑：{{name}}",
       "customFields": "自定义字段",
       "addField": "+ 添加字段",
+      "noCustomFields": "暂无自定义字段，点击\"添加字段\"",
       "noFields": "暂无自定义字段，点击「添加字段」",
       "fieldKey": "字段键（英文）",
       "fieldLabel": "显示名称",
@@ -395,6 +414,7 @@
       "fieldUnit": "单位（可选）",
       "fieldUnitHint": "元、个（可留空）",
       "fieldOptions": "选项（每行一个）",
+      "fieldHint": "字段键用英文，如 amount、hospital；单位如 元、个（可留空）",
       "types": {
         "text": "文本",
         "number": "数字",
@@ -403,7 +423,14 @@
         "product_select": "产品选择"
       },
       "fieldKeyPlaceholder": "如 InProgress",
-      "fieldLabelPlaceholder": "如 进行中"
+      "fieldLabelPlaceholder": "如 进行中",
+      "cols": {
+        "color": "色",
+        "value": "值",
+        "label": "标签",
+        "scope": "适用范围",
+        "status": "状态"
+      }
     },
     "ai": {
       "provider": "模型提供商",
@@ -419,7 +446,7 @@
       "queryModels": "查询模型",
       "querying": "查询中...",
       "deleteConfirm": "确认删除提供商「{{name}}」及其所有已启用模型？",
-      "availableModels": "可用模型 —",
+      "availableModels": "可用模型 — {{name}}",
       "manualInput": "该提供商不支持自动查询模型，请手动输入模型 ID：",
       "modelId": "模型 ID",
       "modelIdPlaceholder": "如 @cf/meta/llama-3.1-8b-instruct",
@@ -428,11 +455,20 @@
       "addModel": "添加",
       "modelEnabled": "已启用",
       "enableModel": "启用",
+      "enabled": "已启用",
       "collapse": "收起",
       "test": "测试",
+      "remove": "移除",
       "removeModelConfirm": "确认移除模型「{{name}}」？",
       "requesting": "请求中...",
-      "responseTime": "响应时间：",
+      "responseTime": "响应时间：{{ms}} ms",
+      "testPlaceholder": "输入测试消息...",
+      "send": "发送",
+      "testFailed": "测试失败",
+      "queryFailed": "查询失败",
+      "enabledModels": "已启用模型",
+      "noEnabledModels": "暂无已启用模型，请先添加提供商并查询模型",
+      "customProvider": "自定义（OpenAI 兼容）",
       "promptTitle": "AI 分析提示词",
       "promptSubtitle": "配置线索和客户 AI 分析时使用的提示词模板",
       "systemPrompt": "系统角色设定（System Prompt）",
@@ -442,7 +478,8 @@
       "systemRole": "系统角色",
       "userPromptLabel": "用户提示词模板",
       "noPrompt": "暂无提示词配置",
-      "notConfigured": "未配置"
+      "notConfigured": "（未配置）",
+      "saving": "保存中..."
     },
     "workflow": {
       "title": "工作流",
@@ -470,7 +507,15 @@
           "desc": "说明",
           "status": "启用"
         },
-        "reorder": "调整顺序"
+        "reorder": "调整顺序",
+      "moveUp": "上移",
+      "moveDown": "下移",
+        "strategies": {
+          "roundRobin": "按顺序轮流分配给每位销售人员",
+          "leastLeads": "分配给当前线索数最少的销售人员",
+          "serviceMatch": "优先分配给专长与线索意向服务匹配的销售人员",
+          "regionMatch": "优先分配给所在区域与线索来源地区匹配的销售人员"
+        }
       },
       "trigger": {
         "title": "触发器",
@@ -545,10 +590,31 @@
           "subjectDefault": "通知：",
           "body": "正文",
           "variables": "可用变量参考",
-          "variablesHint": "在文本框中使用",
+          "variablesHint": "在文本框中使用 {{placeholder}} 引用，例如：{{example}}",
           "varLead": "线索字段",
           "varClient": "客户字段",
           "varTime": "时间变量",
+          "vars": {
+            "lead": {
+              "name": "线索姓名", "contactInfo": "联系方式", "source": "来源渠道",
+              "status": "当前状态", "intendedServices": "意向服务（逗号分隔）",
+              "lostReason": "丢失原因", "nextContactDate": "下次联系时间",
+              "notes": "备注", "assignedToName": "负责人姓名",
+              "assignedToEmail": "负责人邮箱", "createdAt": "创建时间"
+            },
+            "client": {
+              "name": "客户姓名", "phone": "电话", "email": "邮箱",
+              "contractStatus": "合同状态", "servicePlans": "服务套餐（逗号分隔）",
+              "assignedSalesName": "负责销售姓名", "assignedSalesEmail": "负责销售邮箱",
+              "createdAt": "创建时间"
+            },
+            "time": {
+              "now": "当前时间（精确到分钟）", "today": "今天日期 YYYY-MM-DD",
+              "tomorrow": "明天日期", "yesterday": "昨天日期",
+              "weekStart": "本周一日期", "weekEnd": "本周日日期",
+              "monthStart": "本月第一天", "monthEnd": "本月最后一天"
+            }
+          },
           "method": "方法",
           "bodyJson": "Body（JSON，支持变量）"
         },
@@ -766,7 +832,37 @@
       "process": "服务流程"
     },
     "resources": {
-      "loading": "加载中..."
+      "loading": "加载中...",
+      "title": "我的文件",
+      "upload": "上传文件",
+      "empty": "暂无文件，点击「上传文件」开始上传",
+      "uploadFailed": "上传失败，请重试",
+      "fileRequired": "请选择文件",
+      "cols": {
+        "name": "文件名称",
+        "type": "类型",
+        "uploadedAt": "上传时间"
+      },
+      "types": {
+        "MedicalReport": "医疗报告",
+        "Contract": "合同",
+        "PassportCopy": "证件复印",
+        "PartnerContact": "合作方联系"
+      },
+      "form": {
+        "title": "文件名称",
+        "type": "文件类型",
+        "selectFile": "选择文件",
+        "modalTitle": "上传文件",
+        "uploadAction": "上传"
+      },
+      "download": "下载"
+    },
+    "nav": {
+      "profile": "个人资料",
+      "services": "服务进度",
+      "resources": "我的文件",
+      "logout": "退出"
     }
   },
   "fileManager": {

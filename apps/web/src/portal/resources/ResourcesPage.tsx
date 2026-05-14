@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 import { portalApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
@@ -13,12 +14,7 @@ import { formatDate } from '@/shared/utils/format'
 import { formatFileSize } from '@/shared/utils/format'
 import type { ClientResource, ResourceType } from '@/shared/types'
 
-const typeLabel: Record<ResourceType, string> = {
-  MedicalReport: '医疗报告',
-  Contract: '合同',
-  PassportCopy: '证件复印',
-  PartnerContact: '合作方联系',
-}
+const typeLabel = null // replaced by t() inside component
 const typeBadge: Record<ResourceType, 'blue' | 'green' | 'yellow' | 'gray'> = {
   MedicalReport: 'blue',
   Contract: 'green',
@@ -33,6 +29,13 @@ const uploadSchema = z.object({
 type UploadForm = z.infer<typeof uploadSchema>
 
 export default function ResourcesPage() {
+  const { t } = useTranslation()
+  const typeLabelMap: Record<ResourceType, string> = {
+    MedicalReport: t('portal.resources.types.MedicalReport'),
+    Contract: t('portal.resources.types.Contract'),
+    PassportCopy: t('portal.resources.types.PassportCopy'),
+    PartnerContact: t('portal.resources.types.PartnerContact'),
+  }
   const queryClient = useQueryClient()
   const [showUpload, setShowUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -61,7 +64,7 @@ export default function ResourcesPage() {
 
   const handleUpload = async (formData: UploadForm) => {
     const file = fileRef.current?.files?.[0]
-    if (!file) { setUploadError('请选择文件'); return }
+    if (!file) { setUploadError(t('portal.resources.fileRequired')); return }
 
     setUploading(true)
     setUploadError('')
@@ -88,7 +91,7 @@ export default function ResourcesPage() {
       form.reset()
       if (fileRef.current) fileRef.current.value = ''
     } catch {
-      setUploadError('上传失败，请重试')
+      setUploadError(t('portal.resources.uploadFailed'))
     } finally {
       setUploading(false)
     }
@@ -97,24 +100,24 @@ export default function ResourcesPage() {
   return (
     <div className="max-w-3xl">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">我的文件</h1>
-        <Button onClick={() => setShowUpload(true)}>上传文件</Button>
+        <h1 className="text-xl font-semibold text-gray-900">{t('portal.resources.title')}</h1>
+        <Button onClick={() => setShowUpload(true)}>{t('portal.resources.upload')}</Button>
       </div>
 
       {isLoading ? (
-        <div className="text-sm text-gray-500">加载中...</div>
+        <div className="text-sm text-gray-500">{t('common.loading')}</div>
       ) : !data?.length ? (
         <div className="rounded-xl border bg-white p-12 text-center text-sm text-gray-500">
-          暂无文件，点击"上传文件"开始上传
+          {t('portal.resources.empty')}
         </div>
       ) : (
         <div className="rounded-xl border bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">文件名称</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">类型</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">上传时间</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('portal.resources.cols.name')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('portal.resources.cols.type')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('portal.resources.cols.uploadedAt')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -129,7 +132,7 @@ export default function ResourcesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={typeBadge[resource.resourceType]}>
-                      {typeLabel[resource.resourceType]}
+                      {typeLabelMap[resource.resourceType]}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-gray-500">
@@ -143,7 +146,7 @@ export default function ResourcesPage() {
                         loading={downloadMutation.isPending}
                         onClick={() => downloadMutation.mutate(resource.id)}
                       >
-                        下载
+                        {t('portal.resources.download')}
                       </Button>
                     )}
                   </td>
@@ -156,39 +159,39 @@ export default function ResourcesPage() {
 
       {showUpload && (
         <Modal
-          title="上传文件"
+          title={t('portal.resources.form.modalTitle')}
           onClose={() => setShowUpload(false)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setShowUpload(false)}>取消</Button>
+              <Button variant="secondary" onClick={() => setShowUpload(false)}>{t('common.cancel')}</Button>
               <Button
                 loading={uploading}
                 onClick={form.handleSubmit(handleUpload)}
               >
-                上传
+                {t('portal.resources.form.uploadAction')}
               </Button>
             </>
           }
         >
           <div className="space-y-3">
             <Input
-              label="文件名称"
+              label={t('portal.resources.form.title')}
               placeholder="如：体检报告 2024-04"
               error={form.formState.errors.title?.message}
               {...form.register('title')}
             />
             <Select
-              label="文件类型"
+              label={t('portal.resources.form.type')}
               options={[
-                { value: 'MedicalReport', label: '医疗报告' },
-                { value: 'Contract', label: '合同' },
-                { value: 'PassportCopy', label: '证件复印' },
-                { value: 'PartnerContact', label: '合作方联系' },
+                { value: 'MedicalReport', label: t('portal.resources.types.MedicalReport') },
+                { value: 'Contract', label: t('portal.resources.types.Contract') },
+                { value: 'PassportCopy', label: t('portal.resources.types.PassportCopy') },
+                { value: 'PartnerContact', label: t('portal.resources.types.PartnerContact') },
               ]}
               {...form.register('resourceType')}
             />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">选择文件</label>
+              <label className="text-sm font-medium text-gray-700">{t('portal.resources.form.selectFile')}</label>
               <input
                 ref={fileRef}
                 type="file"

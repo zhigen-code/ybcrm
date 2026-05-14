@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Badge } from '@/shared/components/Badge'
@@ -16,6 +17,7 @@ import type { Lead, LeadStatus, SalesActivity, User } from '@/shared/types'
 import { useState } from 'react'
 
 export default function LeadDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -82,7 +84,7 @@ export default function LeadDetailPage() {
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setTransitionError(msg ?? '操作失败，请重试')
+      setTransitionError(msg ?? t('common.opFailed'))
     },
   })
 
@@ -137,7 +139,7 @@ export default function LeadDetailPage() {
     },
   })
 
-  if (!lead) return <div className="p-6 text-sm text-gray-500">加载中...</div>
+  if (!lead) return <div className="p-6 text-sm text-gray-500">{t('common.loading')}</div>
 
   // 判断是否正在编辑分配：undefined=未进入编辑，null=选择"取消分配"，string=选择了某用户
   const isEditingAssign = assigningUserId !== undefined
@@ -146,13 +148,13 @@ export default function LeadDetailPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl">
       <button onClick={() => navigate(-1)} className="mb-4 text-sm text-gray-500 hover:text-gray-700">
-        ← 返回
+        ← {t('common.back')}
       </button>
 
       {/* 已转化提示 */}
       {isConverted && (
         <div className="mb-4 rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm text-green-700">
-          该线索已转化为客户，信息仅供查阅，不可修改。
+          {t('leads.convertedNotice')}
         </div>
       )}
 
@@ -196,7 +198,7 @@ export default function LeadDetailPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-gray-600">状态：</span>
+          <span className="text-sm text-gray-600">{t('leads.detail.status')}</span>
           {isConverted ? (
             <Badge variant="green">{getOptionLabel(leadStatusOpts, lead.status)}</Badge>
           ) : (
@@ -220,18 +222,18 @@ export default function LeadDetailPage() {
 
         {/* 负责人行 */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-gray-600">负责人：</span>
+          <span className="text-sm text-gray-600">{t('leads.detail.owner')}</span>
           {!isEditingAssign ? (
             <>
               <span className={`text-sm ${lead.assignedToName ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
-                {lead.assignedToName ?? '未分配'}
+                {lead.assignedToName ?? t('leads.detail.unassigned')}
               </span>
               {canAssign && !isConverted && (
                 <button
                   onClick={() => setAssigningUserId(lead.assignedToUserId ?? null)}
                   className="text-xs text-primary-600 hover:text-primary-800 underline"
                 >
-                  {lead.assignedToUserId ? '变更' : '分配'}
+                  {lead.assignedToUserId ? t('leads.detail.change') : t('leads.detail.assign')}
                 </button>
               )}
             </>
@@ -242,7 +244,7 @@ export default function LeadDetailPage() {
                 value={assigningUserId ?? ''}
                 onChange={(e) => setAssigningUserId(e.target.value || null)}
               >
-                <option value="">— 取消分配 —</option>
+                <option value="">— {t('leads.detail.unassign')} —</option>
                 {salesUsers.map((u) => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
@@ -252,14 +254,14 @@ export default function LeadDetailPage() {
                 loading={assignLead.isPending}
                 onClick={() => assignLead.mutate(assigningUserId ?? null)}
               >
-                确认
+                {t('common.confirm')}
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={() => setAssigningUserId(undefined)}
               >
-                取消
+                {t('common.cancel')}
               </Button>
             </div>
           )}
@@ -274,14 +276,14 @@ export default function LeadDetailPage() {
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
             {lead.status === 'Lost' && lead.lostReason && (
               <span className="text-gray-600">
-                丢失原因：<span className="font-medium text-red-600">
+                {t('leads.detail.lostReason')}<span className="font-medium text-red-600">
                   {getOptionLabel(allOptions?.['lost_reason'] ?? [], lead.lostReason)}
                 </span>
               </span>
             )}
             {lead.nextContactDate && (
               <span className="text-gray-600">
-                下次联系：<span className="font-medium text-gray-900">{formatDate(lead.nextContactDate)}</span>
+                {t('leads.detail.nextContact')}<span className="font-medium text-gray-900">{formatDate(lead.nextContactDate)}</span>
               </span>
             )}
           </div>
@@ -289,7 +291,7 @@ export default function LeadDetailPage() {
 
         {lead.adInfo && Object.keys(lead.adInfo).length > 0 && (
           <div className="mt-4 rounded border border-blue-100 bg-blue-50 p-3">
-            <p className="mb-1.5 text-xs font-medium text-blue-700">广告信息</p>
+            <p className="mb-1.5 text-xs font-medium text-blue-700">{t('leads.detail.adInfo')}</p>
             <div className="flex flex-wrap gap-x-5 gap-y-1">
               {Object.entries(lead.adInfo).map(([k, v]) => (
                 <span key={k} className="text-xs text-gray-600">
@@ -301,8 +303,8 @@ export default function LeadDetailPage() {
         )}
 
         <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-          <span>创建人：{lead.createdByName ?? '—'}</span>
-          <span>创建于 {formatDate(lead.createdAt)}</span>
+          <span>{t('leads.detail.createdBy')}{lead.createdByName ?? '—'}</span>
+          <span>{t('leads.detail.createdAt')} {formatDate(lead.createdAt)}</span>
         </div>
 
         {lead.status !== 'Converted' && lead.status !== 'Lost' && (
@@ -313,7 +315,7 @@ export default function LeadDetailPage() {
               onClick={() => convertToClient.mutate()}
               loading={convertToClient.isPending}
             >
-              转化为客户
+              {t('leads.convertToClient')}
             </Button>
           </div>
         )}
@@ -322,14 +324,14 @@ export default function LeadDetailPage() {
       {/* 跟进记录 */}
       <div className="rounded-lg border bg-white p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">跟进记录</h2>
+          <h2 className="font-semibold text-gray-900">{t('leads.detail.activities')}</h2>
           <Button size="sm" variant="secondary" onClick={() => setShowActivity(true)}>
-            添加记录
+            {t('leads.detail.addActivity')}
           </Button>
         </div>
 
         {!activities?.length ? (
-          <p className="text-sm text-gray-500">暂无跟进记录</p>
+          <p className="text-sm text-gray-500">{t('leads.detail.noActivities')}</p>
         ) : (
           <div className="space-y-3">
             {activities.map((act) => (
@@ -346,7 +348,7 @@ export default function LeadDetailPage() {
                     <p className="mt-1 text-gray-700 whitespace-pre-line">{act.description}</p>
                   )}
                   {act.nextContactDate && (
-                    <p className="mt-1 text-xs text-primary-600">下次联系：{formatDate(act.nextContactDate)}</p>
+                    <p className="mt-1 text-xs text-primary-600">{t('leads.detail.nextContact')}{formatDate(act.nextContactDate)}</p>
                   )}
                   {act.extraData && Object.keys(act.extraData).length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5">
@@ -381,7 +383,7 @@ export default function LeadDetailPage() {
       {/* 添加跟进记录弹窗 */}
       {showActivity && (
         <ActivityModal
-          title="添加跟进记录"
+          title={t('activityModal.title')}
           onClose={() => setShowActivity(false)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
@@ -392,7 +394,7 @@ export default function LeadDetailPage() {
       {/* 字段策略触发的跟进弹窗 */}
       {pendingStatus && pendingPolicy && (
         <ActivityModal
-          title={`变更为「${getOptionLabel(leadStatusOpts, pendingStatus)}」— 请填写跟进记录`}
+          title={t('leads.detail.changeStatus', { status: getOptionLabel(leadStatusOpts, pendingStatus) })}
           onClose={() => { setPendingStatus(null); setPendingPolicy(null); setTransitionError(null) }}
           loading={statusTransition.isPending}
           activityConfig={pendingPolicy}

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
@@ -14,21 +15,18 @@ import type { User, Team, UserRole, Service } from '@/shared/types'
 const roleBadge: Record<UserRole, 'red' | 'blue' | 'green'> = {
   admin: 'red', operations: 'blue', sales: 'green',
 }
-const roleLabel: Record<UserRole, string> = {
-  admin: '管理员', operations: '运营', sales: '销售',
-}
 
 const registerSchema = z.object({
-  email: z.string().email('请输入有效邮箱'),
-  password: z.string().min(8, '密码至少 8 位'),
-  name: z.string().min(1, '请填写姓名'),
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(1),
   phone: z.string().optional(),
   role: z.enum(['admin', 'operations', 'sales']),
   teamId: z.string().optional(),
 })
 
 const editSchema = z.object({
-  name: z.string().min(1, '请填写姓名'),
+  name: z.string().min(1),
   phone: z.string().optional(),
   role: z.enum(['admin', 'operations', 'sales']),
   teamId: z.string().optional(),
@@ -36,10 +34,9 @@ const editSchema = z.object({
 })
 
 const resetPasswordSchema = z.object({
-  newPassword: z.string().min(8, '密码至少 8 位'),
-  confirmPassword: z.string().min(1, '请确认密码'),
+  newPassword: z.string().min(8),
+  confirmPassword: z.string().min(1),
 }).refine((d) => d.newPassword === d.confirmPassword, {
-  message: '两次密码不一致',
   path: ['confirmPassword'],
 })
 
@@ -60,6 +57,7 @@ import { Pagination } from '@/shared/components/Pagination'
 const PAGE_SIZE = 20
 
 export default function UsersPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showRegister, setShowRegister] = useState(false)
   const [editTarget, setEditTarget] = useState<User | null>(null)
@@ -97,9 +95,13 @@ export default function UsersPage() {
   })
   const serviceNames = (servicesResp?.data ?? []).map((s) => s.name)
 
+  const roleLabel: Record<UserRole, string> = {
+    admin: t('users.roles.admin'), operations: t('users.roles.operator'), sales: t('users.roles.sales'),
+  }
+
   const teamOptions = [
-    { value: '', label: '无团队' },
-    ...((teams?.data ?? []).map((t) => ({ value: t.id, label: t.name }))),
+    { value: '', label: t('common.none') },
+    ...((teams?.data ?? []).map((tm) => ({ value: tm.id, label: tm.name }))),
   ]
 
   const registerForm = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) })
@@ -131,7 +133,7 @@ export default function UsersPage() {
       registerForm.reset()
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '创建失败'
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.saveFailed')
       registerForm.setError('email', { message: msg })
     },
   })
@@ -144,7 +146,7 @@ export default function UsersPage() {
       setEditTarget(null)
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '保存失败'
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.saveFailed')
       editForm.setError('name', { message: msg })
     },
   })
@@ -157,7 +159,7 @@ export default function UsersPage() {
       resetPasswordForm.reset()
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '重置失败'
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.saveFailed')
       resetPasswordForm.setError('newPassword', { message: msg })
     },
   })
@@ -172,18 +174,18 @@ export default function UsersPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-4 sm:mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">用户管理</h1>
-          <p className="mt-0.5 text-sm text-gray-500">共 {total} 名用户</p>
+          <h1 className="text-xl font-semibold text-gray-900">{t('users.title')}</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{t('common.total')} {total} {t('users.count')}</p>
         </div>
-        <Button onClick={() => setShowRegister(true)}>新建用户</Button>
+        <Button onClick={() => setShowRegister(true)}>{t('users.new')}</Button>
       </div>
 
       <div className="mb-4">
-        <Input placeholder="搜索姓名、邮箱..." value={search} onChange={(e) => handleSearch(e.target.value)} />
+        <Input placeholder={t('users.search')} value={search} onChange={(e) => handleSearch(e.target.value)} />
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
+        <div className="py-12 text-center text-sm text-gray-500">{t('common.loading')}</div>
       ) : (
         <>
           {/* 移动端：卡片列表 */}
@@ -194,7 +196,7 @@ export default function UsersPage() {
                   <div>
                     <p className="font-medium text-gray-900">
                       {user.name}
-                      {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">已禁用</span>}
+                      {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">{t('common.disabled')}</span>}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
                     {user.phone && <p className="text-xs text-gray-400 mt-0.5">{user.phone}</p>}
@@ -203,14 +205,13 @@ export default function UsersPage() {
                 </div>
 
                 <div className="flex items-center gap-3 mb-1 text-xs text-gray-500">
-                  <span>线索 <span className="font-medium text-gray-700">{user.currentLeadsCount}</span></span>
-                  <span>客户 <span className="font-medium text-gray-700">{user.currentClientsCount ?? 0}</span></span>
+                  <span>{t('nav.leads')} <span className="font-medium text-gray-700">{user.currentLeadsCount}</span></span>
+                  <span>{t('nav.clients')} <span className="font-medium text-gray-700">{user.currentClientsCount ?? 0}</span></span>
                 </div>
                 <div className="mb-2 text-xs text-gray-400">
-                  团队：{user.teamName ?? <span className="text-gray-300">—</span>}
+                  {t('users.cols.team')}：{user.teamName ?? <span className="text-gray-300">—</span>}
                 </div>
 
-                {/* 专长 */}
                 {(() => {
                   const specs = parseSpecialization(user.specialization)
                   return specs.length > 0 ? (
@@ -220,23 +221,22 @@ export default function UsersPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400 mb-3">专长未设置</p>
+                    <p className="text-xs text-gray-400 mb-3">{t('users.cols.skillsEmpty')}</p>
                   )
                 })()}
 
                 <div className="flex gap-2 border-t pt-3">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>编辑</Button>
-                  <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>重置密码</Button>
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>{t('common.edit')}</Button>
+                  <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>{t('users.resetPwdBtn')}</Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     className={user.isActive ? 'text-red-500' : 'text-green-600'}
                     onClick={() => {
-                      const action = user.isActive ? '禁用' : '启用'
-                      if (confirm(`确认${action}用户「${user.name}」？`)) toggleActiveMutation.mutate(user)
+                      if (confirm(t(user.isActive ? 'users.disableConfirm' : 'users.enableConfirm', { name: user.name }))) toggleActiveMutation.mutate(user)
                     }}
                   >
-                    {user.isActive ? '禁用' : '启用'}
+                    {user.isActive ? t('common.disable') : t('common.enable')}
                   </Button>
                 </div>
               </div>
@@ -248,13 +248,13 @@ export default function UsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">姓名</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">邮箱</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">电话</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">角色</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">所属团队</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">专长服务</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">线索 / 客户</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('users.form.name')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('users.form.email')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('users.form.phone')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('users.form.role')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('users.form.team')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('users.cols.skills')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('nav.leads')} / {t('nav.clients')}</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -263,7 +263,7 @@ export default function UsersPage() {
                   <tr key={user.id} className={`hover:bg-gray-50 ${!user.isActive ? 'opacity-50' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {user.name}
-                      {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">已禁用</span>}
+                      {!user.isActive && <span className="ml-2 text-xs text-red-500 font-normal">{t('common.disabled')}</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>
                     <td className="px-4 py-3 text-gray-500">{user.phone ?? <span className="text-gray-300">—</span>}</td>
@@ -283,33 +283,32 @@ export default function UsersPage() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-400">未设置</span>
+                          <span className="text-xs text-gray-400">{t('users.cols.skillsEmpty')}</span>
                         )
                       })()}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600">
-                      <span>线索 <span className="font-medium text-gray-800">{user.currentLeadsCount}</span></span>
+                      <span>{t('nav.leads')} <span className="font-medium text-gray-800">{user.currentLeadsCount}</span></span>
                       <span className="mx-1.5 text-gray-300">/</span>
-                      <span>客户 <span className="font-medium text-gray-800">{user.currentClientsCount ?? 0}</span></span>
+                      <span>{t('nav.clients')} <span className="font-medium text-gray-800">{user.currentClientsCount ?? 0}</span></span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 justify-end">
                         <Button variant="ghost" size="sm" onClick={() => openEdit(user)}>
-                          编辑
+                          {t('common.edit')}
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => openResetPassword(user)}>
-                          重置密码
+                          {t('users.resetPwdBtn')}
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           className={user.isActive ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}
                           onClick={() => {
-                            const action = user.isActive ? '禁用' : '启用'
-                            if (confirm(`确认${action}用户「${user.name}」？`)) toggleActiveMutation.mutate(user)
+                            if (confirm(t(user.isActive ? 'users.disableConfirm' : 'users.enableConfirm', { name: user.name }))) toggleActiveMutation.mutate(user)
                           }}
                         >
-                          {user.isActive ? '禁用' : '启用'}
+                          {user.isActive ? t('common.disable') : t('common.enable')}
                         </Button>
                       </div>
                     </td>
@@ -326,76 +325,75 @@ export default function UsersPage() {
       {/* 新建用户 */}
       {showRegister && (
         <Modal
-          title="新建用户"
+          title={t('users.new')}
           onClose={() => setShowRegister(false)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setShowRegister(false)}>取消</Button>
+              <Button variant="secondary" onClick={() => setShowRegister(false)}>{t('common.cancel')}</Button>
               <Button
                 loading={registerMutation.isPending}
                 onClick={registerForm.handleSubmit((d) => registerMutation.mutate(d))}
               >
-                创建
+                {t('common.create')}
               </Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="姓名" error={registerForm.formState.errors.name?.message} {...registerForm.register('name')} />
-            <Input label="电话" placeholder="选填" {...registerForm.register('phone')} />
-            <Input label="邮箱" type="email" error={registerForm.formState.errors.email?.message} {...registerForm.register('email')} />
-            <Input label="初始密码" type="password" error={registerForm.formState.errors.password?.message} {...registerForm.register('password')} />
+            <Input label={t('users.form.name')} error={registerForm.formState.errors.name?.message} {...registerForm.register('name')} />
+            <Input label={t('users.form.phone')} placeholder={t('users.form.optional')} {...registerForm.register('phone')} />
+            <Input label={t('users.form.email')} type="email" error={registerForm.formState.errors.email?.message} {...registerForm.register('email')} />
+            <Input label={t('users.form.initPassword')} type="password" error={registerForm.formState.errors.password?.message} {...registerForm.register('password')} />
             <Select
-              label="角色"
+              label={t('users.form.role')}
               options={[
-                { value: 'admin', label: '管理员' },
-                { value: 'operations', label: '运营' },
-                { value: 'sales', label: '销售' },
+                { value: 'admin', label: t('users.roles.admin') },
+                { value: 'operations', label: t('users.roles.operator') },
+                { value: 'sales', label: t('users.roles.sales') },
               ]}
               {...registerForm.register('role')}
             />
-            <Select label="所属团队" options={teamOptions} {...registerForm.register('teamId')} />
+            <Select label={t('users.form.team')} options={teamOptions} {...registerForm.register('teamId')} />
           </div>
         </Modal>
       )}
 
-      {/* 编辑用户 */}
       {editTarget && (
         <Modal
-          title={`编辑用户 · ${editTarget.name}`}
+          title={t('users.form.editTitle', { name: editTarget.name })}
           onClose={() => setEditTarget(null)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
+              <Button variant="secondary" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
               <Button
                 loading={editMutation.isPending}
                 onClick={editForm.handleSubmit((d) => editMutation.mutate(d))}
               >
-                保存
+                {t('common.save')}
               </Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="姓名" error={editForm.formState.errors.name?.message} {...editForm.register('name')} />
-            <Input label="电话" placeholder="选填" {...editForm.register('phone')} />
+            <Input label={t('users.form.name')} error={editForm.formState.errors.name?.message} {...editForm.register('name')} />
+            <Input label={t('users.form.phone')} placeholder={t('users.form.optional')} {...editForm.register('phone')} />
             <Select
-              label="角色"
+              label={t('users.form.role')}
               options={[
-                { value: 'admin', label: '管理员' },
-                { value: 'operations', label: '运营' },
-                { value: 'sales', label: '销售' },
+                { value: 'admin', label: t('users.roles.admin') },
+                { value: 'operations', label: t('users.roles.operator') },
+                { value: 'sales', label: t('users.roles.sales') },
               ]}
               {...editForm.register('role')}
             />
-            <Select label="所属团队" options={teamOptions} {...editForm.register('teamId')} />
+            <Select label={t('users.form.team')} options={teamOptions} {...editForm.register('teamId')} />
             <div>
               <p className="mb-1.5 text-sm font-medium text-gray-700">
-                专长服务
-                <span className="ml-1 text-xs font-normal text-gray-400">（用于专长匹配自动分配）</span>
+                {t('users.form.skills')}
+                <span className="ml-1 text-xs font-normal text-gray-400">（{t('users.form.skillsHint')}）</span>
               </p>
               {serviceNames.length === 0 ? (
-                <p className="text-xs text-gray-400">请先在服务管理中创建服务</p>
+                <p className="text-xs text-gray-400">{t('users.form.skillsEmpty', { link: t('users.form.skillsLink') })}</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {serviceNames.map((name) => {
@@ -433,33 +431,31 @@ export default function UsersPage() {
       {/* 重置密码 */}
       {resetTarget && (
         <Modal
-          title={`重置密码 · ${resetTarget.name}`}
+          title={t('users.form.resetTitle', { name: resetTarget.name })}
           onClose={() => setResetTarget(null)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setResetTarget(null)}>取消</Button>
+              <Button variant="secondary" onClick={() => setResetTarget(null)}>{t('common.cancel')}</Button>
               <Button
                 loading={resetPasswordMutation.isPending}
                 onClick={resetPasswordForm.handleSubmit((d) => resetPasswordMutation.mutate(d))}
               >
-                确认重置
+                {t('users.form.confirmReset')}
               </Button>
             </>
           }
         >
           <div className="space-y-3">
-            <p className="text-sm text-gray-500">
-              为 <span className="font-medium text-gray-700">{resetTarget.name}</span> 设置新密码，该用户下次登录需使用新密码。
-            </p>
+            <p className="text-sm text-gray-500">{t('users.form.resetHint', { name: resetTarget.name })}</p>
             <Input
-              label="新密码"
+              label={t('users.form.newPassword')}
               type="password"
               autoComplete="new-password"
               error={resetPasswordForm.formState.errors.newPassword?.message}
               {...resetPasswordForm.register('newPassword')}
             />
             <Input
-              label="确认新密码"
+              label={t('users.form.confirmPassword')}
               type="password"
               autoComplete="new-password"
               error={resetPasswordForm.formState.errors.confirmPassword?.message}

@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { portalApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
@@ -19,14 +20,13 @@ interface ClientProfile {
   createdAt: string
 }
 
-const nameSchema = z.object({ name: z.string().min(1, '请填写姓名') })
+const nameSchema = z.object({ name: z.string().min(1) })
 const phoneSchema = z.object({ phone: z.string().nullable().optional() })
 const passwordSchema = z.object({
-  currentPassword: z.string().min(1, '请输入当前密码'),
-  newPassword: z.string().min(8, '新密码至少 8 位'),
-  confirmPassword: z.string().min(1, '请确认新密码'),
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+  confirmPassword: z.string().min(1),
 }).refine((d) => d.newPassword === d.confirmPassword, {
-  message: '两次密码不一致',
   path: ['confirmPassword'],
 })
 
@@ -35,6 +35,7 @@ type PhoneForm = z.infer<typeof phoneSchema>
 type PasswordForm = z.infer<typeof passwordSchema>
 
 export default function ProfilePage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [nameSaved, setNameSaved] = useState(false)
   const [pwSaved, setPwSaved] = useState(false)
@@ -66,7 +67,7 @@ export default function ProfilePage() {
       setTimeout(() => setNameSaved(false), 3000)
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '操作失败'
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.opFailed')
       nameForm.setError('name', { message: msg })
     },
   })
@@ -85,38 +86,37 @@ export default function ProfilePage() {
       setTimeout(() => setPwSaved(false), 3000)
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '操作失败'
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.opFailed')
       passwordForm.setError('currentPassword', { message: msg })
     },
   })
 
-  if (isLoading) return <div className="text-sm text-gray-500">加载中...</div>
+  if (isLoading) return <div className="text-sm text-gray-500">{t('common.loading')}</div>
   if (!profile) return null
 
   return (
     <div className="max-w-xl space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">个人资料</h1>
+      <h1 className="text-xl font-semibold text-gray-900">{t('portal.profile.title')}</h1>
 
-      {/* 基本信息展示 */}
       <div className="rounded-xl border bg-white p-6 space-y-5">
         {profile.email && (
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">邮箱</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('portal.profile.email')}</p>
             <p className="mt-1 text-gray-900">{profile.email}</p>
           </div>
         )}
 
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">服务套餐</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('portal.profile.plan')}</p>
           <div className="mt-1 flex flex-wrap gap-1">
             {(profile.servicePlans ?? []).length > 0
               ? (profile.servicePlans ?? []).map((p) => <Badge key={p} variant="blue">{p}</Badge>)
-              : <span className="text-gray-400 text-sm">暂无</span>}
+              : <span className="text-gray-400 text-sm">{t('portal.profile.noPlan')}</span>}
           </div>
         </div>
 
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">合同状态</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('portal.profile.contractStatus')}</p>
           <p className="mt-1">
             {profile.contractStatus ? (
               <Badge variant={profile.contractStatus === '已签署' ? 'green' : 'yellow'}>
@@ -129,65 +129,62 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">注册时间</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('portal.profile.registeredAt')}</p>
           <p className="mt-1 text-gray-600 text-sm">{formatDate(profile.createdAt)}</p>
         </div>
       </div>
 
-      {/* 修改姓名 */}
       <div className="rounded-xl border bg-white p-6">
-        <h2 className="font-medium text-gray-900 mb-4">修改姓名</h2>
+        <h2 className="font-medium text-gray-900 mb-4">{t('portal.profile.editName')}</h2>
         <form onSubmit={nameForm.handleSubmit((d) => updateName.mutate(d))} className="space-y-3">
           <Input
-            label="显示姓名"
+            label={t('portal.profile.displayName')}
             error={nameForm.formState.errors.name?.message}
             {...nameForm.register('name')}
           />
           <div className="flex items-center gap-3 pt-1">
             <Button type="submit" size="sm" loading={updateName.isPending}>
-              保存姓名
+              {t('portal.profile.save')}
             </Button>
-            {nameSaved && <span className="text-sm text-green-600">已保存</span>}
+            {nameSaved && <span className="text-sm text-green-600">{t('portal.profile.saved')}</span>}
           </div>
         </form>
       </div>
 
-      {/* 更新联系电话 */}
       <div className="rounded-xl border bg-white p-6">
-        <h2 className="font-medium text-gray-900 mb-4">更新联系电话</h2>
+        <h2 className="font-medium text-gray-900 mb-4">{t('portal.profile.editPhone')}</h2>
         <form onSubmit={phoneForm.handleSubmit((d) => updatePhone.mutate(d))} className="flex gap-3">
           <div className="flex-1">
-            <Input placeholder="请输入手机号码" {...phoneForm.register('phone')} />
+            <Input placeholder={t('portal.profile.phonePlaceholder')} {...phoneForm.register('phone')} />
           </div>
           <Button type="submit" loading={updatePhone.isPending}>
-            保存
+            {t('common.save')}
           </Button>
         </form>
         {updatePhone.isSuccess && (
-          <p className="mt-2 text-sm text-green-600">已更新</p>
+          <p className="mt-2 text-sm text-green-600">{t('portal.profile.phoneUpdated')}</p>
         )}
       </div>
 
-      {/* 修改密码 */}
       <div className="rounded-xl border bg-white p-6">
-        <h2 className="font-medium text-gray-900 mb-4">修改密码</h2>
+        <h2 className="font-medium text-gray-900 mb-4">{t('portal.profile.password')}</h2>
         <form onSubmit={passwordForm.handleSubmit((d) => updatePassword.mutate(d))} className="space-y-3">
           <Input
-            label="当前密码"
+            label={t('portal.profile.currentPassword')}
             type="password"
             autoComplete="current-password"
             error={passwordForm.formState.errors.currentPassword?.message}
             {...passwordForm.register('currentPassword')}
           />
           <Input
-            label="新密码"
+            label={t('portal.profile.newPassword')}
             type="password"
             autoComplete="new-password"
             error={passwordForm.formState.errors.newPassword?.message}
             {...passwordForm.register('newPassword')}
           />
           <Input
-            label="确认新密码"
+            label={t('portal.profile.confirmPassword')}
             type="password"
             autoComplete="new-password"
             error={passwordForm.formState.errors.confirmPassword?.message}
@@ -195,9 +192,9 @@ export default function ProfilePage() {
           />
           <div className="flex items-center gap-3 pt-1">
             <Button type="submit" size="sm" loading={updatePassword.isPending}>
-              修改密码
+              {t('portal.profile.submit')}
             </Button>
-            {pwSaved && <span className="text-sm text-green-600">密码已修改</span>}
+            {pwSaved && <span className="text-sm text-green-600">{t('profile.password.changed')}</span>}
           </div>
         </form>
       </div>

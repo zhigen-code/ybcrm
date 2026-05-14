@@ -1,27 +1,29 @@
 import { useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { usePortalAuth } from '@/portal/auth/PortalAuthContext'
 import { Button } from '@/shared/components/Button'
 import { cn } from '@/shared/utils/cn'
 import { crmApi } from '@/shared/utils/request'
 
-const navItems = [
-  { to: '/portal/profile', label: '个人资料' },
-  { to: '/portal/services', label: '服务进度' },
-  { to: '/portal/resources', label: '我的文件' },
-]
-
 export default function PortalLayout() {
+  const { t } = useTranslation()
   const { clientUser, logout } = usePortalAuth()
   const navigate = useNavigate()
+
+  const navItems = [
+    { to: '/portal/profile', label: t('portal.nav.profile') },
+    { to: '/portal/services', label: t('portal.nav.services') },
+    { to: '/portal/resources', label: t('portal.nav.resources') },
+  ]
 
   const { data: publicSettings } = useQuery({
     queryKey: ['public-settings'],
     queryFn: () => crmApi.get<{ data: { systemName: string } }>('/public/settings').then((r) => r.data.data),
     staleTime: 1000 * 60 * 60,
   })
-  const systemName = publicSettings?.systemName ?? '客户服务门户'
+  const systemName = publicSettings?.systemName ?? t('portal.auth.title')
   useEffect(() => { document.title = systemName }, [systemName])
 
   const handleLogout = () => {
@@ -61,7 +63,7 @@ export default function PortalLayout() {
               {clientUser?.email}
             </span>
             <Button variant="secondary" size="sm" onClick={handleLogout}>
-              退出
+              {t('portal.nav.logout')}
             </Button>
           </div>
         </div>

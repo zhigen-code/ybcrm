@@ -176,7 +176,7 @@
     "title": "Activities",
     "count": "records",
     "search": "Search content, client/lead, owner...",
-    "filter": "Filter",
+    "filterLabel": "Filter",
     "resetFilter": "Reset filters",
     "noMatch": "No matching records",
     "empty": "No activity records",
@@ -275,7 +275,9 @@
       "passwordMismatch": "Passwords do not match"
     },
     "deleteConfirm": "Delete user \"{{name}}\"?",
-    "disableConfirm": "Disable user \"{{name}}\"?"
+    "disableConfirm": "Disable user \"{{name}}\"?",
+    "enableConfirm": "Enable user \"{{name}}\"?",
+    "resetPwdBtn": "Reset Password"
   },
   "partners": {
     "title": "Partners",
@@ -330,7 +332,8 @@
       "steps": "Service steps (one per line)",
       "available": "Available Products",
       "noProducts": "No products yet, add them in {{link}}",
-      "partnersLink": "Partners"
+      "partnersLink": "Partners",
+      "docs": "Service Documents"
     },
     "validation": {
       "nameRequired": "Name is required"
@@ -364,12 +367,14 @@
       "title": "Teams",
       "list": "Team List",
       "new": "New Team",
+      "empty": "No teams yet",
       "edit": "Edit Team: {{name}}",
+      "createTitle": "New Team",
       "name": "Team Name",
       "region": "Region (optional)",
       "regionPlaceholder": "e.g. East China, Beijing",
       "cols": {
-        "name": "Name",
+        "name": "Team Name",
         "region": "Region"
       },
       "deleteConfirm": "Delete team \"{{name}}\"? Members will be removed."
@@ -381,13 +386,27 @@
       "partnerTypes": "Partner Types",
       "valueRequired": "Value is required",
       "labelRequired": "Label is required",
-      "addOption": "Add Option",
+      "addOption": "+ Add Option",
+      "addOptionTitle": "Add Option",
       "value": "Value (unique key)",
       "label": "Label (display text)",
       "color": "Color",
       "valueFixed": "Value (fixed, not editable)",
+      "valueLabel": "Value",
+      "labelLabel": "Label",
+      "colorLabel": "Color",
+      "optionValue": "Value (unique key)",
+      "optionValuePlaceholder": "e.g. InProgress",
+      "optionLabel": "Label (display text)",
+      "optionLabelPlaceholder": "e.g. In Progress",
+      "optionColor": "Color",
+      "scope": "Scope:",
+      "customFieldCount": "custom fields",
+      "deleteConfirm": "Delete \"{{name}}\"?",
+      "editOption": "Edit: {{name}}",
       "customFields": "Custom Fields",
       "addField": "+ Add Field",
+      "noCustomFields": "No custom fields. Click \"Add Field\" to create one.",
       "noFields": "No custom fields. Click \"Add Field\" to create one.",
       "fieldKey": "Field Key (English)",
       "fieldLabel": "Display Name",
@@ -395,6 +414,7 @@
       "fieldUnit": "Unit (optional)",
       "fieldUnitHint": "e.g. USD, pcs (can be empty)",
       "fieldOptions": "Options (one per line)",
+      "fieldHint": "Use English keys, e.g. amount, hospital; unit e.g. USD, pcs (optional)",
       "types": {
         "text": "Text",
         "number": "Number",
@@ -403,7 +423,14 @@
         "product_select": "Product Select"
       },
       "fieldKeyPlaceholder": "e.g. InProgress",
-      "fieldLabelPlaceholder": "e.g. In Progress"
+      "fieldLabelPlaceholder": "e.g. In Progress",
+      "cols": {
+        "color": "Color",
+        "value": "Value",
+        "label": "Label",
+        "scope": "Scope",
+        "status": "Status"
+      }
     },
     "ai": {
       "provider": "Model Providers",
@@ -419,7 +446,7 @@
       "queryModels": "Fetch Models",
       "querying": "Fetching...",
       "deleteConfirm": "Delete provider \"{{name}}\" and all its models?",
-      "availableModels": "Available Models —",
+      "availableModels": "Available Models — {{name}}",
       "manualInput": "This provider doesn't support auto-fetch. Enter model ID manually:",
       "modelId": "Model ID",
       "modelIdPlaceholder": "e.g. @cf/meta/llama-3.1-8b-instruct",
@@ -428,11 +455,20 @@
       "addModel": "Add",
       "modelEnabled": "Enabled",
       "enableModel": "Enable",
+      "enabled": "Enabled",
       "collapse": "Collapse",
       "test": "Test",
+      "remove": "Remove",
       "removeModelConfirm": "Remove model \"{{name}}\"?",
       "requesting": "Requesting...",
-      "responseTime": "Response time: ",
+      "responseTime": "Response time: {{ms}} ms",
+      "testPlaceholder": "Enter test message...",
+      "send": "Send",
+      "testFailed": "Test failed",
+      "queryFailed": "Query failed",
+      "enabledModels": "Enabled Models",
+      "noEnabledModels": "No enabled models. Add a provider and fetch models.",
+      "customProvider": "Custom (OpenAI compatible)",
       "promptTitle": "AI Analysis Prompts",
       "promptSubtitle": "Configure prompts used for lead and client AI analysis",
       "systemPrompt": "System Prompt",
@@ -442,7 +478,8 @@
       "systemRole": "System Role",
       "userPromptLabel": "User Prompt Template",
       "noPrompt": "No prompt configured",
-      "notConfigured": "Not configured"
+      "notConfigured": "(Not configured)",
+      "saving": "Saving..."
     },
     "workflow": {
       "title": "Workflows",
@@ -470,7 +507,15 @@
           "desc": "Description",
           "status": "Enabled"
         },
-        "reorder": "Reorder"
+        "reorder": "Reorder",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "strategies": {
+          "roundRobin": "Assign to each sales rep in rotation",
+          "leastLeads": "Assign to the rep with the fewest active leads",
+          "serviceMatch": "Prefer reps whose skills match the lead's intended service",
+          "regionMatch": "Prefer reps whose region matches the lead's source region"
+        }
       },
       "trigger": {
         "title": "Trigger",
@@ -545,10 +590,31 @@
           "subjectDefault": "Notification: ",
           "body": "Body",
           "variables": "Available Variables",
-          "variablesHint": "Use in text fields as",
+          "variablesHint": "Use {{placeholder}} in text fields, e.g. {{example}}",
           "varLead": "Lead Fields",
           "varClient": "Client Fields",
           "varTime": "Time Variables",
+          "vars": {
+            "lead": {
+              "name": "Lead name", "contactInfo": "Contact info", "source": "Source channel",
+              "status": "Current status", "intendedServices": "Intended services (comma-separated)",
+              "lostReason": "Lost reason", "nextContactDate": "Next contact date",
+              "notes": "Notes", "assignedToName": "Owner name",
+              "assignedToEmail": "Owner email", "createdAt": "Created at"
+            },
+            "client": {
+              "name": "Client name", "phone": "Phone", "email": "Email",
+              "contractStatus": "Contract status", "servicePlans": "Service plans (comma-separated)",
+              "assignedSalesName": "Sales rep name", "assignedSalesEmail": "Sales rep email",
+              "createdAt": "Created at"
+            },
+            "time": {
+              "now": "Current time (precise to minute)", "today": "Today YYYY-MM-DD",
+              "tomorrow": "Tomorrow's date", "yesterday": "Yesterday's date",
+              "weekStart": "This week's Monday", "weekEnd": "This week's Sunday",
+              "monthStart": "First day of month", "monthEnd": "Last day of month"
+            }
+          },
           "method": "Method",
           "bodyJson": "Body (JSON, supports variables)"
         },
@@ -766,7 +832,37 @@
       "process": "Service Steps"
     },
     "resources": {
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "title": "My Files",
+      "upload": "Upload File",
+      "empty": "No files yet. Click \"Upload File\" to get started.",
+      "uploadFailed": "Upload failed, please try again",
+      "fileRequired": "Please select a file",
+      "cols": {
+        "name": "File Name",
+        "type": "Type",
+        "uploadedAt": "Uploaded At"
+      },
+      "types": {
+        "MedicalReport": "Medical Report",
+        "Contract": "Contract",
+        "PassportCopy": "Passport Copy",
+        "PartnerContact": "Partner Contact"
+      },
+      "form": {
+        "title": "File Name",
+        "type": "File Type",
+        "selectFile": "Select File",
+        "modalTitle": "Upload File",
+        "uploadAction": "Upload"
+      },
+      "download": "Download"
+    },
+    "nav": {
+      "profile": "Profile",
+      "services": "Services",
+      "resources": "My Files",
+      "logout": "Logout"
     }
   },
   "fileManager": {

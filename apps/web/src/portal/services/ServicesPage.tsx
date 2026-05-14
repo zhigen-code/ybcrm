@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { portalApi } from '@/shared/utils/request'
 import { Badge } from '@/shared/components/Badge'
 
@@ -11,20 +12,21 @@ interface ServiceWithStatus {
 }
 
 export default function PortalServicesPage() {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'services'],
     queryFn: () =>
       portalApi.get<{ data: ServiceWithStatus[] }>('/services').then((r) => r.data.data),
   })
 
-  if (isLoading) return <div className="text-sm text-gray-500">加载中...</div>
+  if (isLoading) return <div className="text-sm text-gray-500">{t('common.loading')}</div>
 
   if (!data?.length) {
     return (
       <div className="max-w-xl">
-        <h1 className="text-xl font-semibold text-gray-900 mb-6">服务进度</h1>
+        <h1 className="text-xl font-semibold text-gray-900 mb-6">{t('portal.services.title')}</h1>
         <div className="rounded-xl border bg-white p-12 text-center text-sm text-gray-500">
-          暂无服务记录，请联系您的顾问了解详情
+          {t('portal.services.empty')}
         </div>
       </div>
     )
@@ -32,7 +34,7 @@ export default function PortalServicesPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">服务进度</h1>
+      <h1 className="text-xl font-semibold text-gray-900 mb-6">{t('portal.services.title')}</h1>
 
       {data.map((service) => {
         const steps: string[] = (() => {
@@ -45,7 +47,7 @@ export default function PortalServicesPage() {
               <h2 className="text-lg font-semibold text-gray-900">{service.name}</h2>
               {service.contractStatus && (
                 <Badge variant={service.contractStatus === '已签署' ? 'green' : 'yellow'}>
-                  合同{service.contractStatus}
+                  {t('portal.services.contract')}{service.contractStatus}
                 </Badge>
               )}
             </div>
@@ -56,7 +58,7 @@ export default function PortalServicesPage() {
 
             {steps.length > 0 && (
               <div className="mt-6">
-                <p className="text-xs font-medium text-gray-500 mb-3">服务流程</p>
+                <p className="text-xs font-medium text-gray-500 mb-3">{t('portal.services.process')}</p>
                 <ol className="relative border-l border-gray-200 space-y-4 ml-3">
                   {steps.map((step, i) => (
                     <li key={i} className="ml-4">

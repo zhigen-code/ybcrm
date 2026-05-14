@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Input } from '@/shared/components/Input'
 import { Button } from '@/shared/components/Button'
@@ -28,16 +29,16 @@ const COLOR_CLASS: Record<Color, string> = {
   purple: 'bg-purple-400',
 }
 
-const OPTION_GROUPS = [
-  { key: 'lead_status',     label: '线索状态',     noAdd: true },
-  { key: 'contract_status', label: '合同状态',     noAdd: false },
-  { key: 'activity_type',   label: '跟进类型',     noAdd: false },
-  { key: 'partner_type',    label: '合作伙伴类型', noAdd: false },
+const OPTION_GROUPS_KEYS = [
+  { key: 'lead_status',     labelKey: 'settings.options.leadStatus',    noAdd: true },
+  { key: 'contract_status', labelKey: 'settings.options.contractStatus', noAdd: false },
+  { key: 'activity_type',   labelKey: 'settings.options.activityTypes',  noAdd: false },
+  { key: 'partner_type',    labelKey: 'settings.options.partnerTypes',   noAdd: false },
 ]
 
 const optionItemSchema = z.object({
-  value: z.string().min(1, '请填写值'),
-  label: z.string().min(1, '请填写标签'),
+  value: z.string().min(1),
+  label: z.string().min(1),
   color: z.enum(VALID_COLORS).default('gray'),
 })
 type OptionItemForm = z.infer<typeof optionItemSchema>
@@ -62,7 +63,7 @@ function ColorPicker({ value, onChange }: { value: Color; onChange: (c: Color) =
 
 // ─── 工作流管理面板 ───────────────────────────────────────────────────────────
 
-const ENTITY_LABELS: Record<string, string> = { lead: '线索', client: '客户' }
+const ENTITY_LABEL_KEYS: Record<string, string> = { lead: 'settings.workflow.trigger.targets.lead', client: 'settings.workflow.trigger.targets.client' }
 
 interface EntityField {
   field: string
@@ -103,34 +104,34 @@ const EMPTY_WORKFLOW: WorkflowForm = {
   actions: [],
 }
 
-const TRIGGER_TYPES: { type: WfTriggerType; label: string; desc: string }[] = [
-  { type: 'field_change', label: '字段变更', desc: '指定字段值变更为目标值时触发' },
-  { type: 'on_create',    label: '新建时',   desc: '线索或客户被新建时自动触发' },
-  { type: 'scheduled',    label: '定时触发', desc: '每天定时检查，满足条件的实体自动执行' },
+const TRIGGER_TYPE_KEYS: { type: WfTriggerType; labelKey: string; descKey: string }[] = [
+  { type: 'field_change', labelKey: 'settings.workflow.trigger.types.field_change', descKey: 'settings.workflow.trigger.types.field_changeHint' },
+  { type: 'on_create',    labelKey: 'settings.workflow.trigger.types.on_create',    descKey: 'settings.workflow.trigger.types.on_createHint' },
+  { type: 'scheduled',    labelKey: 'settings.workflow.trigger.types.scheduled',    descKey: 'settings.workflow.trigger.types.scheduledHint' },
 ]
 
-const SCHEDULED_CONDITIONS: { value: ScheduledCondition; label: string; needsField: boolean; needsDays: boolean }[] = [
-  { value: 'date_is_today',    label: '日期字段 = 今天',      needsField: true,  needsDays: false },
-  { value: 'date_overdue',     label: '日期字段已过期（< 今天）', needsField: true,  needsDays: false },
-  { value: 'no_activity_days', label: '超过 N 天未跟进',       needsField: false, needsDays: true  },
+const SCHEDULED_CONDITIONS: { value: ScheduledCondition; labelKey: string; needsField: boolean; needsDays: boolean }[] = [
+  { value: 'date_is_today',    labelKey: 'settings.workflow.trigger.types.date_equals_today', needsField: true,  needsDays: false },
+  { value: 'date_overdue',     labelKey: 'settings.workflow.trigger.types.date_overdue',      needsField: true,  needsDays: false },
+  { value: 'no_activity_days', labelKey: 'settings.workflow.trigger.types.no_activity',       needsField: false, needsDays: true  },
 ]
 
-const ACTION_TYPES: { type: WfActionForm['type']; label: string; supported: boolean }[] = [
-  { type: 'require_activity', label: '要求跟进记录', supported: true },
-  { type: 'require_fields',   label: '强制填写字段', supported: true },
-  { type: 'set_field',        label: '自动赋值字段', supported: true },
-  { type: 'send_email',       label: '发送邮件',     supported: true },
-  { type: 'webhook',          label: 'Webhook 通知', supported: true },
-  { type: 'ai_analysis',      label: 'AI 自动分析',  supported: true },
+const ACTION_TYPE_KEYS: { type: WfActionForm['type']; labelKey: string; supported: boolean }[] = [
+  { type: 'require_activity', labelKey: 'settings.workflow.actions.types.require_activity', supported: true },
+  { type: 'require_fields',   labelKey: 'settings.workflow.actions.types.require_fields',   supported: true },
+  { type: 'set_field',        labelKey: 'settings.workflow.actions.types.set_field',        supported: true },
+  { type: 'send_email',       labelKey: 'settings.workflow.actions.types.send_email',       supported: true },
+  { type: 'webhook',          labelKey: 'settings.workflow.actions.types.webhook',          supported: true },
+  { type: 'ai_analysis',      labelKey: 'settings.workflow.actions.types.ai_analysis',      supported: true },
 ]
 
-const ACTION_LABELS: Record<WfActionForm['type'], string> = {
-  require_activity: '要求跟进记录',
-  require_fields:   '强制填写字段',
-  set_field:        '自动赋值字段',
-  send_email:       '发送邮件',
-  webhook:          'Webhook 通知',
-  ai_analysis:      'AI 自动分析',
+const ACTION_LABEL_KEYS: Record<WfActionForm['type'], string> = {
+  require_activity: 'settings.workflow.actions.types.require_activity',
+  require_fields:   'settings.workflow.actions.types.require_fields',
+  set_field:        'settings.workflow.actions.types.set_field',
+  send_email:       'settings.workflow.actions.types.send_email',
+  webhook:          'settings.workflow.actions.types.webhook',
+  ai_analysis:      'settings.workflow.actions.types.ai_analysis',
 }
 
 function buildTrigger(f: WorkflowForm) {
@@ -148,12 +149,12 @@ function buildTrigger(f: WorkflowForm) {
 }
 
 function buildWorkflowPayload(f: WorkflowForm) {
-  const entityLabel = f.entityType === 'lead' ? '线索' : '客户'
+  const entityLabel = f.entityType === 'lead' ? 'Lead' : 'Client'
   const triggerDesc = f.triggerType === 'on_create'
-    ? '新建时'
+    ? 'on_create'
     : f.triggerType === 'scheduled'
-    ? `定时·${SCHEDULED_CONDITIONS.find((c) => c.value === f.scheduledCondition)?.label ?? f.scheduledCondition}`
-    : `${f.triggerField} → ${f.triggerValue === '*' ? '任意值' : f.triggerValue}`
+    ? `scheduled·${f.scheduledCondition}`
+    : `${f.triggerField} → ${f.triggerValue === '*' ? '*' : f.triggerValue}`
   const name = f.name.trim() || `${entityLabel} · ${triggerDesc}`
   return {
     name,
@@ -236,6 +237,7 @@ function WorkflowFormModal({
   saving: boolean
   schema: Record<string, EntityField[]> | undefined
 }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState<WorkflowForm>(initial)
   const set = (patch: Partial<WorkflowForm>) => setForm((f) => ({ ...f, ...patch }))
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
@@ -321,8 +323,8 @@ function WorkflowFormModal({
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>取消</Button>
-          <Button loading={saving} disabled={!canSave} onClick={() => onSave(form)}>保存</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button loading={saving} disabled={!canSave} onClick={() => onSave(form)}>{t('common.save')}</Button>
         </>
       }
     >
@@ -330,25 +332,25 @@ function WorkflowFormModal({
 
         {/* ① 触发器：选择事件类型 */}
         <div className="rounded-lg border border-gray-200 p-4">
-          <SectionHeader step="1" title="触发器" desc="选择启动此工作流的事件类型" />
+          <SectionHeader step="1" title={t('settings.workflow.trigger.title')} desc={t('settings.workflow.trigger.subtitle')} />
           <div className="space-y-3 pl-9">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">适用对象</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.target')}</label>
               <select className={sel} value={form.entityType} onChange={(e) => handleEntityChange(e.target.value)}>
-                <option value="lead">线索</option>
-                <option value="client">客户</option>
+                <option value="lead">{t('settings.workflow.trigger.targets.lead')}</option>
+                <option value="client">{t('settings.workflow.trigger.targets.client')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">触发类型</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">{t('settings.workflow.trigger.type')}</label>
               <div className="grid grid-cols-3 gap-2">
-                {TRIGGER_TYPES.map((tt) => (
+                {TRIGGER_TYPE_KEYS.map((tt) => (
                   <button key={tt.type} type="button" onClick={() => handleTriggerTypeChange(tt.type)}
                     className={`rounded-md border px-3 py-2.5 text-left transition-colors ${
                       form.triggerType === tt.type ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
                     }`}>
-                    <p className={`text-sm font-medium ${form.triggerType === tt.type ? 'text-primary-700' : 'text-gray-700'}`}>{tt.label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{tt.desc}</p>
+                    <p className={`text-sm font-medium ${form.triggerType === tt.type ? 'text-primary-700' : 'text-gray-700'}`}>{t(tt.labelKey)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{t(tt.descKey)}</p>
                   </button>
                 ))}
               </div>
@@ -358,41 +360,41 @@ function WorkflowFormModal({
 
         {/* ② 条件：根据触发类型配置具体匹配规则 */}
         <div className="rounded-lg border border-gray-200 p-4">
-          <SectionHeader step="2" title="条件" desc="触发后需满足以下条件才会执行动作" />
+          <SectionHeader step="2" title={t('settings.workflow.trigger.conditions')} desc={t('settings.workflow.trigger.conditionsHint')} />
           <div className="space-y-3 pl-9">
 
             {/* 新建时：无需条件 */}
             {form.triggerType === 'on_create' && (
-              <p className="text-sm text-gray-400 italic">新建时立即触发，无需额外条件</p>
+              <p className="text-sm text-gray-400 italic">{t('settings.workflow.trigger.noCondition')}</p>
             )}
 
             {/* 字段变更：选字段 + 目标值 */}
             {form.triggerType === 'field_change' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">监听字段</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.watchField')}</label>
                   <select className={sel} value={form.triggerField} onChange={(e) => handleTriggerFieldChange(e.target.value)}>
-                    <option value="">请选择...</option>
+                    <option value="">{t('settings.workflow.trigger.placeholder')}</option>
                     {entityFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">变更为</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.changeTo')}</label>
                   {triggerValueOptions.length > 0 ? (
                     <select className={sel} value={form.triggerValue} onChange={(e) => set({ triggerValue: e.target.value })}>
-                      <option value="">请选择...</option>
-                      <option value="*">— 任意值（发生变更即触发）—</option>
+                      <option value="">{t('settings.workflow.trigger.placeholder')}</option>
+                      <option value="*">{t('settings.workflow.trigger.anyChange')}</option>
                       {triggerValueOptions.map((o: OptionItem) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
                   ) : (
-                    <input className={inp} placeholder="输入目标值，或留空匹配任意值"
+                    <input className={inp} placeholder={t('settings.workflow.trigger.daysNoActivity')}
                       value={form.triggerValue === '*' ? '' : form.triggerValue}
                       onChange={(e) => set({ triggerValue: e.target.value || '*' })} />
                   )}
                   {form.triggerValue === '*' && (
-                    <p className="text-xs text-amber-600 mt-1">字段值发生任何变化时均会触发</p>
+                    <p className="text-xs text-amber-600 mt-1">{t('settings.workflow.trigger.anyChangeHint')}</p>
                   )}
                 </div>
               </>
@@ -402,34 +404,34 @@ function WorkflowFormModal({
             {form.triggerType === 'scheduled' && (
               <>
                 <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
-                  每天 09:00（北京时间）自动扫描全量数据，对满足条件的实体执行动作
+                  {t('settings.workflow.trigger.dailyScanHint')}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">匹配条件</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.matchConditions')}</label>
                   <select className={sel} value={form.scheduledCondition}
                     onChange={(e) => set({ scheduledCondition: e.target.value as ScheduledCondition, triggerField: '' })}>
                     {SCHEDULED_CONDITIONS.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
+                      <option key={c.value} value={c.value}>{t(c.labelKey)}</option>
                     ))}
                   </select>
                 </div>
                 {scheduledCondDef?.needsField && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">日期字段</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.dateField')}</label>
                     <select className={sel} value={form.triggerField} onChange={(e) => set({ triggerField: e.target.value })}>
-                      <option value="">请选择...</option>
+                      <option value="">{t('settings.workflow.trigger.placeholder')}</option>
                       {dateFields.map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
                     </select>
                   </div>
                 )}
                 {scheduledCondDef?.needsDays && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">天数阈值</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{t('settings.workflow.trigger.daysThreshold')}</label>
                     <div className="flex items-center gap-2">
                       <input type="number" min={1} max={365} className={`${inp} w-24`}
                         value={form.scheduledDays}
                         onChange={(e) => set({ scheduledDays: Math.max(1, Number(e.target.value)) })} />
-                      <span className="text-sm text-gray-500">天内无跟进记录时触发</span>
+                      <span className="text-sm text-gray-500">{t('settings.workflow.trigger.daysNoActivity')}</span>
                     </div>
                   </div>
                 )}
@@ -440,16 +442,16 @@ function WorkflowFormModal({
 
         {/* ③ 动作 */}
         <div className="rounded-lg border border-gray-200 p-4">
-          <SectionHeader step="3" title="动作" desc="触发后依次执行以下动作" />
+          <SectionHeader step="3" title={t('settings.workflow.actions.title')} desc={t('settings.workflow.actions.subtitle')} />
           <div className="pl-9 space-y-3">
             {form.actions.length === 0 && (
-              <p className="text-xs text-gray-400">暂无动作，请从下方添加</p>
+              <p className="text-xs text-gray-400">{t('settings.workflow.actions.empty')}</p>
             )}
 
             {form.actions.map((action, idx) => (
               <div key={idx} className="rounded-md border border-gray-200 bg-gray-50">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
-                  <span className="text-xs font-semibold text-gray-700">{ACTION_LABELS[action.type]}</span>
+                  <span className="text-xs font-semibold text-gray-700">{t(ACTION_LABEL_KEYS[action.type])}</span>
                   <button type="button" onClick={() => removeAction(idx)} className="text-gray-400 hover:text-red-500">
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -465,8 +467,8 @@ function WorkflowFormModal({
                     entityFields={entityFields}
                     entityType={form.entityType}
                   />
-                  {!ACTION_TYPES.find((at) => at.type === action.type)?.supported && (
-                    <p className="mt-2 text-xs text-amber-500">⚠ 此动作执行逻辑待开发，配置将被保存但暂不生效</p>
+                  {!ACTION_TYPE_KEYS.find((at) => at.type === action.type)?.supported && (
+                    <p className="mt-2 text-xs text-amber-500">⚠ {t('settings.workflow.actions.pending')}</p>
                   )}
                 </div>
               </div>
@@ -476,7 +478,7 @@ function WorkflowFormModal({
             <div className="relative pt-1">
               {availableTemplates.length === 0 ? (
                 <p className="text-xs text-gray-400 italic">
-                  动作库暂无可用模板，请先在「动作库」Tab 中创建。
+                  {t('settings.workflow.actions.noTemplates')}
                 </p>
               ) : (
                 <>
@@ -485,17 +487,17 @@ function WorkflowFormModal({
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    从动作库添加
+                    {t('settings.workflow.actions.addFromLib')}
                   </button>
                   {showTemplatePicker && (
                     <div className="absolute left-0 top-8 z-10 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
-                      <p className="px-3 py-2 text-xs font-medium text-gray-500 border-b">选择动作模板</p>
-                      {availableTemplates.map((t) => (
-                        <button key={t.id} type="button" onClick={() => addFromTemplate(t)}
+                      <p className="px-3 py-2 text-xs font-medium text-gray-500 border-b">{t('settings.workflow.actions.selectTemplate')}</p>
+                      {availableTemplates.map((tpl) => (
+                        <button key={tpl.id} type="button" onClick={() => addFromTemplate(tpl)}
                           className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors">
                           <span className="flex-1">
-                            <span className="block text-sm text-gray-800">{t.name}</span>
-                            <span className="block text-xs text-gray-400">{ACTION_LABELS[t.type]}</span>
+                            <span className="block text-sm text-gray-800">{tpl.name}</span>
+                            <span className="block text-xs text-gray-400">{t(ACTION_LABEL_KEYS[tpl.type])}</span>
                           </span>
                         </button>
                       ))}
@@ -507,11 +509,11 @@ function WorkflowFormModal({
 
             {/* 工作流名称 */}
             <div className="pt-2 border-t border-gray-100">
-              <label className="block text-xs text-gray-500 mb-1">工作流名称（留空自动生成）</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.workflowName')}</label>
               <input className={inp}
                 placeholder={form.triggerType === 'on_create'
-                  ? `${form.entityType === 'lead' ? '线索' : '客户'} · 新建时`
-                  : `${form.entityType === 'lead' ? '线索' : '客户'} · ${form.triggerField || '字段'} → ${form.triggerValue || '值'}`}
+                  ? `${t(ENTITY_LABEL_KEYS[form.entityType] ?? '')} · ${t('settings.workflow.trigger.types.on_create')}`
+                  : `${t(ENTITY_LABEL_KEYS[form.entityType] ?? '')} · ${form.triggerField || '?'} → ${form.triggerValue || '?'}`}
                 value={form.name}
                 onChange={(e) => set({ name: e.target.value })} />
             </div>
@@ -557,55 +559,39 @@ function actionFormToConfig(a: WfActionForm): Record<string, unknown> {
 
 // ── 模板变量参考 ──────────────────────────────────────────────────────────────
 
-const TEMPLATE_VAR_GROUPS = [
+const TEMPLATE_VAR_GROUPS: { labelKey: string; entityType: 'lead' | 'client' | null; varGroup: string; vars: { key: string }[] }[] = [
   {
-    label: '线索字段',
-    entityType: 'lead' as const,
+    labelKey: 'settings.workflow.actions.sendEmail.varLead',
+    entityType: 'lead',
+    varGroup: 'lead',
     vars: [
-      { key: 'name',             desc: '线索姓名' },
-      { key: 'contactInfo',      desc: '联系方式' },
-      { key: 'source',           desc: '来源渠道' },
-      { key: 'status',           desc: '当前状态' },
-      { key: 'intendedServices', desc: '意向服务（逗号分隔）' },
-      { key: 'lostReason',       desc: '丢失原因' },
-      { key: 'nextContactDate',  desc: '下次联系时间' },
-      { key: 'notes',            desc: '备注' },
-      { key: 'assignedToName',   desc: '负责人姓名' },
-      { key: 'assignedToEmail',  desc: '负责人邮箱' },
-      { key: 'createdAt',        desc: '创建时间' },
+      { key: 'name' }, { key: 'contactInfo' }, { key: 'source' }, { key: 'status' },
+      { key: 'intendedServices' }, { key: 'lostReason' }, { key: 'nextContactDate' },
+      { key: 'notes' }, { key: 'assignedToName' }, { key: 'assignedToEmail' }, { key: 'createdAt' },
     ],
   },
   {
-    label: '客户字段',
-    entityType: 'client' as const,
+    labelKey: 'settings.workflow.actions.sendEmail.varClient',
+    entityType: 'client',
+    varGroup: 'client',
     vars: [
-      { key: 'name',              desc: '客户姓名' },
-      { key: 'phone',             desc: '电话' },
-      { key: 'email',             desc: '邮箱' },
-      { key: 'contractStatus',    desc: '合同状态' },
-      { key: 'servicePlans',      desc: '服务套餐（逗号分隔）' },
-      { key: 'assignedSalesName', desc: '负责销售姓名' },
-      { key: 'assignedSalesEmail',desc: '负责销售邮箱' },
-      { key: 'createdAt',         desc: '创建时间' },
+      { key: 'name' }, { key: 'phone' }, { key: 'email' }, { key: 'contractStatus' },
+      { key: 'servicePlans' }, { key: 'assignedSalesName' }, { key: 'assignedSalesEmail' }, { key: 'createdAt' },
     ],
   },
   {
-    label: '时间变量',
+    labelKey: 'settings.workflow.actions.sendEmail.varTime',
     entityType: null,
+    varGroup: 'time',
     vars: [
-      { key: 'now',        desc: '当前时间（精确到分钟）' },
-      { key: 'today',      desc: '今天日期 YYYY-MM-DD' },
-      { key: 'tomorrow',   desc: '明天日期' },
-      { key: 'yesterday',  desc: '昨天日期' },
-      { key: 'weekStart',  desc: '本周一日期' },
-      { key: 'weekEnd',    desc: '本周日日期' },
-      { key: 'monthStart', desc: '本月第一天' },
-      { key: 'monthEnd',   desc: '本月最后一天' },
+      { key: 'now' }, { key: 'today' }, { key: 'tomorrow' }, { key: 'yesterday' },
+      { key: 'weekStart' }, { key: 'weekEnd' }, { key: 'monthStart' }, { key: 'monthEnd' },
     ],
   },
 ]
 
 function TemplateVarReference({ entityType }: { entityType: string }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const groups = TEMPLATE_VAR_GROUPS.filter(
     (g) => g.entityType === null || g.entityType === entityType,
@@ -617,19 +603,19 @@ function TemplateVarReference({ entityType }: { entityType: string }) {
         <svg className={`h-3 w-3 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-        可用变量参考
+        {t('settings.workflow.actions.sendEmail.variables')}
       </button>
       {open && (
         <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3">
-          <p className="text-xs text-gray-500">在文本框中使用 <code className="bg-white border border-gray-200 rounded px-1">{'{{变量名}}'}</code> 引用，例如：<code className="bg-white border border-gray-200 rounded px-1">{'{{name}}'}</code></p>
+          <p className="text-xs text-gray-500">{t('settings.workflow.actions.sendEmail.variablesHint', { placeholder: '{{变量名}}', example: '{{name}}' })}</p>
           {groups.map((g) => (
-            <div key={g.label}>
-              <p className="text-xs font-semibold text-gray-600 mb-1">{g.label}</p>
+            <div key={g.labelKey}>
+              <p className="text-xs font-semibold text-gray-600 mb-1">{t(g.labelKey)}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
                 {g.vars.map((v) => (
                   <div key={v.key} className="flex items-baseline gap-1.5 text-xs">
                     <code className="flex-none font-mono text-primary-700 bg-white border border-gray-200 rounded px-1">{`{{${v.key}}}`}</code>
-                    <span className="text-gray-400">{v.desc}</span>
+                    <span className="text-gray-400">{t(`settings.workflow.actions.sendEmail.vars.${g.varGroup}.${v.key}`, v.key)}</span>
                   </div>
                 ))}
               </div>
@@ -650,6 +636,7 @@ function ActionConfigEditor({
   entityFields: EntityField[]
   entityType?: string
 }) {
+  const { t } = useTranslation()
   const inp = 'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500'
   const sel = 'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500'
   const ta  = 'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none'
@@ -659,11 +646,11 @@ function ActionConfigEditor({
       <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
         <input type="checkbox" className="rounded border-gray-300" checked={action.contentRequired}
           onChange={(e) => onChange({ contentRequired: e.target.checked })} />
-        跟进内容必填
+        {t('settings.workflow.actions.requireActivity.required')}
       </label>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">快选预设（逗号分隔）</label>
-        <input className={inp} placeholder="电话未接通,已加微信未回" value={action.contentPresets}
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.requireActivity.presets')}</label>
+        <input className={inp} placeholder={t('settings.workflow.actions.requireActivity.presetsDefault')} value={action.contentPresets}
           onChange={(e) => onChange({ contentPresets: e.target.value })} />
       </div>
     </div>
@@ -672,7 +659,7 @@ function ActionConfigEditor({
   if (action.type === 'require_fields') return (
     <div className="divide-y divide-gray-100 rounded border border-gray-200 bg-white">
       {requirableFields.length === 0
-        ? <p className="px-3 py-2 text-xs text-gray-400">暂无可选字段</p>
+        ? <p className="px-3 py-2 text-xs text-gray-400">{t('settings.workflow.actions.requireActivity.noFields')}</p>
         : requirableFields.map((ef) => {
           const checked = action.fields.some((f) => f.field === ef.field)
           return (
@@ -685,7 +672,7 @@ function ActionConfigEditor({
                 }} />
               <span className="flex-1 text-sm text-gray-700">{ef.label}</span>
               <span className="text-xs text-gray-400">
-                {ef.type === 'select' ? '下拉' : ef.type === 'datetime' ? '日期时间' : ef.type === 'services' ? '意向服务' : '文本'}
+                {ef.type === 'select' ? t('settings.workflow.actions.setField.fieldType.select') : ef.type === 'datetime' ? t('settings.workflow.actions.setField.fieldType.datetime') : ef.type === 'services' ? t('settings.workflow.actions.setField.fieldType.service') : t('settings.workflow.actions.setField.fieldType.text')}
               </span>
             </label>
           )
@@ -697,25 +684,25 @@ function ActionConfigEditor({
   if (action.type === 'set_field') return (
     <div className="space-y-2">
       <div>
-        <label className="block text-xs text-gray-500 mb-1">目标字段</label>
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.setField.targetField')}</label>
         <select className={sel} value={action.field}
           onChange={(e) => { const ef = entityFields.find((f) => f.field === e.target.value); onChange({ field: e.target.value, label: ef?.label ?? '', value: '' }) }}>
-          <option value="">请选择...</option>
+          <option value="">{t('settings.workflow.trigger.placeholder')}</option>
           {entityFields.filter((f) => !f.triggerOnly).map((ef) => <option key={ef.field} value={ef.field}>{ef.label}</option>)}
         </select>
       </div>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">设为值</label>
-        <input className={inp} placeholder="目标值" value={action.value} onChange={(e) => onChange({ value: e.target.value })} />
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.setField.setValue')}</label>
+        <input className={inp} placeholder={t('settings.workflow.trigger.placeholder')} value={action.value} onChange={(e) => onChange({ value: e.target.value })} />
       </div>
     </div>
   )
 
   if (action.type === 'send_email') return (
     <div className="space-y-2">
-      <div><label className="block text-xs text-gray-500 mb-1">收件人</label><input className={inp} placeholder="{{assignedToEmail}}" value={action.to} onChange={(e) => onChange({ to: e.target.value })} /></div>
-      <div><label className="block text-xs text-gray-500 mb-1">主题</label><input className={inp} placeholder="通知：{{name}}" value={action.subject} onChange={(e) => onChange({ subject: e.target.value })} /></div>
-      <div><label className="block text-xs text-gray-500 mb-1">正文</label><textarea className={ta} rows={4} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.to')}</label><input className={inp} placeholder="{{assignedToEmail}}" value={action.to} onChange={(e) => onChange({ to: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.subject')}</label><input className={inp} placeholder={t('settings.workflow.actions.sendEmail.subjectDefault')} value={action.subject} onChange={(e) => onChange({ subject: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.body')}</label><textarea className={ta} rows={4} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
       <TemplateVarReference entityType={entityType ?? 'lead'} />
     </div>
   )
@@ -723,29 +710,29 @@ function ActionConfigEditor({
   if (action.type === 'webhook') return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <div className="flex-none w-24"><label className="block text-xs text-gray-500 mb-1">方法</label>
+        <div className="flex-none w-24"><label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.method')}</label>
           <select className={sel} value={action.method} onChange={(e) => onChange({ method: e.target.value })}>
             <option value="POST">POST</option><option value="GET">GET</option>
           </select></div>
         <div className="flex-1 min-w-0"><label className="block text-xs text-gray-500 mb-1">URL</label><input className={inp} placeholder="https://..." value={action.url} onChange={(e) => onChange({ url: e.target.value })} /></div>
       </div>
-      <div><label className="block text-xs text-gray-500 mb-1">Body（JSON，支持变量）</label><textarea className={ta} rows={4} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
+      <div><label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.sendEmail.bodyJson')}</label><textarea className={ta} rows={4} value={action.body} onChange={(e) => onChange({ body: e.target.value })} /></div>
       <TemplateVarReference entityType={entityType ?? 'lead'} />
     </div>
   )
 
   if (action.type === 'ai_analysis') return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-500">触发时自动对该实体运行 AI 分析并保存结果。</p>
+      <p className="text-xs text-gray-500">{t('settings.workflow.actions.aiAnalysis.autoActions')}</p>
       <div>
-        <label className="block text-xs text-gray-500 mb-1">自动执行建议操作（逗号分隔，可选）</label>
+        <label className="block text-xs text-gray-500 mb-1">{t('settings.workflow.actions.aiAnalysis.autoActions')}</label>
         <input
           className={inp}
-          placeholder="set_next_contact_date,update_lead_status"
+          placeholder={t('settings.workflow.actions.aiAnalysis.autoActionsDefault')}
           value={action.autoExecute}
           onChange={(e) => onChange({ autoExecute: e.target.value })}
         />
-        <p className="mt-1 text-xs text-gray-400">留空则只保存分析结果，不自动执行任何操作。可填：set_next_contact_date / update_lead_status / update_contract_status</p>
+        <p className="mt-1 text-xs text-gray-400">{t('settings.workflow.actions.aiAnalysis.autoActionsHint')}</p>
       </div>
     </div>
   )
@@ -763,6 +750,7 @@ function ActionTemplateFormModal({
   saving: boolean
   schema: Record<string, EntityField[]> | undefined
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initial.name)
   const [entityType, setEntityType] = useState(initial.entityType)
   const [action, setAction] = useState<WfActionForm>(initial.action)
@@ -786,32 +774,32 @@ function ActionTemplateFormModal({
 
   return (
     <Modal title={title} onClose={onClose} footer={
-      <><Button variant="secondary" onClick={onClose}>取消</Button>
-        <Button loading={saving} disabled={!canSave} onClick={() => onSave(name, entityType, action)}>保存</Button></>
+      <><Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+        <Button loading={saving} disabled={!canSave} onClick={() => onSave(name, entityType, action)}>{t('common.save')}</Button></>
     }>
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">模板名称</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.workflow.actionLib.templateName')}</label>
           <input className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="如：发送销售通知邮件" value={name} onChange={(e) => setName(e.target.value)} />
+            placeholder={t('settings.workflow.actionLib.templateNamePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">适用对象（影响可选字段）</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.workflow.actionLib.target')}</label>
           <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
             value={entityType} onChange={(e) => { setEntityType(e.target.value); setAction((a) => {
                       if (a.type === 'require_fields') return { type: 'require_fields', fields: [] }
                       if (a.type === 'set_field') return { type: 'set_field', field: '', label: '', value: '' }
                       return a
                     }) }}>
-            <option value="lead">线索</option>
-            <option value="client">客户</option>
+            <option value="lead">{t('settings.workflow.trigger.targets.lead')}</option>
+            <option value="client">{t('settings.workflow.trigger.targets.client')}</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">动作类型</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.workflow.actionLib.actionType')}</label>
           <select className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
             value={action.type} onChange={(e) => handleTypeChange(e.target.value as WfActionForm['type'])}>
-            {ACTION_TYPES.map((at) => <option key={at.type} value={at.type}>{at.label}{!at.supported ? '（待开发）' : ''}</option>)}
+            {ACTION_TYPE_KEYS.map((at) => <option key={at.type} value={at.type}>{t(at.labelKey)}{!at.supported ? `（${t('settings.workflow.actionLib.pending')}）` : ''}</option>)}
           </select>
         </div>
         <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
@@ -824,6 +812,7 @@ function ActionTemplateFormModal({
 }
 
 function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]> | undefined }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
   const [editTarget, setEditTarget] = useState<ActionTemplate | null>(null)
@@ -873,41 +862,41 @@ function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]
     action: templateToAction(t),
   })
 
-  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">{t('common.loading')}</div>
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-500">预先定义好的动作配置，新建工作流时可直接加载，无需重复配置。</p>
-        <Button size="sm" onClick={() => setShowAdd(true)}>+ 新建模板</Button>
+        <p className="text-sm text-gray-500">{t('settings.workflow.actionLib.subtitle')}</p>
+        <Button size="sm" onClick={() => setShowAdd(true)}>{t('settings.workflow.actionLib.new')}</Button>
       </div>
 
       <div className="rounded-lg border bg-white overflow-hidden">
         {(!data || data.length === 0) ? (
-          <p className="py-8 text-center text-sm text-gray-400">暂无动作模板</p>
+          <p className="py-8 text-center text-sm text-gray-400">{t('settings.workflow.actionLib.empty')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">模板名称</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">动作类型</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.actionLib.cols.name')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.actionLib.cols.type')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.actionLib.cols.status')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((t) => (
-                <tr key={t.id} className={t.isActive ? '' : 'opacity-50'}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{t.name}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{ACTION_LABELS[t.type]}</td>
-                  <td className="px-4 py-3"><Badge variant={t.isActive ? 'green' : 'gray'}>{t.isActive ? '启用' : '禁用'}</Badge></td>
+              {data.map((tpl) => (
+                <tr key={tpl.id} className={tpl.isActive ? '' : 'opacity-50'}>
+                  <td className="px-4 py-3 font-medium text-gray-800">{tpl.name}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{t(ACTION_LABEL_KEYS[tpl.type])}</td>
+                  <td className="px-4 py-3"><Badge variant={tpl.isActive ? 'green' : 'gray'}>{tpl.isActive ? t('common.enable') : t('common.disable')}</Badge></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
-                      <button onClick={() => setEditTarget(t)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+                      <button onClick={() => setEditTarget(tpl)} className="text-xs text-primary-600 hover:text-primary-800">{t('common.edit')}</button>
                       <span className="text-gray-300">|</span>
-                      <button onClick={() => toggleMutation.mutate({ id: t.id, isActive: !t.isActive })} className="text-xs text-gray-500 hover:text-gray-700">{t.isActive ? '禁用' : '启用'}</button>
+                      <button onClick={() => toggleMutation.mutate({ id: tpl.id, isActive: !tpl.isActive })} className="text-xs text-gray-500 hover:text-gray-700">{tpl.isActive ? t('common.disable') : t('common.enable')}</button>
                       <span className="text-gray-300">|</span>
-                      <button onClick={() => { if (confirm('确认删除此模板？')) deleteMutation.mutate(t.id) }} className="text-xs text-red-500 hover:text-red-700">删除</button>
+                      <button onClick={() => { if (confirm(t('settings.workflow.actionLib.deleteConfirm'))) deleteMutation.mutate(tpl.id) }} className="text-xs text-red-500 hover:text-red-700">{t('common.delete')}</button>
                     </div>
                   </td>
                 </tr>
@@ -918,12 +907,12 @@ function ActionTemplatesPanel({ schema }: { schema: Record<string, EntityField[]
       </div>
 
       {showAdd && (
-        <ActionTemplateFormModal title="新建动作模板" initial={EMPTY_TEMPLATE}
+        <ActionTemplateFormModal title={t('settings.workflow.actionLib.new')} initial={EMPTY_TEMPLATE}
           onClose={() => setShowAdd(false)} onSave={handleSave}
           saving={addMutation.isPending} schema={schema} />
       )}
       {editTarget && (
-        <ActionTemplateFormModal title="编辑动作模板" initial={templateToInitial(editTarget)}
+        <ActionTemplateFormModal title={t('settings.workflow.actionLib.title')} initial={templateToInitial(editTarget)}
           onClose={() => setEditTarget(null)} onSave={handleSave}
           saving={editMutation.isPending} schema={schema} />
       )}
@@ -942,11 +931,15 @@ type TrashItem = {
   [key: string]: unknown
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  lead: '线索', client: '客户', service: '服务', partner: '合作伙伴',
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  lead: 'settings.workflow.trigger.targets.lead',
+  client: 'settings.workflow.trigger.targets.client',
+  service: 'services.title',
+  partner: 'partners.title',
 }
 
 function RecycleBinPanel() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
@@ -973,24 +966,24 @@ function RecycleBinPanel() {
       <div className="rounded-lg border bg-white overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
           <div>
-            <h2 className="font-semibold text-gray-800 text-sm">回收站</h2>
-            <p className="text-xs text-gray-400 mt-0.5">已删除的记录，可还原或彻底删除</p>
+            <h2 className="font-semibold text-gray-800 text-sm">{t('settings.trash.title')}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{t('settings.trash.subtitle')}</p>
           </div>
-          <span className="text-xs text-gray-400">{items.length} 条记录</span>
+          <span className="text-xs text-gray-400">{items.length} {t('settings.trash.count')}</span>
         </div>
 
         {isLoading ? (
-          <div className="py-10 text-center text-sm text-gray-400">加载中...</div>
+          <div className="py-10 text-center text-sm text-gray-400">{t('common.loading')}</div>
         ) : items.length === 0 ? (
-          <div className="py-10 text-center text-sm text-gray-400">回收站为空</div>
+          <div className="py-10 text-center text-sm text-gray-400">{t('settings.trash.empty')}</div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">类型</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">名称</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700 hidden sm:table-cell">附加信息</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700 hidden sm:table-cell">删除时间</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.trash.cols.type')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.trash.cols.name')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700 hidden sm:table-cell">{t('settings.trash.cols.extra')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700 hidden sm:table-cell">{t('settings.trash.cols.deletedAt')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -1005,7 +998,7 @@ function RecycleBinPanel() {
                   <tr key={`${item._type}-${item.id}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
-                        {TYPE_LABEL[item._type]}
+                        {t(TYPE_LABEL_KEYS[item._type] ?? item._type)}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{item.name}</td>
@@ -1019,17 +1012,17 @@ function RecycleBinPanel() {
                           onClick={() => restore.mutate({ type: item._type, id: item.id })}
                           className="text-xs text-primary-600 hover:text-primary-800 font-medium"
                         >
-                          还原
+                          {t('common.restore')}
                         </button>
                         <span className="text-gray-300">|</span>
                         <button
                           onClick={() => {
-                            if (confirm(`确认彻底删除「${item.name}」？此操作不可恢复，相关跟进记录也将一并删除。`))
+                            if (confirm(t('settings.trash.hardDeleteConfirm', { name: item.name })))
                               purge.mutate({ type: item._type, id: item.id })
                           }}
                           className="text-xs text-red-500 hover:text-red-700"
                         >
-                          彻底删除
+                          {t('settings.trash.hardDelete')}
                         </button>
                       </div>
                     </td>
@@ -1045,6 +1038,7 @@ function RecycleBinPanel() {
 }
 
 function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnabled: boolean; onSettingsSaved: () => void }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [subTab, setSubTab] = useState<'workflows' | 'assignment'>('workflows')
@@ -1110,28 +1104,28 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
     const parts: string[] = []
     for (const a of w.actions) {
       if (a.type === 'require_activity') {
-        parts.push('要求跟进记录')
-        if (a.contentRequired) parts.push('内容必填')
-        if (a.contentPresets?.length) parts.push(`快选：${a.contentPresets.join(' / ')}`)
+        parts.push(t('settings.workflow.actions.types.require_activity'))
+        if (a.contentRequired) parts.push(t('settings.workflow.actions.requireActivity.required'))
+        if (a.contentPresets?.length) parts.push(`${a.contentPresets.join(' / ')}`)
       } else if (a.type === 'require_fields') {
-        parts.push(`必填：${a.fields.map((f) => f.label).join('、')}`)
+        parts.push(`${a.fields.map((f) => f.label).join('、')}`)
       }
     }
     return parts.join('；') || '—'
   }
 
   const triggerLabel = (w: Workflow) => {
-    if (w.trigger.type === 'on_create') return '新建时'
-    const t = w.trigger as { type: 'field_change'; field: string; to: string }
-    const fieldLabel = schema?.[w.entityType]?.find((f) => f.field === t.field)?.label ?? t.field
-    return `${fieldLabel} → ${t.to}`
+    if (w.trigger.type === 'on_create') return t('settings.workflow.trigger.types.on_create')
+    const tr = w.trigger as { type: 'field_change'; field: string; to: string }
+    const fieldLabel = schema?.[w.entityType]?.find((f) => f.field === tr.field)?.label ?? tr.field
+    return `${fieldLabel} → ${tr.to}`
   }
 
   return (
     <div>
       {/* 子 Tab */}
       <div className="flex gap-1 mb-4 border-b border-gray-200">
-        {([['workflows', '工作流'], ['assignment', '自动分配']] as const).map(([key, label]) => (
+        {([['workflows', t('settings.workflow.title')], ['assignment', t('settings.workflow.autoAssign.title')]] as const).map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               subTab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -1147,8 +1141,8 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
           <div className="rounded-lg border bg-white p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-900">自动分配开关</p>
-                <p className="mt-0.5 text-xs text-gray-500">开启后，新建线索将根据下方规则自动分配给销售人员</p>
+                <p className="text-sm font-medium text-gray-900">{t('settings.workflow.autoAssign.toggle')}</p>
+                <p className="mt-0.5 text-xs text-gray-500">{t('settings.workflow.autoAssign.toggleHint')}</p>
               </div>
               <button
                 type="button"
@@ -1167,22 +1161,22 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
 
           <div className="rounded-lg border bg-white overflow-hidden">
             <div className="px-4 py-3 border-b bg-gray-50">
-              <p className="text-sm font-medium text-gray-700">分配规则</p>
-              <p className="mt-0.5 text-xs text-gray-500">规则按优先级顺序依次尝试，第一个匹配成功的规则生效</p>
+              <p className="text-sm font-medium text-gray-700">{t('settings.workflow.autoAssign.rules')}</p>
+              <p className="mt-0.5 text-xs text-gray-500">{t('settings.workflow.autoAssign.rulesHint')}</p>
             </div>
             {rulesLoading ? (
-              <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+              <div className="py-8 text-center text-sm text-gray-400">{t('common.loading')}</div>
             ) : !rules?.length ? (
-              <div className="py-8 text-center text-sm text-gray-400">暂无规则</div>
+              <div className="py-8 text-center text-sm text-gray-400">{t('settings.workflow.autoAssign.empty')}</div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">优先级</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">规则名称</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">说明</th>
-                    <th className="px-4 py-3 text-center font-medium text-gray-700">启用</th>
-                    <th className="px-4 py-3 text-center font-medium text-gray-700">调整顺序</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">{t('settings.workflow.autoAssign.cols.priority')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.autoAssign.cols.name')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.autoAssign.cols.desc')}</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-700">{t('common.enable')}</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-700">{t('settings.workflow.autoAssign.reorder')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1190,7 +1184,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
                     <tr key={rule.id} className={rule.isActive ? '' : 'opacity-50'}>
                       <td className="px-4 py-3 text-center text-gray-400 text-xs">{rule.priority}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{rule.ruleTypeLabel}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{RULE_DESCRIPTIONS[rule.ruleType] ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{RULE_DESCRIPTION_KEYS[rule.ruleType] ? t(RULE_DESCRIPTION_KEYS[rule.ruleType]!) : '—'}</td>
                       <td className="px-4 py-3 text-center">
                         <button type="button"
                           onClick={() => updateRule.mutate({ id: rule.id, isActive: rule.isActive === 0 })}
@@ -1202,10 +1196,10 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
                         <div className="flex items-center justify-center gap-1">
                           <button type="button" disabled={idx === 0}
                             onClick={() => { const prev = arr[idx - 1]!; updateRule.mutate({ id: rule.id, priority: prev.priority }); updateRule.mutate({ id: prev.id, priority: rule.priority }) }}
-                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed" title="上移">↑</button>
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed" title={t('settings.workflow.autoAssign.moveUp')}>↑</button>
                           <button type="button" disabled={idx === arr.length - 1}
                             onClick={() => { const next = arr[idx + 1]!; updateRule.mutate({ id: rule.id, priority: next.priority }); updateRule.mutate({ id: next.id, priority: rule.priority }) }}
-                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed" title="下移">↓</button>
+                            className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed" title={t('settings.workflow.autoAssign.moveDown')}>↓</button>
                         </div>
                       </td>
                     </tr>
@@ -1220,33 +1214,33 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
       {/* 工作流子 Tab */}
       {subTab === 'workflows' && <>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-500">配置触发器与动作，满足触发条件时自动执行。</p>
-        <Button size="sm" onClick={() => navigate('/app/settings/workflows/new')}>+ 新建工作流</Button>
+        <p className="text-sm text-gray-500">{t('settings.workflow.subtitle')}</p>
+        <Button size="sm" onClick={() => navigate('/app/settings/workflows/new')}>{t('settings.workflow.new')}</Button>
       </div>
 
       <div className="rounded-lg border bg-white overflow-hidden">
         {(!data || data.length === 0) ? (
-          <p className="py-8 text-center text-sm text-gray-400">暂无工作流</p>
+          <p className="py-8 text-center text-sm text-gray-400">{t('settings.workflow.empty')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">对象</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">触发条件</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">动作</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.cols.target')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.cols.trigger')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.cols.actions')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.workflow.cols.status')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {data.map((w) => (
                 <tr key={w.id} className={w.isActive ? '' : 'opacity-50'}>
-                  <td className="px-4 py-3 text-gray-700">{ENTITY_LABELS[w.entityType] ?? w.entityType}</td>
+                  <td className="px-4 py-3 text-gray-700">{t(ENTITY_LABEL_KEYS[w.entityType] ?? '') || w.entityType}</td>
                   <td className="px-4 py-3 text-gray-600 text-xs">{triggerLabel(w)}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs max-w-xs">{formatActions(w)}</td>
                   <td className="px-4 py-3">
                     <Badge variant={w.isActive ? 'green' : 'gray'}>
-                      {w.isActive ? '启用' : '禁用'}
+                      {w.isActive ? t('common.enable') : t('common.disable')}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
@@ -1255,21 +1249,21 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
                         onClick={() => navigate(`/app/settings/workflows/${w.id}`)}
                         className="text-xs text-primary-600 hover:text-primary-800"
                       >
-                        编辑
+                        {t('common.edit')}
                       </button>
                       <span className="text-gray-300">|</span>
                       <button
                         onClick={() => toggle.mutate({ id: w.id, isActive: !w.isActive })}
                         className="text-xs text-gray-500 hover:text-gray-700"
                       >
-                        {w.isActive ? '禁用' : '启用'}
+                        {w.isActive ? t('common.disable') : t('common.enable')}
                       </button>
                       <span className="text-gray-300">|</span>
                       <button
-                        onClick={() => { if (confirm('确认删除此工作流？')) deleteMutation.mutate(w.id) }}
+                        onClick={() => { if (confirm(t('settings.workflow.deleteConfirm'))) deleteMutation.mutate(w.id) }}
                         className="text-xs text-red-500 hover:text-red-700"
                       >
-                        删除
+                        {t('common.delete')}
                       </button>
                     </div>
                   </td>
@@ -1282,7 +1276,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
 
       {showAdd && (
         <WorkflowFormModal
-          title="新建工作流"
+          title={t('settings.workflow.new')}
           initial={EMPTY_WORKFLOW}
           onClose={() => setShowAdd(false)}
           onSave={(f) => addMutation.mutate(f)}
@@ -1293,7 +1287,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
 
       {editTarget && (
         <WorkflowFormModal
-          title="编辑工作流"
+          title={t('settings.workflow.title')}
           initial={formFromWorkflow(editTarget)}
           onClose={() => setEditTarget(null)}
           onSave={(f) => editMutation.mutate({ id: editTarget.id, f })}
@@ -1309,6 +1303,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
 const EMPTY_FIELD = (): ActivityMetaField => ({ key: '', label: '', type: 'text', unit: '' })
 
 function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolean }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editTarget, setEditTarget] = useState<OptionItem | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -1392,7 +1387,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
     }
   })
 
-  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+  if (isLoading) return <div className="py-8 text-center text-sm text-gray-400">{t('common.loading')}</div>
 
   return (
     <div>
@@ -1411,13 +1406,13 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                   <span className="text-gray-400 font-mono text-xs flex-shrink-0">{item.value}</span>
                 </div>
                 <Badge variant={item.isActive ? 'green' : 'gray'} className="flex-shrink-0">
-                  {item.isActive ? '启用' : '禁用'}
+                  {item.isActive ? t('common.enable') : t('common.disable')}
                 </Badge>
               </div>
 
               {isActivityType && (
                 <div className="mt-2 flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-400">范围：</span>
+                  <span className="text-xs text-gray-400">{t('settings.options.scope')}</span>
                   {(['lead', 'client'] as const).map((s) => (
                     <button
                       key={s}
@@ -1429,30 +1424,30 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                           : 'bg-gray-50 border-gray-200 text-gray-400'
                       }`}
                     >
-                      {s === 'lead' ? '线索' : '客户'}
+                      {s === 'lead' ? t('settings.workflow.trigger.targets.lead') : t('settings.workflow.trigger.targets.client')}
                     </button>
                   ))}
                   {fieldCount > 0 && (
-                    <span className="text-xs text-gray-400 ml-auto">{fieldCount} 个自定义字段</span>
+                    <span className="text-xs text-gray-400 ml-auto">{fieldCount} {t('settings.options.customFieldCount')}</span>
                   )}
                 </div>
               )}
 
               <div className="mt-2 flex items-center gap-3 border-t pt-2">
-                <button onClick={() => openEdit(item)} className="text-xs text-primary-600 font-medium">编辑</button>
+                <button onClick={() => openEdit(item)} className="text-xs text-primary-600 font-medium">{t('common.edit')}</button>
                 {!item.isSystem && (
                   <>
                     <button
                       onClick={() => toggleActive.mutate({ id: item.id, isActive: !item.isActive })}
                       className="text-xs text-gray-500"
                     >
-                      {item.isActive ? '禁用' : '启用'}
+                      {item.isActive ? t('common.disable') : t('common.enable')}
                     </button>
                     <button
-                      onClick={() => { if (confirm(`确认删除「${item.label}」？`)) deleteMutation.mutate(item.id) }}
+                      onClick={() => { if (confirm(t('settings.options.deleteConfirm', { name: item.label }))) deleteMutation.mutate(item.id) }}
                       className="text-xs text-red-500 ml-auto"
                     >
-                      删除
+                      {t('common.delete')}
                     </button>
                   </>
                 )}
@@ -1467,13 +1462,13 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">色</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">值</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-700">标签</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700 w-8">{t('settings.options.cols.color')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.value')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.label')}</th>
               {isActivityType && (
-                <th className="px-4 py-3 text-left font-medium text-gray-700">适用范围</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.scope')}</th>
               )}
-              <th className="px-4 py-3 text-left font-medium text-gray-700">状态</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.options.cols.status')}</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -1502,7 +1497,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                               : 'bg-gray-50 border-gray-200 text-gray-400'
                           }`}
                         >
-                          {s === 'lead' ? '线索' : '客户'}
+                          {s === 'lead' ? t('settings.workflow.trigger.targets.lead') : t('settings.workflow.trigger.targets.client')}
                         </button>
                       ))}
                     </div>
@@ -1510,12 +1505,12 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                 )}
                 <td className="px-4 py-3">
                   <Badge variant={item.isActive ? 'green' : 'gray'}>
-                    {item.isActive ? '启用' : '禁用'}
+                    {item.isActive ? t('common.enable') : t('common.disable')}
                   </Badge>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 justify-end">
-                    <button onClick={() => openEdit(item)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+                    <button onClick={() => openEdit(item)} className="text-xs text-primary-600 hover:text-primary-800">{t('common.edit')}</button>
                     {!item.isSystem && (
                       <>
                         <span className="text-gray-300">|</span>
@@ -1523,14 +1518,14 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                           onClick={() => toggleActive.mutate({ id: item.id, isActive: !item.isActive })}
                           className="text-xs text-gray-500 hover:text-gray-700"
                         >
-                          {item.isActive ? '禁用' : '启用'}
+                          {item.isActive ? t('common.disable') : t('common.enable')}
                         </button>
                         <span className="text-gray-300">|</span>
                         <button
-                          onClick={() => { if (confirm(`确认删除「${item.label}」？`)) deleteMutation.mutate(item.id) }}
+                          onClick={() => { if (confirm(t('settings.options.deleteConfirm', { name: item.label }))) deleteMutation.mutate(item.id) }}
                           className="text-xs text-red-500 hover:text-red-700"
                         >
-                          删除
+                          {t('common.delete')}
                         </button>
                       </>
                     )}
@@ -1546,64 +1541,64 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
       {!noAdd && (
         <div className="mt-3">
           <Button variant="secondary" size="sm" onClick={() => setShowAdd(true)}>
-            + 添加选项
+            {t('settings.options.addOption')}
           </Button>
         </div>
       )}
 
       {editTarget && (
         <Modal
-          title={`编辑：${editTarget.label}`}
+          title={t('settings.options.editOption', { name: editTarget.label })}
           onClose={() => setEditTarget(null)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
-              <Button loading={updateMutation.isPending} onClick={handleSave}>保存</Button>
+              <Button variant="secondary" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
+              <Button loading={updateMutation.isPending} onClick={handleSave}>{t('common.save')}</Button>
             </>
           }
         >
           <div className="space-y-3">
             {editTarget.isSystem ? (
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">值（系统固定，不可修改）</p>
+                <p className="text-sm font-medium text-gray-700 mb-1">{t('settings.options.valueFixed')}</p>
                 <p className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-500 font-mono">{editTarget.value}</p>
               </div>
             ) : (
-              <Input label="值" error={editForm.formState.errors.value?.message} {...editForm.register('value')} />
+              <Input label={t('settings.options.valueLabel')} error={editForm.formState.errors.value?.message} {...editForm.register('value')} />
             )}
-            <Input label="标签" error={editForm.formState.errors.label?.message} {...editForm.register('label')} />
+            <Input label={t('settings.options.labelLabel')} error={editForm.formState.errors.label?.message} {...editForm.register('label')} />
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">颜色</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('settings.options.colorLabel')}</p>
               <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
 
             {isActivityType && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-700">自定义字段</p>
+                  <p className="text-sm font-medium text-gray-700">{t('settings.options.customFields')}</p>
                   <button
                     type="button"
                     onClick={() => setEditFields((prev) => [...prev, EMPTY_FIELD()])}
                     className="text-xs text-primary-600 hover:text-primary-800"
                   >
-                    + 添加字段
+                    {t('settings.options.addField')}
                   </button>
                 </div>
                 {editFields.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-2">暂无自定义字段，点击"添加字段"</p>
+                  <p className="text-xs text-gray-400 py-2">{t('settings.options.noCustomFields')}</p>
                 ) : (
                   <div className="space-y-2">
                     {editFields.map((f, idx) => (
                       <div key={idx} className="space-y-1">
                         <div className="grid grid-cols-12 gap-1.5 items-center">
                           <input
-                            placeholder="字段键（英文）"
+                            placeholder={t('settings.options.fieldKey')}
                             value={f.key}
                             onChange={(e) => updateField(idx, { key: e.target.value })}
                             className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
                           />
                           <input
-                            placeholder="显示名称"
+                            placeholder={t('settings.options.fieldLabel')}
                             value={f.label}
                             onChange={(e) => updateField(idx, { label: e.target.value })}
                             className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -1613,15 +1608,15 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                             onChange={(e) => updateField(idx, { type: e.target.value as ActivityMetaField['type'], options: [], unit: '' })}
                             className="col-span-2 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
                           >
-                            <option value="text">文本</option>
-                            <option value="number">数字</option>
-                            <option value="date">日期</option>
-                            <option value="select">选择</option>
-                            <option value="product_select">产品选择</option>
+                            <option value="text">{t('settings.options.types.text')}</option>
+                            <option value="number">{t('settings.options.types.number')}</option>
+                            <option value="date">{t('settings.options.types.date')}</option>
+                            <option value="select">{t('settings.options.types.select')}</option>
+                            <option value="product_select">{t('settings.options.types.product_select')}</option>
                           </select>
                           {f.type === 'number' ? (
                             <input
-                              placeholder="单位（可选）"
+                              placeholder={t('settings.options.fieldUnit')}
                               value={f.unit ?? ''}
                               onChange={(e) => updateField(idx, { unit: e.target.value })}
                               className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -1639,10 +1634,10 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                         </div>
                         {f.type === 'select' && (
                           <div className="ml-1 pl-2 border-l border-gray-200">
-                            <p className="text-xs text-gray-400 mb-1">选项（每行一个）</p>
+                            <p className="text-xs text-gray-400 mb-1">{t('settings.options.fieldOptions')}</p>
                             <textarea
                               rows={3}
-                              placeholder={"选项A\n选项B\n选项C"}
+                              placeholder={"A\nB\nC"}
                               className="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
                               value={(f.options ?? []).join('\n')}
                               onChange={(e) => updateField(idx, { options: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
@@ -1651,7 +1646,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                         )}
                       </div>
                     ))}
-                    <p className="text-xs text-gray-400">字段键用英文，如 amount、hospital；单位如 元、个（可留空）</p>
+                    <p className="text-xs text-gray-400">{t('settings.options.fieldHint')}</p>
                   </div>
                 )}
               </div>
@@ -1662,25 +1657,25 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
 
       {showAdd && (
         <Modal
-          title="添加选项"
+          title={t('settings.options.addOptionTitle')}
           onClose={() => { setShowAdd(false); addForm.reset(); setAddColor('gray') }}
           footer={
             <>
-              <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset(); setAddColor('gray') }}>取消</Button>
+              <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset(); setAddColor('gray') }}>{t('common.cancel')}</Button>
               <Button
                 loading={addMutation.isPending}
                 onClick={addForm.handleSubmit((d) => addMutation.mutate({ ...d, color: addColor }))}
               >
-                添加
+                {t('common.add')}
               </Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="值（唯一标识）" placeholder="如 InProgress" error={addForm.formState.errors.value?.message} {...addForm.register('value')} />
-            <Input label="标签（显示文本）" placeholder="如 进行中" error={addForm.formState.errors.label?.message} {...addForm.register('label')} />
+            <Input label={t('settings.options.optionValue')} placeholder={t('settings.options.optionValuePlaceholder')} error={addForm.formState.errors.value?.message} {...addForm.register('value')} />
+            <Input label={t('settings.options.optionLabel')} placeholder={t('settings.options.optionLabelPlaceholder')} error={addForm.formState.errors.label?.message} {...addForm.register('label')} />
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">颜色</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('settings.options.optionColor')}</p>
               <ColorPicker value={addColor} onChange={setAddColor} />
             </div>
           </div>
@@ -1718,63 +1713,66 @@ interface AssignmentRule {
   isActive: number
 }
 
-const RULE_DESCRIPTIONS: Record<string, string> = {
-  round_robin:  '按顺序轮流分配给每位销售人员',
-  load_balance: '分配给当前线索数最少的销售人员',
-  skill_match:  '优先分配给专长与线索意向服务匹配的销售人员',
-  region_match: '优先分配给所在区域与线索来源地区匹配的销售人员',
+const RULE_DESCRIPTION_KEYS: Record<string, string> = {
+  round_robin:  'settings.workflow.autoAssign.strategies.roundRobin',
+  load_balance: 'settings.workflow.autoAssign.strategies.leastLeads',
+  skill_match:  'settings.workflow.autoAssign.strategies.serviceMatch',
+  region_match: 'settings.workflow.autoAssign.strategies.regionMatch',
 }
 
-const COMMON_TIMEZONES = [
-  { value: 'Asia/Shanghai',    label: '中国标准时间 (UTC+8)' },
-  { value: 'Asia/Hong_Kong',   label: '香港时间 (UTC+8)' },
-  { value: 'Asia/Taipei',      label: '台湾时间 (UTC+8)' },
-  { value: 'Asia/Singapore',   label: '新加坡时间 (UTC+8)' },
-  { value: 'Asia/Tokyo',       label: '日本标准时间 (UTC+9)' },
-  { value: 'Asia/Seoul',       label: '韩国标准时间 (UTC+9)' },
-  { value: 'America/New_York', label: '美国东部时间 (UTC-5/-4)' },
-  { value: 'America/Chicago',  label: '美国中部时间 (UTC-6/-5)' },
-  { value: 'America/Denver',   label: '美国山地时间 (UTC-7/-6)' },
-  { value: 'America/Los_Angeles', label: '美国太平洋时间 (UTC-8/-7)' },
-  { value: 'Europe/London',    label: '英国时间 (UTC+0/+1)' },
-  { value: 'Europe/Paris',     label: '欧洲中部时间 (UTC+1/+2)' },
-  { value: 'UTC',              label: 'UTC' },
+const COMMON_TIMEZONE_VALUES = [
+  'Asia/Shanghai',
+  'Asia/Hong_Kong',
+  'Asia/Taipei',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'Europe/London',
+  'Europe/Paris',
+  'UTC',
 ]
 
 const schema = z.object({
-  system_name: z.string().min(1, '请填写系统名称'),
+  system_name: z.string().min(1),
   timezone:    z.string(),
 })
 type SettingsForm = z.infer<typeof schema>
 
 type Settings = Record<string, string>
 
-const TABS = [
-  { key: 'basic',    label: '基本配置' },
-  { key: 'ai',       label: 'AI 配置' },
-  { key: 'options',  label: '选项配置' },
-  { key: 'policies', label: '工作流' },
-  { key: 'trash',    label: '回收站' },
+const TAB_KEYS = [
+  { key: 'basic',    labelKey: 'settings.tabs.basic' },
+  { key: 'ai',       labelKey: 'settings.tabs.ai' },
+  { key: 'options',  labelKey: 'settings.tabs.options' },
+  { key: 'policies', labelKey: 'settings.tabs.workflow' },
+  { key: 'trash',    labelKey: 'settings.tabs.trash' },
 ] as const
-type TabKey = typeof TABS[number]['key']
+type TabKey = typeof TAB_KEYS[number]['key']
 
 const teamSchema = z.object({
-  name:   z.string().min(1, '请填写团队名称'),
+  name:   z.string().min(1),
   region: z.string().optional(),
 })
 type TeamForm = z.infer<typeof teamSchema>
 
 export default function SystemSettingsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const [saved, setSaved] = useState(false)
+  const OPTION_GROUPS = OPTION_GROUPS_KEYS.map((g) => ({ ...g, label: t(g.labelKey) }))
+  const TABS = TAB_KEYS.map((tab) => ({ ...tab, label: t(tab.labelKey) }))
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     const tab = searchParams.get('tab')
-    return (TABS.some((t) => t.key === tab) ? tab : 'basic') as TabKey
+    return (TAB_KEYS.some((t) => t.key === tab) ? tab : 'basic') as TabKey
   })
   const [editTarget, setEditTarget] = useState<Team | null>(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [activeGroup, setActiveGroup] = useState(OPTION_GROUPS[0]!.key)
+  const [activeGroup, setActiveGroup] = useState(OPTION_GROUPS_KEYS[0]!.key)
 
   // AI 配置相关 state
   const [showAddProvider, setShowAddProvider] = useState(false)
@@ -1801,7 +1799,7 @@ export default function SystemSettingsPage() {
       )
       setTestResult(res.data.data)
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '测试失败'
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('settings.ai.testFailed')
       setTestError(msg)
     } finally {
       setTestLoading(false)
@@ -1862,7 +1860,7 @@ export default function SystemSettingsPage() {
       )
       setAvailableModels(res.data.data)
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '查询失败'
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('settings.ai.queryFailed')
       setModelsError(msg)
     } finally {
       setLoadingModelsFor(null)
@@ -1919,29 +1917,29 @@ export default function SystemSettingsPage() {
     },
   })
 
-  if (isLoading) return <div className="p-6 text-sm text-gray-500">加载中...</div>
+  if (isLoading) return <div className="p-6 text-sm text-gray-500">{t('common.loading')}</div>
 
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">系统管理</h1>
-        <p className="mt-0.5 text-sm text-gray-500">配置系统基本信息和服务参数</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('settings.title')}</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{t('settings.subtitle')}</p>
       </div>
 
       {/* Tab 切换 */}
       <div className="mb-4 flex gap-1 border-b">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
+            key={tab.key}
             type="button"
-            onClick={() => setActiveTab(t.key)}
+            onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              activeTab === t.key
+              activeTab === tab.key
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -1951,24 +1949,24 @@ export default function SystemSettingsPage() {
           {activeTab === 'basic' && (
             <div className="space-y-4">
               <div className="rounded-lg border bg-white p-4 sm:p-6">
-                <h2 className="text-sm font-semibold text-gray-700 mb-3">基本信息</h2>
+                <h2 className="text-sm font-semibold text-gray-700 mb-3">{t('settings.basic.title')}</h2>
                 <div className="space-y-3">
                   <Input
-                    label="系统名称"
+                    label={t('settings.basic.systemName')}
                     error={errors.system_name?.message}
                     {...register('system_name')}
                   />
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">时区</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.basic.timezone')}</label>
                     <select
                       className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                       {...register('timezone')}
                     >
-                      {COMMON_TIMEZONES.map((tz) => (
-                        <option key={tz.value} value={tz.value}>{tz.label}</option>
+                      {COMMON_TIMEZONE_VALUES.map((tzValue) => (
+                        <option key={tzValue} value={tzValue}>{t(`settings.timezones.${tzValue}`, tzValue)}</option>
                       ))}
                     </select>
-                    <p className="mt-1 text-xs text-gray-400">影响系统中所有时间的显示方式</p>
+                    <p className="mt-1 text-xs text-gray-400">{t('settings.basic.timezoneHint')}</p>
                   </div>
                 </div>
               </div>
@@ -1979,9 +1977,9 @@ export default function SystemSettingsPage() {
           {activeTab === 'basic' && (
             <div className="flex items-center gap-3 mt-4">
               <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
-                保存设置
+                {t('settings.basic.save')}
               </Button>
-              {saved && <span className="text-sm text-green-600">已保存</span>}
+              {saved && <span className="text-sm text-green-600">{t('settings.basic.saved')}</span>}
             </div>
           )}
         </div>
@@ -1991,11 +1989,11 @@ export default function SystemSettingsPage() {
       {activeTab === 'basic' && (
         <div className="max-w-2xl mt-4">
           <div className="rounded-lg border bg-white p-4 sm:p-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">功能开关</h2>
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">{t('settings.features.title')}</h2>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">AI 助手</p>
-                <p className="text-xs text-gray-400 mt-0.5">开启后右下角显示 AI 对话浮窗，可通过自然语言操作系统</p>
+                <p className="text-sm font-medium text-gray-700">{t('settings.features.aiAgent')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{t('settings.features.aiAgentHint')}</p>
               </div>
               <button
                 type="button"
@@ -2021,40 +2019,39 @@ export default function SystemSettingsPage() {
       {/* 团队编辑 / 新建弹窗（挂在顶层，供选项配置子 Tab 使用） */}
       {editTarget && (
         <Modal
-          title={`编辑团队：${editTarget.name}`}
+          title={t('settings.teams.edit', { name: editTarget.name })}
           onClose={() => setEditTarget(null)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setEditTarget(null)}>取消</Button>
-              <Button loading={updateTeam.isPending} onClick={teamForm.handleSubmit((d) => updateTeam.mutate({ id: editTarget.id, ...d }))}>保存</Button>
+              <Button variant="secondary" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
+              <Button loading={updateTeam.isPending} onClick={teamForm.handleSubmit((d) => updateTeam.mutate({ id: editTarget.id, ...d }))}>{t('common.save')}</Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="团队名称" error={teamForm.formState.errors.name?.message} {...teamForm.register('name')} />
-            <Input label="区域（可选）" placeholder="如：华东、北京" {...teamForm.register('region')} />
+            <Input label={t('settings.teams.name')} error={teamForm.formState.errors.name?.message} {...teamForm.register('name')} />
+            <Input label={t('settings.teams.region')} placeholder={t('settings.teams.regionPlaceholder')} {...teamForm.register('region')} />
           </div>
         </Modal>
       )}
       {showAdd && (
         <Modal
-          title="新建团队"
+          title={t('settings.teams.new')}
           onClose={() => { setShowAdd(false); addForm.reset() }}
           footer={
             <>
-              <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset() }}>取消</Button>
-              <Button loading={addTeam.isPending} onClick={addForm.handleSubmit((d) => addTeam.mutate(d))}>创建</Button>
+              <Button variant="secondary" onClick={() => { setShowAdd(false); addForm.reset() }}>{t('common.cancel')}</Button>
+              <Button loading={addTeam.isPending} onClick={addForm.handleSubmit((d) => addTeam.mutate(d))}>{t('common.create')}</Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="团队名称" error={addForm.formState.errors.name?.message} {...addForm.register('name')} />
-            <Input label="区域（可选）" placeholder="如：华东、北京" {...addForm.register('region')} />
+            <Input label={t('settings.teams.name')} error={addForm.formState.errors.name?.message} {...addForm.register('name')} />
+            <Input label={t('settings.teams.region')} placeholder={t('settings.teams.regionPlaceholder')} {...addForm.register('region')} />
           </div>
         </Modal>
       )}
 
-      {/* 自动分配（独立于 form） */}
       {/* 选项配置 */}
       {activeTab === 'options' && (
         <div>
@@ -2082,7 +2079,7 @@ export default function SystemSettingsPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              团队管理
+              {t('settings.teams.title')}
             </button>
           </div>
 
@@ -2090,19 +2087,19 @@ export default function SystemSettingsPage() {
             <div className="max-w-2xl">
               <div className="rounded-lg border bg-white overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-                  <span className="text-sm font-medium text-gray-700">团队列表</span>
-                  <Button size="sm" onClick={() => { setShowAdd(true); addForm.reset() }}>+ 新建团队</Button>
+                  <span className="text-sm font-medium text-gray-700">{t('settings.teams.list')}</span>
+                  <Button size="sm" onClick={() => { setShowAdd(true); addForm.reset() }}>+ {t('settings.teams.new')}</Button>
                 </div>
                 {teamsLoading ? (
-                  <div className="py-8 text-center text-sm text-gray-400">加载中...</div>
+                  <div className="py-8 text-center text-sm text-gray-400">{t('common.loading')}</div>
                 ) : !teams?.length ? (
-                  <div className="py-8 text-center text-sm text-gray-400">暂无团队</div>
+                  <div className="py-8 text-center text-sm text-gray-400">{t('settings.teams.empty')}</div>
                 ) : (
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">团队名称</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">区域</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.teams.cols.name')}</th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-700">{t('settings.teams.cols.region')}</th>
                         <th className="px-4 py-3"></th>
                       </tr>
                     </thead>
@@ -2113,12 +2110,12 @@ export default function SystemSettingsPage() {
                           <td className="px-4 py-3 text-gray-500">{team.region ?? '—'}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2 justify-end">
-                              <button onClick={() => openEdit(team)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+                              <button onClick={() => openEdit(team)} className="text-xs text-primary-600 hover:text-primary-800">{t('common.edit')}</button>
                               <span className="text-gray-300">|</span>
                               <button
-                                onClick={() => { if (confirm(`确认删除团队「${team.name}」？成员将被移出该团队。`)) deleteTeam.mutate(team.id) }}
+                                onClick={() => { if (confirm(t('settings.teams.deleteConfirm', { name: team.name }))) deleteTeam.mutate(team.id) }}
                                 className="text-xs text-red-500 hover:text-red-700"
-                              >删除</button>
+                              >{t('common.delete')}</button>
                             </div>
                           </td>
                         </tr>
@@ -2132,7 +2129,7 @@ export default function SystemSettingsPage() {
             <OptionGroupPanel
               key={activeGroup}
               groupKey={activeGroup}
-              noAdd={OPTION_GROUPS.find((g) => g.key === activeGroup)?.noAdd ?? false}
+              noAdd={OPTION_GROUPS_KEYS.find((g) => g.key === activeGroup)?.noAdd ?? false}
             />
           )}
         </div>
@@ -2155,8 +2152,8 @@ export default function SystemSettingsPage() {
           {/* 模型提供商 */}
           <div className="rounded-lg border bg-white overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-              <h2 className="font-semibold text-gray-800 text-sm">模型提供商</h2>
-              <Button size="sm" onClick={() => setShowAddProvider(true)}>+ 添加</Button>
+              <h2 className="font-semibold text-gray-800 text-sm">{t('settings.ai.provider')}</h2>
+              <Button size="sm" onClick={() => setShowAddProvider(true)}>{t('settings.ai.addProvider')}</Button>
             </div>
 
             {/* 添加提供商表单 */}
@@ -2164,13 +2161,13 @@ export default function SystemSettingsPage() {
               <div className="p-4 border-b bg-blue-50 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
-                    label="名称"
-                    placeholder="如：OpenAI"
+                    label={t('settings.ai.name')}
+                    placeholder={t('settings.ai.namePlaceholder')}
                     value={aiProviderForm.name}
                     onChange={(e) => setAiProviderForm((f) => ({ ...f, name: e.target.value }))}
                   />
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">类型</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.ai.type')}</label>
                     <select
                       className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       value={aiProviderForm.providerType}
@@ -2178,7 +2175,7 @@ export default function SystemSettingsPage() {
                     >
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
-                      <option value="custom">自定义（OpenAI 兼容）</option>
+                      <option value="custom">{t('settings.ai.customProvider')}</option>
                     </select>
                   </div>
                   <Input
@@ -2190,13 +2187,13 @@ export default function SystemSettingsPage() {
                   {aiProviderForm.providerType !== 'anthropic' && (
                     <div>
                       <Input
-                        label={aiProviderForm.providerType === 'openai' ? 'Base URL（可选，留空用官方地址）' : 'Base URL'}
-                        placeholder="https://api.openai.com/v1"
+                        label={aiProviderForm.providerType === 'openai' ? t('settings.ai.baseUrl') : 'Base URL'}
+                        placeholder={t('settings.ai.baseUrlPlaceholder')}
                         value={aiProviderForm.baseUrl}
                         onChange={(e) => setAiProviderForm((f) => ({ ...f, baseUrl: e.target.value }))}
                       />
                       <p className="mt-1 text-xs text-gray-400">
-                        填写到 /v1 为止，不含 /chat/completions 等端点路径
+                        {t('settings.ai.baseUrlHint')}
                       </p>
                     </div>
                   )}
@@ -2208,21 +2205,21 @@ export default function SystemSettingsPage() {
                     onClick={() => addProvider.mutate(aiProviderForm)}
                     disabled={!aiProviderForm.name || !aiProviderForm.apiKey}
                   >
-                    保存
+                    {t('common.save')}
                   </Button>
-                  <Button size="sm" variant="secondary" onClick={() => setShowAddProvider(false)}>取消</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setShowAddProvider(false)}>{t('common.cancel')}</Button>
                 </div>
               </div>
             )}
 
             {aiProviders.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-gray-400 text-center">暂未添加提供商</p>
+              <p className="px-4 py-6 text-sm text-gray-400 text-center">{t('settings.ai.noProviders')}</p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-4 py-2 text-left font-medium text-gray-600">名称</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-600">类型</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">{t('settings.ai.name')}</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-600">{t('settings.ai.type')}</th>
                     <th className="px-4 py-2 text-left font-medium text-gray-600">API Key</th>
                     <th className="px-4 py-2 text-left font-medium text-gray-600">Base URL</th>
                     <th className="px-4 py-2"></th>
@@ -2242,14 +2239,14 @@ export default function SystemSettingsPage() {
                             disabled={loadingModelsFor === p.id}
                             className="text-xs text-primary-600 hover:text-primary-800 font-medium disabled:opacity-50"
                           >
-                            {loadingModelsFor === p.id ? '查询中...' : '查询模型'}
+                            {loadingModelsFor === p.id ? t('settings.ai.querying') : t('settings.ai.queryModels')}
                           </button>
                           <span className="text-gray-300">|</span>
                           <button
-                            onClick={() => { if (confirm(`确认删除提供商「${p.name}」及其所有已启用模型？`)) deleteProvider.mutate(p.id) }}
+                            onClick={() => { if (confirm(t('settings.ai.deleteConfirm', { name: p.name }))) deleteProvider.mutate(p.id) }}
                             className="text-xs text-red-500 hover:text-red-700"
                           >
-                            删除
+                            {t('common.delete')}
                           </button>
                         </div>
                       </td>
@@ -2265,32 +2262,32 @@ export default function SystemSettingsPage() {
             <div className="rounded-lg border bg-white overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
                 <h2 className="font-semibold text-gray-800 text-sm">
-                  可用模型 — {aiProviders.find((p) => p.id === modelsProviderId)?.name}
+                  {t('settings.ai.availableModels', { name: aiProviders.find((p) => p.id === modelsProviderId)?.name ?? '' })}
                 </h2>
                 <button onClick={() => { setModelsProviderId(null); setAvailableModels(null); setModelsError(null) }}
-                  className="text-xs text-gray-400 hover:text-gray-600">关闭</button>
+                  className="text-xs text-gray-400 hover:text-gray-600">{t('common.close')}</button>
               </div>
 
               {modelsError ? (
                 <div className="px-4 py-4 space-y-3">
                   <p className="text-sm text-red-500">{modelsError}</p>
                   <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
-                    <p className="text-xs font-medium text-gray-600">该提供商不支持自动查询模型，请手动输入模型 ID：</p>
+                    <p className="text-xs font-medium text-gray-600">{t('settings.ai.manualInput')}</p>
                     <div className="flex gap-2 items-end">
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">模型 ID</label>
+                        <label className="block text-xs text-gray-500 mb-1">{t('settings.ai.modelId')}</label>
                         <input
                           className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                          placeholder="如 @cf/meta/llama-3.1-8b-instruct"
+                          placeholder={t('settings.ai.modelIdPlaceholder')}
                           value={manualModel.modelId}
                           onChange={(e) => setManualModel((m) => ({ ...m, modelId: e.target.value }))}
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">显示名称</label>
+                        <label className="block text-xs text-gray-500 mb-1">{t('settings.ai.displayName')}</label>
                         <input
                           className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                          placeholder="如 Llama 3.1 8B"
+                          placeholder={t('settings.ai.displayNamePlaceholder')}
                           value={manualModel.displayName}
                           onChange={(e) => setManualModel((m) => ({ ...m, displayName: e.target.value }))}
                         />
@@ -2306,13 +2303,13 @@ export default function SystemSettingsPage() {
                           )
                         }}
                       >
-                        添加
+                        {t('common.add')}
                       </Button>
                     </div>
                   </div>
                 </div>
               ) : !availableModels ? (
-                <p className="px-4 py-4 text-sm text-gray-400">加载中...</p>
+                <p className="px-4 py-4 text-sm text-gray-400">{t('common.loading')}</p>
               ) : (
                 <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                   {availableModels.map((m) => {
@@ -2326,7 +2323,7 @@ export default function SystemSettingsPage() {
                           {m.name !== m.id && <span className="ml-2 text-xs text-gray-400">{m.id}</span>}
                         </div>
                         {already ? (
-                          <span className="text-xs text-green-600 font-medium">已启用</span>
+                          <span className="text-xs text-green-600 font-medium">{t('settings.ai.enabled')}</span>
                         ) : (
                           <button
                             onClick={() => enableModel.mutate({
@@ -2337,7 +2334,7 @@ export default function SystemSettingsPage() {
                             disabled={enableModel.isPending}
                             className="text-xs text-primary-600 hover:text-primary-800 font-medium disabled:opacity-50"
                           >
-                            启用
+                            {t('common.enable')}
                           </button>
                         )}
                       </div>
@@ -2351,10 +2348,10 @@ export default function SystemSettingsPage() {
           {/* 已启用模型 */}
           <div className="rounded-lg border bg-white overflow-hidden">
             <div className="px-4 py-3 border-b bg-gray-50">
-              <h2 className="font-semibold text-gray-800 text-sm">已启用模型</h2>
+              <h2 className="font-semibold text-gray-800 text-sm">{t('settings.ai.enabledModels')}</h2>
             </div>
             {aiModels.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-gray-400 text-center">暂无已启用模型，请先添加提供商并查询模型</p>
+              <p className="px-4 py-6 text-sm text-gray-400 text-center">{t('settings.ai.noEnabledModels')}</p>
             ) : (
               <div className="divide-y divide-gray-100">
                 {aiModels.map((m) => (
@@ -2376,14 +2373,14 @@ export default function SystemSettingsPage() {
                           }}
                           className={`text-xs font-medium ${testModelId === m.id ? 'text-gray-400' : 'text-primary-600 hover:text-primary-800'}`}
                         >
-                          {testModelId === m.id ? '收起' : '测试'}
+                          {testModelId === m.id ? t('settings.ai.collapse') : t('settings.ai.test')}
                         </button>
                         <span className="text-gray-300">|</span>
                         <button
-                          onClick={() => { if (confirm(`确认移除模型「${m.displayName}」？`)) removeModel.mutate(m.id) }}
+                          onClick={() => { if (confirm(t('settings.ai.removeModelConfirm', { name: m.displayName }))) removeModel.mutate(m.id) }}
                           className="text-xs text-red-500 hover:text-red-700"
                         >
-                          移除
+                          {t('settings.ai.remove')}
                         </button>
                       </div>
                     </div>
@@ -2396,7 +2393,7 @@ export default function SystemSettingsPage() {
                             className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                             value={testPrompt}
                             onChange={(e) => setTestPrompt(e.target.value)}
-                            placeholder="输入测试消息..."
+                            placeholder={t('settings.ai.testPlaceholder')}
                             onKeyDown={(e) => { if (e.key === 'Enter' && !testLoading) runTest(m.id) }}
                           />
                           <Button
@@ -2405,11 +2402,11 @@ export default function SystemSettingsPage() {
                             disabled={!testPrompt.trim()}
                             onClick={() => runTest(m.id)}
                           >
-                            发送
+                            {t('settings.ai.send')}
                           </Button>
                         </div>
                         {testLoading && (
-                          <p className="text-xs text-gray-400">请求中...</p>
+                          <p className="text-xs text-gray-400">{t('settings.ai.requesting')}</p>
                         )}
                         {testError && (
                           <div className="rounded bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
@@ -2419,7 +2416,7 @@ export default function SystemSettingsPage() {
                         {testResult && (
                           <div className="rounded bg-white border border-gray-200 px-3 py-2 space-y-1">
                             <p className="text-sm text-gray-800 whitespace-pre-wrap">{testResult.reply}</p>
-                            <p className="text-xs text-gray-400">响应时间：{testResult.latencyMs} ms</p>
+                            <p className="text-xs text-gray-400">{t('settings.ai.responseTime', { ms: testResult.latencyMs })}</p>
                           </div>
                         )}
                       </div>
@@ -2475,6 +2472,7 @@ const PROMPT_VARS: Record<string, { key: string; desc: string }[]> = {
 }
 
 function AiPromptsPanel() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editId, setEditId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<{ systemPrompt: string; userPromptTemplate: string } | null>(null)
@@ -2505,12 +2503,12 @@ function AiPromptsPanel() {
   return (
     <div className="rounded-lg border bg-white overflow-hidden">
       <div className="px-4 py-3 border-b bg-gray-50">
-        <h3 className="text-sm font-semibold text-gray-700">AI 分析提示词</h3>
-        <p className="text-xs text-gray-400 mt-0.5">配置线索和客户 AI 分析时使用的提示词模板</p>
+        <h3 className="text-sm font-semibold text-gray-700">{t('settings.ai.promptTitle')}</h3>
+        <p className="text-xs text-gray-400 mt-0.5">{t('settings.ai.promptSubtitle')}</p>
       </div>
 
       {isLoading ? (
-        <div className="p-4 text-sm text-gray-400">加载中...</div>
+        <div className="p-4 text-sm text-gray-400">{t('common.loading')}</div>
       ) : (
         <div className="divide-y">
           {prompts.map((p) => (
@@ -2521,20 +2519,20 @@ function AiPromptsPanel() {
                   <span className="ml-2 text-xs text-gray-400 font-mono">{p.key}</span>
                 </div>
                 {editId !== p.id ? (
-                  <button onClick={() => openEdit(p)} className="text-xs text-primary-600 hover:text-primary-800">编辑</button>
+                  <button onClick={() => openEdit(p)} className="text-xs text-primary-600 hover:text-primary-800">{t('common.edit')}</button>
                 ) : (
                   <div className="flex gap-2">
                     <button
                       onClick={() => { setEditId(null); setEditForm(null) }}
                       className="text-xs text-gray-400 hover:text-gray-600"
                     >
-                      取消
+                      {t('common.cancel')}
                     </button>
                     <button
                       onClick={() => saveMutation.mutate({ id: p.id, ...editForm! })}
                       className="text-xs text-primary-600 hover:text-primary-800 font-medium"
                     >
-                      {saveMutation.isPending ? '保存中...' : '保存'}
+                      {saveMutation.isPending ? t('settings.ai.saving') : t('common.save')}
                     </button>
                   </div>
                 )}
@@ -2543,7 +2541,7 @@ function AiPromptsPanel() {
               {editId === p.id && editForm ? (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">系统角色设定（System Prompt）</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">{t('settings.ai.systemPrompt')}</label>
                     <textarea
                       rows={3}
                       className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
@@ -2553,13 +2551,13 @@ function AiPromptsPanel() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-medium text-gray-600">用户提示词模板（User Prompt Template）</label>
+                      <label className="block text-xs font-medium text-gray-600">{t('settings.ai.userPrompt')}</label>
                       <button
                         type="button"
                         onClick={() => setShowVars((v) => !v)}
                         className="text-xs text-gray-400 hover:text-gray-600"
                       >
-                        {showVars ? '收起变量' : '查看可用变量'}
+                        {showVars ? t('settings.ai.collapseVars') : t('settings.ai.showVars')}
                       </button>
                     </div>
                     {showVars && (
@@ -2585,19 +2583,19 @@ function AiPromptsPanel() {
               ) : (
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">系统角色</p>
-                    <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 line-clamp-2">{p.systemPrompt || '（未配置）'}</p>
+                    <p className="text-xs text-gray-400 mb-1">{t('settings.ai.systemRole')}</p>
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 line-clamp-2">{p.systemPrompt || t('settings.ai.notConfigured')}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">用户提示词模板</p>
-                    <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 line-clamp-3 whitespace-pre-wrap">{p.userPromptTemplate || '（未配置）'}</p>
+                    <p className="text-xs text-gray-400 mb-1">{t('settings.ai.userPromptLabel')}</p>
+                    <p className="text-xs text-gray-600 bg-gray-50 rounded p-2 line-clamp-3 whitespace-pre-wrap">{p.userPromptTemplate || t('settings.ai.notConfigured')}</p>
                   </div>
                 </div>
               )}
             </div>
           ))}
           {prompts.length === 0 && (
-            <p className="p-4 text-sm text-gray-400">暂无提示词配置</p>
+            <p className="p-4 text-sm text-gray-400">{t('settings.ai.noPrompt')}</p>
           )}
         </div>
       )}

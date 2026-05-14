@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Badge } from '@/shared/components/Badge'
 import { AttachmentList } from '@/shared/components/AttachmentList'
@@ -13,17 +14,18 @@ import type { SalesActivity, User } from '@/shared/types'
 const PAGE_SIZE = 20
 
 function RelatedLink({ act }: { act: SalesActivity }) {
+  const { t } = useTranslation()
   if (act.clientId) {
     return (
       <Link to={`/app/clients/${act.clientId}`} className="text-primary-600 hover:underline">
-        {act.clientName ?? '客户'}
+        {act.clientName ?? t('activities.filter.clients')}
       </Link>
     )
   }
   if (act.leadId) {
     return (
       <Link to={`/app/leads/${act.leadId}`} className="text-primary-600 hover:underline">
-        {act.leadName ?? '线索'}
+        {act.leadName ?? t('activities.filter.leads')}
       </Link>
     )
   }
@@ -31,6 +33,7 @@ function RelatedLink({ act }: { act: SalesActivity }) {
 }
 
 export default function ActivitiesPage() {
+  const { t } = useTranslation()
   const { user } = useCrmAuth()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -99,8 +102,8 @@ export default function ActivitiesPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 sm:mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">销售活动</h1>
-        <p className="mt-0.5 text-sm text-gray-500">共 {total} 条记录</p>
+        <h1 className="text-xl font-semibold text-gray-900">{t('activities.title')}</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{t('common.total')} {total} {t('activities.count')}</p>
       </div>
 
       {/* 搜索框 + 筛选 */}
@@ -108,7 +111,7 @@ export default function ActivitiesPage() {
         <div className="flex items-center rounded-md border border-gray-300 bg-white shadow-sm transition-colors focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500">
           <input
             className="flex-1 px-3 py-2 text-sm bg-transparent outline-none placeholder:text-gray-400"
-            placeholder="搜索内容、关联客户/线索、跟进人..."
+            placeholder={t('activities.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -119,7 +122,7 @@ export default function ActivitiesPage() {
             {hasFilter && (
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary-500" />
             )}
-            <span className="text-xs">筛选</span>
+            <span className="text-xs">{t('activities.filterLabel')}</span>
             <svg
               className={`w-3.5 h-3.5 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -133,27 +136,27 @@ export default function ActivitiesPage() {
           <div className="absolute z-20 top-full left-0 right-0 mt-1 rounded-md border border-gray-200 bg-white shadow-lg p-3">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">跟进类型</label>
+                <label className="text-xs font-medium text-gray-500">{t('activities.filter.type')}</label>
                 <select value={activityTypeFilter} onChange={(e) => { setActivityTypeFilter(e.target.value); setPage(1) }} className={selectClass}>
-                  <option value="">全部类型</option>
+                  <option value="">{t('activities.filter.allTypes')}</option>
                   {activityTypeOpts.filter((o) => o.value !== 'System' && o.isActive).map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">关联对象</label>
+                <label className="text-xs font-medium text-gray-500">{t('activities.cols.target')}</label>
                 <select value={entityTypeFilter} onChange={(e) => { setEntityTypeFilter(e.target.value); setPage(1) }} className={selectClass}>
-                  <option value="">全部</option>
-                  <option value="lead">线索</option>
-                  <option value="client">客户</option>
+                  <option value="">{t('common.all')}</option>
+                  <option value="lead">{t('activities.filter.leads')}</option>
+                  <option value="client">{t('activities.filter.clients')}</option>
                 </select>
               </div>
               {canFilterUser && usersData?.data && (
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-500">跟进人</label>
+                  <label className="text-xs font-medium text-gray-500">{t('activities.cols.owner')}</label>
                   <select value={assignedUserFilter} onChange={(e) => { setAssignedUserFilter(e.target.value); setPage(1) }} className={selectClass}>
-                    <option value="">全部跟进人</option>
+                    <option value="">{t('activities.filter.allOwners')}</option>
                     {usersData.data.filter((u) => u.isActive).map((u) => (
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
@@ -161,27 +164,27 @@ export default function ActivitiesPage() {
                 </div>
               )}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">跟进时间</label>
+                <label className="text-xs font-medium text-gray-500">{t('activities.cols.time')}</label>
                 <select value={activityDateFilter} onChange={(e) => { setActivityDateFilter(e.target.value); setPage(1) }} className={selectClass}>
-                  <option value="">全部时间</option>
-                  <option value="today">今天</option>
-                  <option value="week">最近 7 天</option>
-                  <option value="month">最近 30 天</option>
+                  <option value="">{t('leads.filter.allTime')}</option>
+                  <option value="today">{t('leads.filter.today')}</option>
+                  <option value="week">{t('leads.filter.last7Days')}</option>
+                  <option value="month">{t('leads.filter.last30Days')}</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">下次联系</label>
+                <label className="text-xs font-medium text-gray-500">{t('activities.cols.nextContact')}</label>
                 <select value={nextContactFilter} onChange={(e) => { setNextContactFilter(e.target.value); setPage(1) }} className={selectClass}>
-                  <option value="">全部</option>
-                  <option value="overdue">已逾期</option>
-                  <option value="today">今天到期</option>
-                  <option value="week">未来 7 天</option>
+                  <option value="">{t('common.all')}</option>
+                  <option value="overdue">{t('leads.filter.overdue')}</option>
+                  <option value="today">{t('leads.filter.dueToday')}</option>
+                  <option value="week">{t('leads.filter.next7Days')}</option>
                 </select>
               </div>
             </div>
             {hasFilter && (
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-end">
-                <button onClick={resetFilters} className="text-xs text-gray-400 hover:text-gray-600">重置筛选</button>
+                <button onClick={resetFilters} className="text-xs text-gray-400 hover:text-gray-600">{t('activities.resetFilter')}</button>
               </div>
             )}
           </div>
@@ -189,10 +192,10 @@ export default function ActivitiesPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-gray-500">加载中...</div>
+        <div className="py-12 text-center text-sm text-gray-500">{t('common.loading')}</div>
       ) : activities.length === 0 ? (
         <div className="py-12 text-center text-sm text-gray-500">
-          {debouncedSearch || hasFilter ? '未找到匹配记录' : '暂无活动记录'}
+          {debouncedSearch || hasFilter ? t('activities.noMatch') : t('activities.empty')}
         </div>
       ) : (
         <>
@@ -211,12 +214,12 @@ export default function ActivitiesPage() {
                   <p className="text-sm text-gray-700 line-clamp-3">{act.description ?? '—'}</p>
                   <AttachmentList attachments={act.attachments} />
                   <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                    <span>关联：<RelatedLink act={act} /></span>
+                    <span>{t('activities.cols.target')}：<RelatedLink act={act} /></span>
                     {act.userName && <span>{act.userName}</span>}
                   </div>
                   {act.nextContactDate && (
                     <div className="mt-1 text-xs text-gray-400">
-                      下次联系：<span className={new Date(act.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(act.nextContactDate)}</span>
+                      {t('activities.cols.nextContact')}：<span className={new Date(act.nextContactDate) < new Date() ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(act.nextContactDate)}</span>
                     </div>
                   )}
                 </div>
@@ -229,12 +232,12 @@ export default function ActivitiesPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">类型</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">内容</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">关联对象</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">跟进人</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">跟进时间</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">下次联系</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('activities.cols.type')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('activities.cols.content')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('activities.cols.target')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('activities.cols.owner')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('activities.cols.time')}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">{t('activities.cols.nextContact')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

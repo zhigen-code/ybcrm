@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 import { Input } from '@/shared/components/Input'
@@ -10,27 +11,21 @@ import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { formatDate } from '@/shared/utils/format'
 
-const TABS = [
-  { key: 'info',     label: '基本信息' },
-  { key: 'password', label: '修改密码' },
-  { key: 'api',      label: 'API 接入' },
-  { key: 'notify',   label: '提醒' },
-] as const
-type TabKey = typeof TABS[number]['key']
+const TAB_KEYS = ['info', 'password', 'api', 'notify'] as const
+type TabKey = typeof TAB_KEYS[number]
 
 const nameSchema = z.object({
-  name: z.string().min(1, '请填写姓名'),
+  name: z.string().min(1),
 })
 const passwordSchema = z.object({
-  currentPassword: z.string().min(1, '请输入当前密码'),
-  newPassword: z.string().min(8, '新密码至少 8 位'),
-  confirmPassword: z.string().min(1, '请确认新密码'),
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+  confirmPassword: z.string().min(1),
 }).refine((d) => d.newPassword === d.confirmPassword, {
-  message: '两次密码不一致',
   path: ['confirmPassword'],
 })
 const apiKeySchema = z.object({
-  name: z.string().min(1, '请填写用途说明').max(50),
+  name: z.string().min(1).max(50),
 })
 
 type NameForm = z.infer<typeof nameSchema>
@@ -49,6 +44,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
 
 // ---- 基本信息 Tab ----
 function InfoTab() {
+  const { t } = useTranslation()
   const { user, updateUser } = useCrmAuth()
   const [saved, setSaved] = useState(false)
   const form = useForm<NameForm>({
@@ -64,26 +60,26 @@ function InfoTab() {
       setTimeout(() => setSaved(false), 3000)
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '操作失败'
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.opFailed')
       form.setError('name', { message: msg })
     },
   })
   return (
     <div className="rounded-lg border bg-white p-4 sm:p-6 max-w-lg">
       <div className="mb-4 text-sm text-gray-500">
-        邮箱：<span className="text-gray-700">{user?.email}</span>
+        {t('profile.basic.email')}：<span className="text-gray-700">{user?.email}</span>
         <span className="ml-3 text-gray-400">·</span>
-        <span className="ml-3">角色：<span className="text-gray-700">{user?.role}</span></span>
+        <span className="ml-3">{t('profile.basic.role')}：<span className="text-gray-700">{user?.role}</span></span>
       </div>
       <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-3">
         <Input
-          label="显示姓名"
+          label={t('profile.basic.displayName')}
           error={form.formState.errors.name?.message}
           {...form.register('name')}
         />
         <div className="flex items-center gap-3 pt-1">
-          <Button type="submit" size="sm" loading={mutation.isPending}>保存姓名</Button>
-          {saved && <span className="text-sm text-green-600">已保存</span>}
+          <Button type="submit" size="sm" loading={mutation.isPending}>{t('profile.basic.save')}</Button>
+          {saved && <span className="text-sm text-green-600">{t('common.saved')}</span>}
         </div>
       </form>
     </div>
@@ -92,6 +88,7 @@ function InfoTab() {
 
 // ---- 修改密码 Tab ----
 function PasswordTab() {
+  const { t } = useTranslation()
   const [saved, setSaved] = useState(false)
   const form = useForm<PasswordForm>({ resolver: zodResolver(passwordSchema) })
   const mutation = useMutation({
@@ -103,22 +100,22 @@ function PasswordTab() {
       setTimeout(() => setSaved(false), 3000)
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '操作失败'
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.opFailed')
       form.setError('currentPassword', { message: msg })
     },
   })
   return (
     <div className="rounded-lg border bg-white p-4 sm:p-6 max-w-lg">
       <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-3">
-        <Input label="当前密码" type="password" autoComplete="current-password"
+        <Input label={t('profile.password.current')} type="password" autoComplete="current-password"
           error={form.formState.errors.currentPassword?.message} {...form.register('currentPassword')} />
-        <Input label="新密码" type="password" autoComplete="new-password"
+        <Input label={t('profile.password.new')} type="password" autoComplete="new-password"
           error={form.formState.errors.newPassword?.message} {...form.register('newPassword')} />
-        <Input label="确认新密码" type="password" autoComplete="new-password"
+        <Input label={t('profile.password.confirm')} type="password" autoComplete="new-password"
           error={form.formState.errors.confirmPassword?.message} {...form.register('confirmPassword')} />
         <div className="flex items-center gap-3 pt-1">
-          <Button type="submit" size="sm" loading={mutation.isPending}>修改密码</Button>
-          {saved && <span className="text-sm text-green-600">密码已修改</span>}
+          <Button type="submit" size="sm" loading={mutation.isPending}>{t('profile.password.submit')}</Button>
+          {saved && <span className="text-sm text-green-600">{t('profile.password.changed')}</span>}
         </div>
       </form>
     </div>
@@ -127,6 +124,7 @@ function PasswordTab() {
 
 // ---- API 接入 Tab ----
 function ApiTab() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
@@ -170,42 +168,41 @@ function ApiTab() {
       {/* 新密钥展示 */}
       {newKey && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
-          <p className="text-sm font-medium text-amber-800 mb-2">请立即复制 API Key，此后不再显示</p>
+          <p className="text-sm font-medium text-amber-800 mb-2">{t('profile.api.notice')}</p>
           <div className="flex items-center gap-2">
             <code className="flex-1 break-all rounded bg-white border border-amber-200 px-3 py-2 text-sm font-mono text-gray-800">
               {newKey}
             </code>
             <Button size="sm" variant="secondary" onClick={copyKey}>
-              {copied ? '已复制' : '复制'}
+              {copied ? t('profile.api.copied') : t('profile.api.copy')}
             </Button>
           </div>
           <button
             className="mt-2 text-xs text-amber-600 hover:text-amber-800 underline"
             onClick={() => setNewKey(null)}
           >
-            我已保存，关闭提示
+            {t('profile.api.dismiss')}
           </button>
         </div>
       )}
 
-      {/* Key 列表 */}
       <div className="rounded-lg border bg-white overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h2 className="font-medium text-gray-900 text-sm">API Keys</h2>
-          <Button size="sm" onClick={() => setShowCreate(true)}>生成新 Key</Button>
+          <h2 className="font-medium text-gray-900 text-sm">{t('profile.api.keys')}</h2>
+          <Button size="sm" onClick={() => setShowCreate(true)}>{t('profile.api.generate')}</Button>
         </div>
         {isLoading ? (
-          <div className="p-4 text-sm text-gray-400">加载中...</div>
+          <div className="p-4 text-sm text-gray-400">{t('common.loading')}</div>
         ) : !data?.length ? (
-          <div className="p-4 text-sm text-gray-400">暂无 API Key，点击右上角生成</div>
+          <div className="p-4 text-sm text-gray-400">{t('profile.api.empty')}</div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-700">用途</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-700">Key 前缀</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-700">创建时间</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-700">最后使用</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-700">{t('profile.api.cols.usage')}</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-700">{t('profile.api.cols.prefix')}</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-700">{t('profile.api.cols.createdAt')}</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-700">{t('profile.api.cols.lastUsed')}</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -215,13 +212,13 @@ function ApiTab() {
                   <td className="px-4 py-2.5 font-medium text-gray-900">{k.name}</td>
                   <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{k.keyPrefix}...</td>
                   <td className="px-4 py-2.5 text-gray-500">{formatDate(k.createdAt)}</td>
-                  <td className="px-4 py-2.5 text-gray-500">{k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未'}</td>
+                  <td className="px-4 py-2.5 text-gray-500">{k.lastUsedAt ? formatDate(k.lastUsedAt) : t('profile.api.cols.never')}</td>
                   <td className="px-4 py-2.5 text-right">
                     <button
-                      onClick={() => { if (confirm(`确认吊销「${k.name}」？`)) deleteMutation.mutate(k.id) }}
+                      onClick={() => { if (confirm(t('profile.api.revokeConfirm', { name: k.name }))) deleteMutation.mutate(k.id) }}
                       className="text-xs text-red-500 hover:text-red-700"
                     >
-                      吊销
+                      {t('profile.api.revoke')}
                     </button>
                   </td>
                 </tr>
@@ -231,52 +228,50 @@ function ApiTab() {
         )}
       </div>
 
-      {/* API 文档 */}
       <div className="rounded-lg border bg-white p-4 sm:p-5">
-        <h2 className="font-medium text-gray-900 mb-3 text-sm">接口说明</h2>
+        <h2 className="font-medium text-gray-900 mb-3 text-sm">{t('profile.api.docs.title')}</h2>
         <div className="space-y-3 text-sm">
           <div>
-            <p className="text-gray-500 mb-1">提交新线索</p>
+            <p className="text-gray-500 mb-1">{t('profile.api.docs.submit')}</p>
             <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700">
               POST {endpoint}
             </code>
           </div>
           <div>
-            <p className="text-gray-500 mb-1">请求头</p>
+            <p className="text-gray-500 mb-1">{t('profile.api.docs.headers')}</p>
             <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`Content-Type: application/json\nX-API-Key: <你的 API Key>`}</code>
           </div>
           <div>
-            <p className="text-gray-500 mb-1">请求体（JSON）</p>
+            <p className="text-gray-500 mb-1">{t('profile.api.docs.body')}</p>
             <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`{\n  "source": "官网表单",\n  "name": "张三",\n  "contactInfo": "13800138000",\n  "intendedServices": ["赴美试管"],\n  "notes": "备注（可选）",\n  "adInfo": {\n    "ip": "1.2.3.4",\n    "url": "https://landing.example.com",\n    "账户": "百度账户A",\n    "广告计划": "试管婴儿-全国",\n    "广告组": "25-35岁女性",\n    "广告": "创意文案01"\n  }\n}`}</code>
           </div>
-          <p className="text-xs text-gray-400">adInfo 为可选字段，用于记录广告追踪信息（ip、url、账户、广告计划、广告组、广告），提交后可在线索详情页查看。</p>
+          <p className="text-xs text-gray-400">{t('profile.api.docs.adInfo')}</p>
           <div>
-            <p className="text-gray-500 mb-1">cURL 示例</p>
+            <p className="text-gray-500 mb-1">{t('profile.api.docs.curl')}</p>
             <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{`curl -X POST ${endpoint} \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: crm_your_key_here" \\\n  -d '{"source":"官网","name":"张三","contactInfo":"138xxxx","intendedServices":["赴美试管"],"adInfo":{"ip":"1.2.3.4","广告计划":"试管-全国"}}'`}</code>
           </div>
           <div>
-            <p className="text-gray-500 mb-1">成功响应（201）</p>
+            <p className="text-gray-500 mb-1">{t('profile.api.docs.response')}</p>
             <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700">{`{ "data": { "id": "uuid", "status": "New" } }`}</code>
           </div>
         </div>
       </div>
 
-      {/* 生成 Key 弹窗 */}
       {showCreate && (
         <Modal
-          title="生成 API Key"
+          title={t('profile.api.generate')}
           onClose={() => { setShowCreate(false); form.reset() }}
           footer={
             <>
-              <Button variant="secondary" onClick={() => { setShowCreate(false); form.reset() }}>取消</Button>
+              <Button variant="secondary" onClick={() => { setShowCreate(false); form.reset() }}>{t('common.cancel')}</Button>
               <Button loading={createMutation.isPending} onClick={form.handleSubmit((d) => createMutation.mutate(d))}>
-                生成
+                {t('profile.api.generate')}
               </Button>
             </>
           }
         >
           <Input
-            label="用途说明"
+            label={t('profile.api.cols.usage')}
             placeholder="如：官网表单、小程序接入"
             error={form.formState.errors.name?.message}
             {...form.register('name')}
@@ -297,6 +292,7 @@ const notifySchema = z.object({
 type NotifyForm = z.infer<typeof notifySchema>
 
 function NotifyTab() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'ok' | 'fail'>('idle')
   const [testDetail, setTestDetail] = useState<string>('')
@@ -340,27 +336,25 @@ function NotifyTab() {
     setTimeout(() => { setTestStatus('idle'); setTestDetail('') }, 8000)
   }
 
-  if (isLoading) return <div className="text-sm text-gray-400 p-4">加载中...</div>
+  if (isLoading) return <div className="text-sm text-gray-400 p-4">{t('common.loading')}</div>
 
   return (
     <form className="space-y-4 max-w-2xl" onSubmit={form.handleSubmit((d) => saveMutation.mutate(d))}>
       <div className="rounded-lg border bg-white p-4 sm:p-5 space-y-5">
-        <h2 className="font-medium text-gray-900 text-sm">触发时机</h2>
         <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-800">新线索分配给我</p>
-            <p className="text-xs text-gray-500 mt-0.5">有线索（手动或自动）分配到你名下时触发</p>
+            <p className="text-sm font-medium text-gray-800">{t('profile.notifications.rules.leadAssigned')}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t('profile.notifications.rules.leadAssignedHint')}</p>
           </div>
-          <span className="text-xs rounded-full bg-green-100 text-green-700 px-2 py-0.5 font-medium">已启用</span>
+          <span className="text-xs rounded-full bg-green-100 text-green-700 px-2 py-0.5 font-medium">{t('common.enabled')}</span>
         </div>
       </div>
 
-      {/* 邮件提醒 */}
       <div className="rounded-lg border bg-white p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-medium text-gray-900 text-sm">邮件提醒</h2>
-            <p className="text-xs text-gray-500 mt-0.5">触发时发送邮件到指定地址</p>
+            <h2 className="font-medium text-gray-900 text-sm">{t('profile.notifications.email')}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{t('profile.notifications.emailHint')}</p>
           </div>
           <label className="relative inline-flex cursor-pointer items-center">
             <input type="checkbox" className="sr-only peer" {...form.register('emailEnabled')} />
@@ -369,7 +363,7 @@ function NotifyTab() {
         </div>
         {emailEnabled && (
           <Input
-            label="接收邮箱"
+            label={t('profile.notifications.emailTo')}
             placeholder="your@email.com"
             error={form.formState.errors.email?.message}
             {...form.register('email')}
@@ -377,12 +371,11 @@ function NotifyTab() {
         )}
       </div>
 
-      {/* Webhook 提醒 */}
       <div className="rounded-lg border bg-white p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-medium text-gray-900 text-sm">Webhook 提醒</h2>
-            <p className="text-xs text-gray-500 mt-0.5">触发时向指定 URL 发送 POST 请求（适用于企微、钉钉机器人等）</p>
+            <h2 className="font-medium text-gray-900 text-sm">{t('profile.notifications.webhook')}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{t('profile.notifications.webhookHint')}</p>
           </div>
           <label className="relative inline-flex cursor-pointer items-center">
             <input type="checkbox" className="sr-only peer" {...form.register('webhookEnabled')} />
@@ -392,7 +385,7 @@ function NotifyTab() {
         {webhookEnabled && (
           <div className="space-y-3">
             <Input
-              label="Webhook URL"
+              label={t('profile.notifications.webhookUrl')}
               placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
               error={form.formState.errors.webhookUrl?.message}
               {...form.register('webhookUrl')}
@@ -414,7 +407,7 @@ Content-Type: application/json
               onClick={testWebhook}
               loading={testStatus === 'sending'}
             >
-              {testStatus === 'ok' ? '✓ 已发送' : testStatus === 'fail' ? '✗ 发送失败' : '测试发送'}
+              {testStatus === 'ok' ? `✓ ${t('profile.notifications.sent')}` : testStatus === 'fail' ? `✗ ${t('profile.notifications.sendFailed')}` : t('profile.notifications.test')}
             </Button>
             {testDetail && (
               <p className={`mt-1.5 text-xs font-mono break-all ${testStatus === 'ok' ? 'text-green-600' : 'text-red-600'}`}>
@@ -426,7 +419,7 @@ Content-Type: application/json
       </div>
 
       <div className="flex justify-end">
-        <Button type="submit" loading={saveMutation.isPending}>保存设置</Button>
+        <Button type="submit" loading={saveMutation.isPending}>{t('profile.notifications.save')}</Button>
       </div>
     </form>
   )
@@ -434,28 +427,36 @@ Content-Type: application/json
 
 // ---- 主页面 ----
 export default function ProfilePage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabKey>('info')
+
+  const TABS = [
+    { key: 'info' as TabKey,     label: t('profile.tabs.basic') },
+    { key: 'password' as TabKey, label: t('profile.tabs.password') },
+    { key: 'api' as TabKey,      label: t('profile.tabs.api') },
+    { key: 'notify' as TabKey,   label: t('profile.tabs.notifications') },
+  ]
 
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">个人设置</h1>
-        <p className="mt-0.5 text-sm text-gray-500">管理账号信息、修改密码，以及创建用于外部系统接入的 API 密钥</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">{t('profile.title')}</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{t('profile.subtitle')}</p>
       </div>
 
       <div className="mb-4 flex gap-1 border-b">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
+            key={tab.key}
             type="button"
-            onClick={() => setActiveTab(t.key)}
+            onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              activeTab === t.key
+              activeTab === tab.key
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>

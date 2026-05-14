@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
@@ -27,6 +28,7 @@ const editSchema = z.object({
 type EditForm = z.infer<typeof editSchema>
 
 export default function ClientDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -101,12 +103,12 @@ export default function ClientDetailPage() {
     },
   })
 
-  if (!client) return <div className="p-6 text-sm text-gray-500">加载中...</div>
+  if (!client) return <div className="p-6 text-sm text-gray-500">{t('common.loading')}</div>
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl">
       <button onClick={() => navigate(-1)} className="mb-4 text-sm text-gray-500 hover:text-gray-700">
-        ← 返回
+        ← {t('common.back')}
       </button>
 
       {/* 基本信息卡片 */}
@@ -120,7 +122,7 @@ export default function ClientDetailPage() {
               )}
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              {client.phone ?? '无电话'} · {client.email ?? '无邮箱'}
+              {client.phone ?? t('clients.detail.noPhone')} · {client.email ?? t('clients.detail.noEmail')}
             </p>
           </div>
           <div className="flex flex-wrap gap-1 max-w-[50%] justify-end">
@@ -130,19 +132,19 @@ export default function ClientDetailPage() {
 
         {/* 合同状态 */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-gray-600">合同状态：</span>
+          <span className="text-sm text-gray-600">{t('clients.detail.contractStatus')}</span>
           {client.contractStatus ? (
             <Badge variant={getOptionColor(contractStatusOpts, client.contractStatus)}>
               {getOptionLabel(contractStatusOpts, client.contractStatus)}
             </Badge>
           ) : (
-            <span className="text-sm text-gray-400">未设置</span>
+            <span className="text-sm text-gray-400">{t('clients.detail.notSet')}</span>
           )}
           <button
             onClick={() => setShowEdit(true)}
             className="text-xs text-primary-600 hover:text-primary-800 underline"
           >
-            编辑
+            {t('common.edit')}
           </button>
         </div>
 
@@ -154,30 +156,30 @@ export default function ClientDetailPage() {
         {client.nextContactDate && (
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
             <span className="text-gray-600">
-              下次联系：<span className="font-medium text-gray-900">{formatDate(client.nextContactDate)}</span>
+              {t('clients.detail.nextContact')}<span className="font-medium text-gray-900">{formatDate(client.nextContactDate)}</span>
             </span>
           </div>
         )}
 
         {/* 元信息 */}
         <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-          {client.detailedProfile?.source && <span>来源：{String(client.detailedProfile.source)}</span>}
-          <span>创建人：{client.createdByName ?? '—'}</span>
-          <span>创建于 {formatDate(client.createdAt)}</span>
+          {client.detailedProfile?.source && <span>{t('clients.detail.source')}{String(client.detailedProfile.source)}</span>}
+          <span>{t('leads.detail.createdBy')}{client.createdByName ?? '—'}</span>
+          <span>{t('leads.detail.createdAt')} {formatDate(client.createdAt)}</span>
         </div>
       </div>
 
       {/* 跟进记录 */}
       <div className="rounded-lg border bg-white p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">跟进记录</h2>
+          <h2 className="font-semibold text-gray-900">{t('clients.detail.activities')}</h2>
           <Button size="sm" variant="secondary" onClick={() => setShowActivity(true)}>
-            添加记录
+            {t('clients.detail.addActivity')}
           </Button>
         </div>
 
         {!activities?.length ? (
-          <p className="text-sm text-gray-500">暂无跟进记录</p>
+          <p className="text-sm text-gray-500">{t('clients.detail.noActivities')}</p>
         ) : (
           <div className="space-y-3">
             {activities.map((act) => (
@@ -194,7 +196,7 @@ export default function ClientDetailPage() {
                     <p className="mt-1 text-gray-700 whitespace-pre-line">{act.description}</p>
                   )}
                   {act.nextContactDate && (
-                    <p className="mt-1 text-xs text-primary-600">下次联系：{formatDate(act.nextContactDate)}</p>
+                    <p className="mt-1 text-xs text-primary-600">{t('clients.detail.nextContact')}{formatDate(act.nextContactDate)}</p>
                   )}
                   {act.extraData && Object.keys(act.extraData).length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5">
@@ -229,25 +231,25 @@ export default function ClientDetailPage() {
       {/* 编辑弹窗 */}
       {showEdit && (
         <Modal
-          title="编辑客户信息"
+          title={t('clients.detail.editTitle')}
           onClose={() => setShowEdit(false)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setShowEdit(false)}>取消</Button>
+              <Button variant="secondary" onClick={() => setShowEdit(false)}>{t('common.cancel')}</Button>
               <Button
                 loading={updateClient.isPending}
                 onClick={editForm.handleSubmit((d) => updateClient.mutate(d))}
               >
-                保存
+                {t('common.save')}
               </Button>
             </>
           }
         >
           <div className="space-y-3">
-            <Input label="电话" {...editForm.register('phone')} />
-            <Input label="邮箱" type="email" {...editForm.register('email')} />
+            <Input label={t('common.phone')} {...editForm.register('phone')} />
+            <Input label={t('common.email')} type="email" {...editForm.register('email')} />
             <div>
-              <p className="mb-1.5 text-sm font-medium text-gray-700">服务套餐</p>
+              <p className="mb-1.5 text-sm font-medium text-gray-700">{t('clients.cols.plan')}</p>
               <div className="flex flex-wrap gap-2">
                 {serviceOptions.map((svc) => (
                   <button
@@ -266,9 +268,9 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <Select
-              label="合同状态"
+              label={t('clients.cols.contractStatus')}
               options={toSelectOptions(contractStatusOpts)}
-              placeholder="请选择..."
+              placeholder={t('clients.detail.planPlaceholder')}
               value={editForm.watch('contractStatus') ?? ''}
               onChange={(e) => editForm.setValue('contractStatus', e.target.value || null)}
             />
@@ -279,7 +281,7 @@ export default function ClientDetailPage() {
       {/* 添加跟进记录弹窗 */}
       {showActivity && (
         <ActivityModal
-          title="添加跟进记录"
+          title={t('activityModal.title')}
           onClose={() => setShowActivity(false)}
           loading={addActivity.isPending}
           onSubmit={(d) => addActivity.mutate(d)}
