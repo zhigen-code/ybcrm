@@ -74,7 +74,7 @@
     "count": "leads",
     "new": "New Lead",
     "search": "Search name, contact, source, ID...",
-    "filter": "Filter",
+    "filterBtn": "Filter",
     "resetFilter": "Reset filters",
     "columns": "Columns",
     "restoreDefault": "Restore default",

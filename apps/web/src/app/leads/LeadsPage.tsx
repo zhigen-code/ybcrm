@@ -324,7 +324,7 @@ export default function LeadsPage() {
             {(sourceFilter || assignedToFilter || nextContactFilter || createdAtFilter || activityCountFilter || serviceFilter) && (
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary-500" />
             )}
-            <span className="text-xs">{t('leads.filter')}</span>
+            <span className="text-xs">{t('leads.filterBtn')}</span>
             <svg className={`w-3.5 h-3.5 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>

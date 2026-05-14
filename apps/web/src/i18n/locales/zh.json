@@ -74,7 +74,7 @@
     "count": "条线索",
     "new": "新建线索",
     "search": "搜索姓名、联系方式、来源、编号...",
-    "filter": "筛选",
+    "filterBtn": "筛选",
     "resetFilter": "重置筛选",
     "columns": "列设置",
     "restoreDefault": "恢复默认",
