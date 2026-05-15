@@ -253,7 +253,7 @@ export default function LeadsPage() {
 
   const statusFilterOptions = [
     { value: '', label: t('leads.allLeads') },
-    ...leadStatusOpts.map((o) => ({ value: o.value, label: o.label })),
+    ...leadStatusOpts.map((o) => ({ value: o.value, label: getOptionLabel(leadStatusOpts, o.value) })),
   ]
 
   const visibleCols = colConfig.filter((c) => c.visible)
@@ -400,17 +400,7 @@ export default function LeadsPage() {
         )}
       </div>
 
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        {canToggleMine && (
-          <div className="flex rounded-lg border bg-white overflow-hidden flex-shrink-0">
-            <button onClick={() => { setMineOnly(false); setPage(1) }} className={`px-3 py-1.5 text-xs font-medium transition-colors ${!mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-              {t('leads.allLeads')}
-            </button>
-            <button onClick={() => { setMineOnly(true); setPage(1) }} className={`px-3 py-1.5 text-xs font-medium transition-colors ${mineOnly ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-              {t('leads.myLeads')}
-            </button>
-          </div>
-        )}
+      <div className="mb-4">
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
           {statusFilterOptions.map(({ value, label }) => (
             <button key={value} onClick={() => { setStatusFilter(value); setPage(1) }} className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${statusFilter === value ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}>
