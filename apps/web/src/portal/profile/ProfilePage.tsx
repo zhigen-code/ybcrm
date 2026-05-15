@@ -119,8 +119,8 @@ export default function ProfilePage() {
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('portal.profile.contractStatus')}</p>
           <p className="mt-1">
             {profile.contractStatus ? (
-              <Badge variant={profile.contractStatus === '已签署' ? 'green' : 'yellow'}>
-                {profile.contractStatus}
+              <Badge variant={profile.contractStatus === 'Signed' ? 'green' : 'yellow'}>
+                {t(`optionValues.contract_status.${profile.contractStatus}`, { defaultValue: profile.contractStatus })}
               </Badge>
             ) : (
               <span className="text-gray-400 text-sm">—</span>

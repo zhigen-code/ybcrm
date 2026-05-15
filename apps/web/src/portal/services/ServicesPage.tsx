@@ -46,8 +46,8 @@ export default function PortalServicesPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">{service.name}</h2>
               {service.contractStatus && (
-                <Badge variant={service.contractStatus === '已签署' ? 'green' : 'yellow'}>
-                  {t('portal.services.contract')}{service.contractStatus}
+                <Badge variant={service.contractStatus === 'Signed' ? 'green' : 'yellow'}>
+                  {t('portal.services.contract')}{t(`optionValues.contract_status.${service.contractStatus}`, { defaultValue: service.contractStatus })}
                 </Badge>
               )}
             </div>

@@ -1,4 +1,30 @@
 {
+  "optionValues": {
+    "lead_status": {
+      "New":       "New Lead",
+      "Contacted": "Contacted",
+      "Qualified": "Qualified",
+      "Converted": "Converted",
+      "Lost":      "Lost"
+    },
+    "contract_status": {
+      "Pending":    "Pending",
+      "Signed":     "Signed",
+      "Terminated": "Terminated"
+    },
+    "activity_type": {
+      "Call":    "Call",
+      "Meeting": "Meeting",
+      "Email":   "Email",
+      "Note":    "Note",
+      "System":  "System"
+    },
+    "partner_type": {
+      "FertilityCenter":   "Fertility Center",
+      "SurrogacyAgency":   "Surrogacy Agency",
+      "EggDonationAgency": "Egg Donation Agency"
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

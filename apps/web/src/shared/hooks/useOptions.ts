@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { crmApi } from '@/shared/utils/request'
+import i18n from '@/i18n'
 
 export interface ActivityMetaField {
   key: string
@@ -57,7 +58,13 @@ export function getOptionColor(items: OptionItem[], value: string): OptionItem['
   return items.find((o) => o.value === value)?.color ?? 'gray'
 }
 
-/** 根据 value 查找对应的 label，找不到时返回 value 本身 */
+/** 根据 value 查找对应的 label，有 i18n 翻译时优先返回翻译 */
 export function getOptionLabel(items: OptionItem[], value: string): string {
-  return items.find((o) => o.value === value)?.label ?? value
+  const item = items.find((o) => o.value === value)
+  const label = item?.label ?? value
+  const groupKey = item?.groupKey ?? items[0]?.groupKey
+  if (!groupKey) return label
+  const tKey = `optionValues.${groupKey}.${value}`
+  const translated = i18n.t(tKey)
+  return translated !== tKey ? translated : label
 }

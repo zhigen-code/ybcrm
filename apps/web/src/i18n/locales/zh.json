@@ -1,4 +1,30 @@
 {
+  "optionValues": {
+    "lead_status": {
+      "New":       "新线索",
+      "Contacted": "已联系",
+      "Qualified": "已确认",
+      "Converted": "已转化",
+      "Lost":      "已丢失"
+    },
+    "contract_status": {
+      "Pending":    "待签署",
+      "Signed":     "已签署",
+      "Terminated": "已终止"
+    },
+    "activity_type": {
+      "Call":    "电话",
+      "Meeting": "会面",
+      "Email":   "邮件",
+      "Note":    "备注",
+      "System":  "系统"
+    },
+    "partner_type": {
+      "FertilityCenter":   "生殖中心",
+      "SurrogacyAgency":   "代孕机构",
+      "EggDonationAgency": "供卵机构"
+    }
+  },
   "common": {
     "save": "保存",
     "cancel": "取消",
