@@ -136,7 +136,11 @@
       "changeStatus": "Change to \"{{status}}\" — please add a follow-up record"
     },
     "deleteConfirm": "Delete lead \"{{name}}\"? This cannot be undone.",
-    "columnSettings": "Column Settings"
+    "columnSettings": "Column Settings",
+    "form": {
+      "sourcePlaceholder": "Type or select existing source...",
+      "notes": "Notes"
+    }
   },
   "clients": {
     "title": "Clients",
@@ -174,7 +178,8 @@
       "planPlaceholder": "Select...",
       "noPlan": "No plan"
     },
-    "deleteConfirm": "Delete client \"{{name}}\"? This cannot be undone."
+    "deleteConfirm": "Delete client \"{{name}}\"? This cannot be undone.",
+    "noContact": "No contact info"
   },
   "activities": {
     "title": "Activities",
@@ -622,23 +627,37 @@
           "varTime": "Time Variables",
           "vars": {
             "lead": {
-              "name": "Lead name", "contactInfo": "Contact info", "source": "Source channel",
-              "status": "Current status", "intendedServices": "Intended services (comma-separated)",
-              "lostReason": "Lost reason", "nextContactDate": "Next contact date",
-              "notes": "Notes", "assignedToName": "Owner name",
-              "assignedToEmail": "Owner email", "createdAt": "Created at"
+              "name": "Lead name",
+              "contactInfo": "Contact info",
+              "source": "Source channel",
+              "status": "Current status",
+              "intendedServices": "Intended services (comma-separated)",
+              "lostReason": "Lost reason",
+              "nextContactDate": "Next contact date",
+              "notes": "Notes",
+              "assignedToName": "Owner name",
+              "assignedToEmail": "Owner email",
+              "createdAt": "Created at"
             },
             "client": {
-              "name": "Client name", "phone": "Phone", "email": "Email",
-              "contractStatus": "Contract status", "servicePlans": "Service plans (comma-separated)",
-              "assignedSalesName": "Sales rep name", "assignedSalesEmail": "Sales rep email",
+              "name": "Client name",
+              "phone": "Phone",
+              "email": "Email",
+              "contractStatus": "Contract status",
+              "servicePlans": "Service plans (comma-separated)",
+              "assignedSalesName": "Sales rep name",
+              "assignedSalesEmail": "Sales rep email",
               "createdAt": "Created at"
             },
             "time": {
-              "now": "Current time (precise to minute)", "today": "Today YYYY-MM-DD",
-              "tomorrow": "Tomorrow's date", "yesterday": "Yesterday's date",
-              "weekStart": "This week's Monday", "weekEnd": "This week's Sunday",
-              "monthStart": "First day of month", "monthEnd": "Last day of month"
+              "now": "Current time (precise to minute)",
+              "today": "Today YYYY-MM-DD",
+              "tomorrow": "Tomorrow's date",
+              "yesterday": "Yesterday's date",
+              "weekStart": "This week's Monday",
+              "weekEnd": "This week's Sunday",
+              "monthStart": "First day of month",
+              "monthEnd": "Last day of month"
             }
           },
           "method": "Method",
@@ -716,6 +735,22 @@
       "America/Los_Angeles": "US Pacific Time (UTC-8/-7)",
       "Europe/London": "UK Time (UTC+0/+1)",
       "Europe/Paris": "Central European Time (UTC+1/+2)"
+    },
+    "prompts": {
+      "vars": {
+        "today": "Current date",
+        "name": "Name",
+        "source": "Source",
+        "status": "Current status",
+        "intendedServices": "Intended services",
+        "nextContactDate": "Next contact date",
+        "assignedName": "Assigned sales",
+        "activities": "Follow-up records (last 20)",
+        "activityTypes": "Available activity types",
+        "contractStatus": "Contract status",
+        "servicePlans": "Service plans",
+        "assignedSalesName": "Assigned sales"
+      }
     }
   },
   "profile": {
@@ -764,8 +799,12 @@
         "body": "Request Body (JSON)",
         "adInfo": "Optional fields for ad tracking (ip, url, account, campaign, ad group, ad). Viewable in lead details.",
         "curl": "cURL Example",
-        "response": "Success Response (201)"
-      }
+        "response": "Success Response (201)",
+        "yourApiKey": "your API Key",
+        "bodyExample": "{\n  \"source\": \"website-form\",\n  \"name\": \"Jane Smith\",\n  \"contactInfo\": \"+1-555-0100\",\n  \"intendedServices\": [\"IVF Abroad\"],\n  \"notes\": \"notes (optional)\",\n  \"adInfo\": {\n    \"ip\": \"1.2.3.4\",\n    \"url\": \"https://landing.example.com\",\n    \"account\": \"Google Ads Account A\",\n    \"campaign\": \"IVF-Global\",\n    \"adGroup\": \"Women 25-35\",\n    \"ad\": \"Creative Copy 01\"\n  }\n}",
+        "curlExample": "curl -X POST {{endpoint}} \\\n  -H \"Content-Type: application/json\" \\\n  -H \"X-API-Key: crm_your_key_here\" \\\n  -d '{\"source\":\"website\",\"name\":\"Jane Smith\",\"contactInfo\":\"+1-555-0100\",\"intendedServices\":[\"IVF Abroad\"],\"adInfo\":{\"ip\":\"1.2.3.4\",\"campaign\":\"IVF-Global\"}}'"
+      },
+      "namePlaceholder": "e.g. Website Form, Mini Program"
     },
     "notifications": {
       "email": "Email Notifications",
@@ -781,7 +820,8 @@
       "rules": {
         "leadAssigned": "Lead assigned to me",
         "leadAssignedHint": "Fires when a lead is assigned to you (manually or automatically)"
-      }
+      },
+      "webhookExample": "POST <your URL>\nContent-Type: application/json\n\n{\n  \"event\": \"lead_assigned\",\n  \"leadName\": \"Jane Smith\",\n  \"contactInfo\": \"+1-555-0100\",\n  \"source\": \"Google Ads\",\n  \"assigneeName\": \"Your Name\"\n}"
     },
     "validation": {
       "nameRequired": "Name is required",
@@ -813,14 +853,6 @@
       "regenerate": "Regenerate",
       "error": "Analysis failed. Check AI model configuration.",
       "loading": "Analyzing, please wait...",
-      "suggestions": "Suggested Actions",
-      "executed": "Done",
-      "execute": "Execute →",
-      "empty": "Click \"Start Analysis\" to generate an AI report",
-      "waitTypes": "Follow-up types not loaded yet, please wait",
-      "opFailed": "Error: ",
-      "opError": "Action failed, please handle manually",
-      "loading2": "Loading...",
       "suggestions": {
         "updateLeadStatus": "AI suggests: Update lead status to \"{{value}}\"",
         "updateContractStatus": "AI suggests: Update contract status to \"{{value}}\"",
@@ -828,8 +860,16 @@
         "updatePlan": "AI suggests: Update service plan to \"{{value}}\"",
         "reassign": "AI suggests: Reassign sales to \"{{value}}\"",
         "nextContact": "AI suggests: Schedule next contact for {{value}}"
-      }
-    }
+      },
+      "executed": "Done",
+      "execute": "Execute →",
+      "empty": "Click \"Start Analysis\" to generate an AI report",
+      "waitTypes": "Follow-up types not loaded yet, please wait",
+      "opFailed": "Error: ",
+      "opError": "Action failed, please handle manually",
+      "loading2": "Loading..."
+    },
+    "fallbackDesc": "AI suggestion: {{label}} ({{value}}). {{reason}}"
   },
   "portal": {
     "auth": {
@@ -913,68 +953,21 @@
       "logout": "Logout"
     }
   },
-  "clients": {
-    "noContact": "No contact info"
-  },
-  "leads": {
-    "form": {
-      "sourcePlaceholder": "Type or select existing source...",
-      "notes": "Notes"
-    }
-  },
-  "ai": {
-    "fallbackDesc": "AI suggestion: {{label}} ({{value}}). {{reason}}"
-  },
-  "settings": {
-    "prompts": {
-      "vars": {
-        "today": "Current date",
-        "name": "Name",
-        "source": "Source",
-        "status": "Current status",
-        "intendedServices": "Intended services",
-        "nextContactDate": "Next contact date",
-        "assignedName": "Assigned sales",
-        "activities": "Follow-up records (last 20)",
-        "activityTypes": "Available activity types",
-        "contractStatus": "Contract status",
-        "servicePlans": "Service plans",
-        "assignedSalesName": "Assigned sales"
-      }
-    }
-  },
-  "profile": {
-    "api": {
-      "namePlaceholder": "e.g. Website Form, Mini Program",
-      "docs": {
-        "yourApiKey": "your API Key",
-        "bodyExample": "{\n  \"source\": \"website-form\",\n  \"name\": \"Jane Smith\",\n  \"contactInfo\": \"+1-555-0100\",\n  \"intendedServices\": [\"IVF Abroad\"],\n  \"notes\": \"notes (optional)\",\n  \"adInfo\": {\n    \"ip\": \"1.2.3.4\",\n    \"url\": \"https://landing.example.com\",\n    \"account\": \"Google Ads Account A\",\n    \"campaign\": \"IVF-Global\",\n    \"adGroup\": \"Women 25-35\",\n    \"ad\": \"Creative Copy 01\"\n  }\n}",
-        "curlExample": "curl -X POST {{endpoint}} \\\n  -H \"Content-Type: application/json\" \\\n  -H \"X-API-Key: crm_your_key_here\" \\\n  -d '{\"source\":\"website\",\"name\":\"Jane Smith\",\"contactInfo\":\"+1-555-0100\",\"intendedServices\":[\"IVF Abroad\"],\"adInfo\":{\"ip\":\"1.2.3.4\",\"campaign\":\"IVF-Global\"}}'"
-      }
-    },
-    "notifications": {
-      "webhookExample": "POST <your URL>\nContent-Type: application/json\n\n{\n  \"event\": \"lead_assigned\",\n  \"leadName\": \"Jane Smith\",\n  \"contactInfo\": \"+1-555-0100\",\n  \"source\": \"Google Ads\",\n  \"assigneeName\": \"Your Name\"\n}"
-    }
-  },
-  "products": {
-    "title": "Product Library",
-    "noServices": "No services yet. Click the button above to create one.",
-    "noProducts": "No products yet. Click the button above to add one.",
-    "docsLabel": "Service Documents",
-    "partnerDisabled": "(Disabled)",
-    "serviceForm": {
-      "steps": "Service steps (one per line)",
-      "stepsPlaceholder": "Initial consultation\nMedical evaluation\nPlan development"
-    }
-  },
   "docs": {
     "title": "Docs",
     "copyBtn": "Copy",
     "copied": "Copied",
-    "nav": { "workflow": "Workflow Automation", "api": "API Integration" },
+    "nav": {
+      "workflow": "Workflow Automation",
+      "api": "API Integration"
+    },
     "sections": {
-      "intro": "Overview", "vars": "Template Variables", "actions": "Action Types",
-      "tips": "Notes", "apiOverview": "Auth & Overview", "apiLeads": "Submit Lead"
+      "intro": "Overview",
+      "vars": "Template Variables",
+      "actions": "Action Types",
+      "tips": "Notes",
+      "apiOverview": "Auth & Overview",
+      "apiLeads": "Submit Lead"
     },
     "intro": {
       "title": "Workflow Automation",
@@ -982,15 +975,36 @@
       "body": "Workflows automatically execute a series of actions when specific conditions are met, reducing manual work and ensuring consistent business processes. You can configure and enable workflows in System Settings → Workflows.",
       "flowTitle": "Execution Flow",
       "steps": {
-        "trigger": { "title": "Trigger", "desc": "Entity created, or field changed to a specified value" },
-        "match":   { "title": "Match",   "desc": "Find all enabled workflows and check each trigger condition" },
-        "execute": { "title": "Execute", "desc": "Run actions in order; earlier results are available to later template variables" }
+        "trigger": {
+          "title": "Trigger",
+          "desc": "Entity created, or field changed to a specified value"
+        },
+        "match": {
+          "title": "Match",
+          "desc": "Find all enabled workflows and check each trigger condition"
+        },
+        "execute": {
+          "title": "Execute",
+          "desc": "Run actions in order; earlier results are available to later template variables"
+        }
       },
       "triggerTitle": "Trigger Types",
       "triggers": {
-        "onCreate":    { "label": "On Create",    "badge": "on_create",    "desc": "Fires immediately when an entity (lead/client) is created. Good for welcome notifications or initializing default field values." },
-        "fieldChange": { "label": "Field Change", "badge": "field_change", "desc": "Fires when a specified field changes to a particular value, e.g. Status → Confirmed, or Owner → Any. Supports 'Any' to fire on any change." },
-        "scheduled":   { "label": "Scheduled",   "badge": "scheduled",    "desc": "Auto-scans all records daily at 09:00 (Asia/Shanghai) and executes actions on matching entities. Supports: date field = today, date field expired, no activity for N days." }
+        "onCreate": {
+          "label": "On Create",
+          "badge": "on_create",
+          "desc": "Fires immediately when an entity (lead/client) is created. Good for welcome notifications or initializing default field values."
+        },
+        "fieldChange": {
+          "label": "Field Change",
+          "badge": "field_change",
+          "desc": "Fires when a specified field changes to a particular value, e.g. Status → Confirmed, or Owner → Any. Supports 'Any' to fire on any change."
+        },
+        "scheduled": {
+          "label": "Scheduled",
+          "badge": "scheduled",
+          "desc": "Auto-scans all records daily at 09:00 (Asia/Shanghai) and executes actions on matching entities. Supports: date field = today, date field expired, no activity for N days."
+        }
       },
       "asyncTitle": "Async Execution Note",
       "asyncDescPre": "All workflow actions run asynchronously in the background (fire-and-forget) and do not block the frontend response.",
@@ -1005,39 +1019,66 @@
       "unrecognizedPre": "Unrecognized variable names are ",
       "unrecognizedHighlight": "kept as-is",
       "unrecognizedPost": " (not replaced with empty), making configuration errors easy to spot.",
-      "colVar": "Variable", "colDesc": "Description", "colExample": "Example",
-      "tabLead": "Lead Fields", "tabClient": "Client Fields", "tabTime": "Time Variables",
+      "colVar": "Variable",
+      "colDesc": "Description",
+      "colExample": "Example",
+      "tabLead": "Lead Fields",
+      "tabClient": "Client Fields",
+      "tabTime": "Time Variables",
       "timeNote": "Time variables are calculated based on the timezone in system settings (default Asia/Shanghai). Week starts on Monday; month follows the calendar month.",
       "leadNotePost": "come from the linked user table; other fields are read directly from the lead record.",
       "clientNotePost": "come from the linked user table.",
       "clientNoteServicePlans": "is an array; multiple items are joined with a comma."
     },
-    "varGroups": { "lead": "Lead Fields", "client": "Client Fields", "activity": "Activity Fields", "time": "Time Variables" },
+    "varGroups": {
+      "lead": "Lead Fields",
+      "client": "Client Fields",
+      "activity": "Activity Fields",
+      "time": "Time Variables"
+    },
     "varDescs": {
       "lead": {
-        "name": "Lead name", "contactInfo": "Contact info", "source": "Source channel",
-        "status": "Current status", "intendedServices": "Intended services (comma-separated)",
-        "lostReason": "Lost reason", "nextContactDate": "Next contact date",
-        "notes": "Notes", "assignedToName": "Owner name",
-        "assignedToEmail": "Owner email", "createdAt": "Created at"
+        "name": "Lead name",
+        "contactInfo": "Contact info",
+        "source": "Source channel",
+        "status": "Current status",
+        "intendedServices": "Intended services (comma-separated)",
+        "lostReason": "Lost reason",
+        "nextContactDate": "Next contact date",
+        "notes": "Notes",
+        "assignedToName": "Owner name",
+        "assignedToEmail": "Owner email",
+        "createdAt": "Created at"
       },
       "client": {
-        "name": "Client name", "phone": "Phone", "email": "Email",
-        "contractStatus": "Contract status", "servicePlans": "Service plans (comma-separated)",
-        "assignedSalesName": "Sales rep name", "assignedSalesEmail": "Sales rep email",
+        "name": "Client name",
+        "phone": "Phone",
+        "email": "Email",
+        "contractStatus": "Contract status",
+        "servicePlans": "Service plans (comma-separated)",
+        "assignedSalesName": "Sales rep name",
+        "assignedSalesEmail": "Sales rep email",
         "createdAt": "Created at"
       },
       "activity": {
-        "activityType": "Activity type", "description": "Follow-up content",
-        "activityDate": "Activity date", "nextContactDate": "Next contact date",
-        "recorderName": "Recorder name", "recorderEmail": "Recorder email",
-        "leadName": "Related lead name", "clientName": "Related client name"
+        "activityType": "Activity type",
+        "description": "Follow-up content",
+        "activityDate": "Activity date",
+        "nextContactDate": "Next contact date",
+        "recorderName": "Recorder name",
+        "recorderEmail": "Recorder email",
+        "leadName": "Related lead name",
+        "clientName": "Related client name"
       },
       "time": {
-        "now": "Current time (precise to minute)", "today": "Today YYYY-MM-DD",
-        "tomorrow": "Tomorrow's date", "yesterday": "Yesterday's date",
-        "weekStart": "This week's Monday", "weekEnd": "This week's Sunday",
-        "monthStart": "First day of month", "monthEnd": "Last day of month"
+        "now": "Current time (precise to minute)",
+        "today": "Today YYYY-MM-DD",
+        "tomorrow": "Tomorrow's date",
+        "yesterday": "Yesterday's date",
+        "weekStart": "This week's Monday",
+        "weekEnd": "This week's Sunday",
+        "monthStart": "First day of month",
+        "monthEnd": "Last day of month"
       }
     },
     "actionsSection": {
@@ -1051,54 +1092,93 @@
         "label": "Auto Set Field",
         "desc": "Automatically set a field to a specified value when trigger conditions are met. Field values support template variables.",
         "example": "Trigger: Lead status → Confirmed\nField: Next Contact Date\nValue: {{tomorrow}}",
-        "notes": ["Actions execute in list order; a previous action's result is immediately available to subsequent template variables", "Field values can use template variables such as {{today}}, {{name}}, etc."]
+        "notes": [
+          "Actions execute in list order; a previous action's result is immediately available to subsequent template variables",
+          "Field values can use template variables such as {{today}}, {{name}}, etc."
+        ]
       },
       "send_email": {
         "label": "Send Email",
         "desc": "Send a notification email to specified recipients on trigger. Recipients, subject, and body all support template variables.",
         "example": "To: {{assignedToEmail}}\nSubject: New Lead Alert: {{name}}\nBody: Hi,\n\nLead {{name}} ({{contactInfo}}) has been assigned to you.\nSource: {{source}}\nIntended Services: {{intendedServices}}\n\nPlease complete the first follow-up by {{tomorrow}}.",
-        "notes": ["Email is sent via SendGrid; configure SENDGRID_API_KEY in Cloudflare Workers environment variables", "Recipient can be a fixed address or dynamic via {{assignedToEmail}} / {{assignedSalesEmail}}", "Body is plain text; line breaks are preserved"]
+        "notes": [
+          "Email is sent via SendGrid; configure SENDGRID_API_KEY in Cloudflare Workers environment variables",
+          "Recipient can be a fixed address or dynamic via {{assignedToEmail}} / {{assignedSalesEmail}}",
+          "Body is plain text; line breaks are preserved"
+        ]
       },
       "webhook": {
         "label": "Webhook",
         "desc": "Send an HTTP request to an external system on trigger. URL and body both support template variables.",
         "example": "URL: https://hooks.example.com/crm\nMethod: POST\nBody: {\n  \"event\": \"lead_confirmed\",\n  \"name\": \"{{name}}\",\n  \"phone\": \"{{contactInfo}}\",\n  \"assignee\": \"{{assignedToName}}\",\n  \"date\": \"{{today}}\"\n}",
-        "notes": ["Body should be valid JSON; string values can embed {{variables}}", "Request includes Content-Type: application/json header", "GET requests do not send a body"]
+        "notes": [
+          "Body should be valid JSON; string values can embed {{variables}}",
+          "Request includes Content-Type: application/json header",
+          "GET requests do not send a body"
+        ]
       },
       "require_activity": {
         "label": "Require Follow-up",
         "desc": "Intercept user actions on the frontend and require a follow-up record before a status change can complete.",
         "example": "Trigger: Lead status → Lost\nRequire reason: Yes\nPreset options: No interest, Price too high, Chose another provider",
-        "notes": ["Frontend only; backend API does not validate", "Preset options are comma-separated"]
+        "notes": [
+          "Frontend only; backend API does not validate",
+          "Preset options are comma-separated"
+        ]
       },
       "require_fields": {
         "label": "Require Fields",
         "desc": "Require the user to fill in specified fields before completing an action; cannot proceed if fields are empty.",
         "example": "Trigger: Lead status → Confirmed\nRequired fields: Next Contact Date, Intended Services",
-        "notes": ["Frontend only; backend API does not validate"]
+        "notes": [
+          "Frontend only; backend API does not validate"
+        ]
       }
     },
-    "tipsSection": { "title": "Notes", "subtitle": "Edge behaviors and security notes when using workflows" },
+    "tipsSection": {
+      "title": "Notes",
+      "subtitle": "Edge behaviors and security notes when using workflows"
+    },
     "tips": {
       "actionOrder": {
         "title": "Action Execution Order",
-        "items": ["Actions within the same workflow run serially in list order", "After set_field runs, the new value is immediately available to subsequent template variables", "A failing action does not stop subsequent actions (each action has its own try-catch)"]
+        "items": [
+          "Actions within the same workflow run serially in list order",
+          "After set_field runs, the new value is immediately available to subsequent template variables",
+          "A failing action does not stop subsequent actions (each action has its own try-catch)"
+        ]
       },
       "emailConfig": {
         "title": "Email Configuration",
-        "items": ["Uses SendGrid for sending; configure SENDGRID_API_KEY in Cloudflare Workers environment variables", "If SENDGRID_API_KEY is not set, send-email actions are silently skipped without error", "Sender is fixed as noreply@irfc.cn (Fertility CRM)"]
+        "items": [
+          "Uses SendGrid for sending; configure SENDGRID_API_KEY in Cloudflare Workers environment variables",
+          "If SENDGRID_API_KEY is not set, send-email actions are silently skipped without error",
+          "Sender is fixed as noreply@irfc.cn (Fertility CRM)"
+        ]
       },
       "unmatched": {
         "title": "Behavior When Variables Don't Match",
-        "items": ["Using a non-existent variable name (e.g. {{xyz}}) keeps {{xyz}} as-is rather than replacing it with an empty string", "This makes configuration errors easy to spot and avoids silently sending broken notifications", "If a field value is null, the variable is not in the context and referencing it also keeps it as-is"]
+        "items": [
+          "Using a non-existent variable name (e.g. {{xyz}}) keeps {{xyz}} as-is rather than replacing it with an empty string",
+          "This makes configuration errors easy to spot and avoids silently sending broken notifications",
+          "If a field value is null, the variable is not in the context and referencing it also keeps it as-is"
+        ]
       },
       "timing": {
         "title": "Trigger Timing & Frontend Refresh",
-        "items": ["Workflows run asynchronously in the background (fire-and-forget); frontend operations do not wait for completion", "set_field writes to the database in real time, but you need to manually refresh the page to see the latest value", "require_activity and require_fields only intercept on the frontend; backend API does not validate"]
+        "items": [
+          "Workflows run asynchronously in the background (fire-and-forget); frontend operations do not wait for completion",
+          "set_field writes to the database in real time, but you need to manually refresh the page to see the latest value",
+          "require_activity and require_fields only intercept on the frontend; backend API does not validate"
+        ]
       },
       "webhookSecurity": {
         "title": "Webhook Security",
-        "items": ["Webhook URLs support template variables; ensure URLs come from trusted sources to avoid SSRF risks", "Request signing and HMAC verification are not yet supported; receivers should verify source IP or add a token parameter", "Variable substitution in the body happens before sending; sensitive data (e.g. passwords) should not be passed via variables"]
+        "items": [
+          "Webhook URLs support template variables; ensure URLs come from trusted sources to avoid SSRF risks",
+          "Request signing and HMAC verification are not yet supported; receivers should verify source IP or add a token parameter",
+          "Variable substitution in the body happens before sending; sensitive data (e.g. passwords) should not be passed via variables"
+        ]
       }
     },
     "api": {
@@ -1126,11 +1206,19 @@
         "subtitle": "Submit customer information collected from landing pages or ad platforms to the CRM",
         "headerNote": "Content-Type: application/json · X-API-Key header required",
         "reqFieldsTitle": "Request Fields",
-        "cols": { "field": "Field", "type": "Type", "required": "Required", "desc": "Description" },
+        "cols": {
+          "field": "Field",
+          "type": "Type",
+          "required": "Required",
+          "desc": "Description"
+        },
         "requiredLabel": "Required",
         "optionalLabel": "Optional",
         "adInfoTitle": "adInfo Ad Fields",
-        "adInfoCols": { "field": "Field", "desc": "Description" },
+        "adInfoCols": {
+          "field": "Field",
+          "desc": "Description"
+        },
         "adInfoNote": "All adInfo sub-fields are optional. After submission they appear on the lead detail page in the Ad Info card.",
         "reqExampleLabel": "Request Example",
         "successLabel": "Success Response (201)",
@@ -1149,9 +1237,12 @@
           "adInfo": "Ad tracking info (optional); see ad fields below"
         },
         "adInfoFields": {
-          "ip": "User IP address", "url": "Landing page or ad URL",
-          "account": "Ad account name", "plan": "Ad campaign name",
-          "group": "Ad group name", "ad": "Ad creative name"
+          "ip": "User IP address",
+          "url": "Landing page or ad URL",
+          "account": "Ad account name",
+          "plan": "Ad campaign name",
+          "group": "Ad group name",
+          "ad": "Ad creative name"
         }
       }
     }
