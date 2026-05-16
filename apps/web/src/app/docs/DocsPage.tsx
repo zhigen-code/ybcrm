@@ -273,7 +273,7 @@ function SectionActions() {
                 <p className="text-sm text-gray-600">{t(`docs.actions.${type}.desc`)}</p>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('docs.actionsSection.configExampleLabel')}</p>
-                  <pre className="bg-gray-900 text-green-300 rounded-lg p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">
+                  <pre className="bg-gray-900 text-green-300 rounded-lg p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto overflow-y-hidden">
                     {t(`docs.actions.${type}.example`)}
                   </pre>
                 </div>
@@ -347,7 +347,7 @@ function CodeBlock({ code }: { code: string }) {
   }
   return (
     <div className="relative group">
-      <pre className="bg-gray-900 text-green-300 rounded-lg p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">
+      <pre className="bg-gray-900 text-green-300 rounded-lg p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto overflow-y-hidden">
         {code}
       </pre>
       <button
@@ -623,7 +623,7 @@ export default function DocsPage() {
       </aside>
 
       {/* 移动端顶部章节切换 */}
-      <div className="md:hidden fixed top-14 left-0 right-0 z-20 bg-white border-b border-gray-200 px-4 overflow-x-auto">
+      <div className="md:hidden fixed top-14 left-0 right-0 z-20 bg-white border-b border-gray-200 px-4 overflow-x-auto overflow-y-hidden">
         <div className="flex gap-1">
           {category.sections.map(({ key, label }) => (
             <button

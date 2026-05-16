@@ -1124,7 +1124,7 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
   return (
     <div>
       {/* 子 Tab */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200 overflow-x-auto scrollbar-none">
+      <div className="flex gap-1 mb-4 border-b border-gray-200 overflow-x-auto overflow-y-hidden scrollbar-none">
         {([['workflows', t('settings.workflow.title')], ['assignment', t('settings.workflow.autoAssign.title')]] as const).map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)}
             className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -1927,7 +1927,7 @@ export default function SystemSettingsPage() {
       </div>
 
       {/* Tab 切换 */}
-      <div className="mb-4 flex gap-1 border-b overflow-x-auto scrollbar-none">
+      <div className="mb-4 flex gap-1 border-b overflow-x-auto overflow-y-hidden scrollbar-none">
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -2055,7 +2055,7 @@ export default function SystemSettingsPage() {
       {/* 选项配置 */}
       {activeTab === 'options' && (
         <div>
-          <div className="mb-4 flex gap-1 border-b overflow-x-auto scrollbar-none">
+          <div className="mb-4 flex gap-1 border-b overflow-x-auto overflow-y-hidden scrollbar-none">
             {OPTION_GROUPS.map((g) => (
               <button
                 key={g.key}

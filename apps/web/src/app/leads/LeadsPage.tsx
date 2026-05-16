@@ -401,7 +401,7 @@ export default function LeadsPage() {
       </div>
 
       <div className="mb-4">
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+        <div className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-0.5 scrollbar-none">
           {statusFilterOptions.map(({ value, label }) => (
             <button key={value} onClick={() => { setStatusFilter(value); setPage(1) }} className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${statusFilter === value ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}>
               {label}
