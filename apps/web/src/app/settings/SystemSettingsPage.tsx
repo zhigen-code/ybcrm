@@ -1124,10 +1124,10 @@ function WorkflowsPanel({ autoAssignEnabled, onSettingsSaved }: { autoAssignEnab
   return (
     <div>
       {/* 子 Tab */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
+      <div className="flex gap-1 mb-4 border-b border-gray-200 overflow-x-auto scrollbar-none">
         {([['workflows', t('settings.workflow.title')], ['assignment', t('settings.workflow.autoAssign.title')]] as const).map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               subTab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}>
             {label}
@@ -1927,13 +1927,13 @@ export default function SystemSettingsPage() {
       </div>
 
       {/* Tab 切换 */}
-      <div className="mb-4 flex gap-1 border-b">
+      <div className="mb-4 flex gap-1 border-b overflow-x-auto scrollbar-none">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === tab.key
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -2055,13 +2055,13 @@ export default function SystemSettingsPage() {
       {/* 选项配置 */}
       {activeTab === 'options' && (
         <div>
-          <div className="mb-4 flex gap-1 border-b">
+          <div className="mb-4 flex gap-1 border-b overflow-x-auto scrollbar-none">
             {OPTION_GROUPS.map((g) => (
               <button
                 key={g.key}
                 type="button"
                 onClick={() => setActiveGroup(g.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                   activeGroup === g.key
                     ? 'border-primary-600 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
