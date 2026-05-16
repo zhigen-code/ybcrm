@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -66,6 +66,63 @@ export default function CrmLayout() {
       ? [...filteredNavItems, ...adminNavItems, docsItem]
       : [...filteredNavItems, docsItem]
 
+  const UserMenu = ({ onNavClick }: { onNavClick?: (() => void) | undefined }) => {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+    const initials = (user?.name ?? '?').slice(0, 1).toUpperCase()
+
+    useEffect(() => {
+      const handler = (e: MouseEvent) => {
+        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      }
+      document.addEventListener('mousedown', handler)
+      return () => document.removeEventListener('mousedown', handler)
+    }, [])
+
+    return (
+      <div ref={ref} className="relative">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="w-full flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <span className="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-xs font-bold">
+            {initials}
+          </span>
+          <span className="flex-1 text-left truncate">{user?.name}</span>
+          <span className="text-xs text-gray-400">{open ? '▴' : '▾'}</span>
+        </button>
+
+        {open && (
+          <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border bg-white shadow-lg overflow-hidden">
+            <NavLink
+              to="/app/profile"
+              onClick={() => { setOpen(false); onNavClick?.() }}
+              className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-base">👤</span>
+              {t('nav.profile')}
+            </NavLink>
+            <button
+              onClick={() => { toggleLang(); setOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-base">🌐</span>
+              {i18n.language === 'zh' ? 'English' : '中文'}
+            </button>
+            <div className="border-t" />
+            <button
+              onClick={() => { handleLogout(); setOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <span className="text-base">🚪</span>
+              {t('nav.logout')}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const Sidebar = ({ onNavClick }: { onNavClick?: () => void }) => (
     <>
       <div className="flex h-14 items-center px-4 border-b">
@@ -95,33 +152,8 @@ export default function CrmLayout() {
           </NavLink>
         ))}
       </nav>
-      <div className="border-t p-3 space-y-0.5">
-        <NavLink
-          to="/app/profile"
-          onClick={onNavClick}
-          className={({ isActive }) =>
-            cn(
-              'flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-primary-50 text-primary-700'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-            )
-          }
-        >
-          {user?.name}
-          <span className="ml-1.5 text-xs font-normal text-gray-400">· {user?.role}</span>
-        </NavLink>
-        <button
-          type="button"
-          onClick={toggleLang}
-          className="w-full flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-        >
-          <span className="mr-2 text-base">{i18n.language === 'zh' ? '🌐' : '🌐'}</span>
-          {i18n.language === 'zh' ? 'English' : '中文'}
-        </button>
-        <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleLogout}>
-          {t('nav.logout')}
-        </Button>
+      <div className="border-t p-2">
+        <UserMenu onNavClick={onNavClick} />
       </div>
     </>
   )

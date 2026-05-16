@@ -87,6 +87,7 @@
     "settings": "系统管理",
     "docs": "文档",
     "logout": "退出登录",
+    "profile": "个人资料",
     "language": "Language"
   },
   "auth": {

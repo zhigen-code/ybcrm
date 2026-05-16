@@ -87,6 +87,7 @@
     "settings": "Settings",
     "docs": "Docs",
     "logout": "Logout",
+    "profile": "Profile",
     "language": "语言"
   },
   "auth": {
