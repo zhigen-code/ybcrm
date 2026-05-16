@@ -94,27 +94,36 @@ export default function CrmLayout() {
 
         {open && (
           <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border bg-white shadow-lg overflow-hidden">
-            <NavLink
-              to="/app/profile"
-              onClick={() => { setOpen(false); onNavClick?.() }}
-              className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <span className="text-base">👤</span>
-              {t('nav.profile')}
-            </NavLink>
+            {[
+              { tab: 'info',     icon: '👤', labelKey: 'profile.tabs.basic' },
+              { tab: 'password', icon: '🔑', labelKey: 'profile.tabs.password' },
+              { tab: 'api',      icon: '🔌', labelKey: 'profile.tabs.api' },
+              { tab: 'notify',   icon: '🔔', labelKey: 'profile.tabs.notifications' },
+            ].map(({ tab, icon, labelKey }) => (
+              <NavLink
+                key={tab}
+                to={`/app/profile?tab=${tab}`}
+                onClick={() => { setOpen(false); onNavClick?.() }}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <span className="w-5 text-center">{icon}</span>
+                {t(labelKey)}
+              </NavLink>
+            ))}
+            <div className="border-t" />
             <button
               onClick={() => { toggleLang(); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              <span className="text-base">🌐</span>
+              <span className="w-5 text-center">🌐</span>
               {i18n.language === 'zh' ? 'English' : '中文'}
             </button>
             <div className="border-t" />
             <button
               onClick={() => { handleLogout(); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
             >
-              <span className="text-base">🚪</span>
+              <span className="w-5 text-center">🚪</span>
               {t('nav.logout')}
             </button>
           </div>

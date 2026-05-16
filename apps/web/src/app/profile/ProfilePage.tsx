@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { crmApi } from '@/shared/utils/request'
 import { useCrmAuth } from '@/app/auth/CrmAuthContext'
 import { Input } from '@/shared/components/Input'
@@ -419,7 +420,14 @@ function NotifyTab() {
 // ---- 主页面 ----
 export default function ProfilePage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<TabKey>('info')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const validTab = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : 'info'
+  const [activeTab, setActiveTab] = useState<TabKey>(validTab)
+
+  useEffect(() => {
+    if (validTab !== activeTab) setActiveTab(validTab)
+  }, [validTab])
 
   const TABS = [
     { key: 'info' as TabKey,     label: t('profile.tabs.basic') },
@@ -440,7 +448,7 @@ export default function ProfilePage() {
           <button
             key={tab.key}
             type="button"
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => { setActiveTab(tab.key); setSearchParams({ tab: tab.key }) }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === tab.key
                 ? 'border-primary-600 text-primary-600'
