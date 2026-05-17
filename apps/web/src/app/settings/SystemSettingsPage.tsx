@@ -1944,7 +1944,7 @@ export default function SystemSettingsPage() {
         ))}
       </div>
 
-      <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))}>
+      <form id="basic-settings-form" onSubmit={handleSubmit((d) => saveMutation.mutate(d))}>
         <div className="max-w-2xl">
           {activeTab === 'basic' && (
             <div className="space-y-4">
@@ -1970,16 +1970,6 @@ export default function SystemSettingsPage() {
                   </div>
                 </div>
               </div>
-
-            </div>
-          )}
-
-          {activeTab === 'basic' && (
-            <div className="flex items-center gap-3 mt-4">
-              <Button type="submit" loading={isSubmitting || saveMutation.isPending}>
-                {t('settings.basic.save')}
-              </Button>
-              {saved && <span className="text-sm text-green-600">{t('settings.basic.saved')}</span>}
             </div>
           )}
         </div>
@@ -2012,6 +2002,12 @@ export default function SystemSettingsPage() {
                 }`} />
               </button>
             </div>
+          </div>
+          <div className="flex items-center gap-3 mt-4">
+            <Button form="basic-settings-form" type="submit" loading={isSubmitting || saveMutation.isPending}>
+              {t('settings.basic.save')}
+            </Button>
+            {saved && <span className="text-sm text-green-600">{t('settings.basic.saved')}</span>}
           </div>
         </div>
       )}

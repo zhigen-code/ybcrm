@@ -1,27 +1,27 @@
 {
   "optionValues": {
     "lead_status": {
-      "New":       "New Lead",
+      "New": "New Lead",
       "Contacted": "Contacted",
       "Qualified": "Qualified",
       "Converted": "Converted",
-      "Lost":      "Lost"
+      "Lost": "Lost"
     },
     "contract_status": {
-      "Pending":    "Pending",
-      "Signed":     "Signed",
+      "Pending": "Pending",
+      "Signed": "Signed",
       "Terminated": "Terminated"
     },
     "activity_type": {
-      "Call":    "Call",
+      "Call": "Call",
       "Meeting": "Meeting",
-      "Email":   "Email",
-      "Note":    "Note",
-      "System":  "System"
+      "Email": "Email",
+      "Note": "Note",
+      "System": "System"
     },
     "partner_type": {
-      "FertilityCenter":   "Fertility Center",
-      "SurrogacyAgency":   "Surrogacy Agency",
+      "FertilityCenter": "Fertility Center",
+      "SurrogacyAgency": "Surrogacy Agency",
       "EggDonationAgency": "Egg Donation Agency"
     }
   },
@@ -76,7 +76,8 @@
       "next": "Next",
       "showing": "{{total}} items, showing {{from}}–{{to}}"
     },
-    "sep": ", "
+    "sep": ", ",
+    "status": "Status"
   },
   "nav": {
     "leads": "Leads",
@@ -365,7 +366,16 @@
     "serviceForm": {
       "steps": "Service steps (one per line)",
       "stepsPlaceholder": "Initial consultation\nMedical evaluation\nPlan development"
-    }
+    },
+    "category": "Category",
+    "supplier": "Supplier",
+    "categories": "Manage Categories",
+    "suppliers": "Manage Suppliers",
+    "allSuppliers": "All Suppliers",
+    "newSupplier": "New Supplier",
+    "search": "Search products...",
+    "allCategories": "All Categories",
+    "attachments": "Attachments"
   },
   "services": {
     "title": "Services",

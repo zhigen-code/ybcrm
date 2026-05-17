@@ -1,27 +1,27 @@
 {
   "optionValues": {
     "lead_status": {
-      "New":       "新线索",
+      "New": "新线索",
       "Contacted": "已联系",
       "Qualified": "已确认",
       "Converted": "已转化",
-      "Lost":      "已丢失"
+      "Lost": "已丢失"
     },
     "contract_status": {
-      "Pending":    "待签署",
-      "Signed":     "已签署",
+      "Pending": "待签署",
+      "Signed": "已签署",
       "Terminated": "已终止"
     },
     "activity_type": {
-      "Call":    "电话",
+      "Call": "电话",
       "Meeting": "会面",
-      "Email":   "邮件",
-      "Note":    "备注",
-      "System":  "系统"
+      "Email": "邮件",
+      "Note": "备注",
+      "System": "系统"
     },
     "partner_type": {
-      "FertilityCenter":   "生殖中心",
-      "SurrogacyAgency":   "代孕机构",
+      "FertilityCenter": "生殖中心",
+      "SurrogacyAgency": "代孕机构",
       "EggDonationAgency": "供卵机构"
     }
   },
@@ -76,7 +76,8 @@
       "next": "下一页",
       "showing": "共 {{total}} 条，显示第 {{from}}–{{to}} 条"
     },
-    "sep": "、"
+    "sep": "、",
+    "status": "状态"
   },
   "nav": {
     "leads": "线索管理",
@@ -365,7 +366,16 @@
     "serviceForm": {
       "steps": "服务流程（每行一个步骤）",
       "stepsPlaceholder": "初步咨询\n医疗评估\n方案制定"
-    }
+    },
+    "category": "分类",
+    "supplier": "供应商",
+    "categories": "分类管理",
+    "suppliers": "供应商管理",
+    "allSuppliers": "全部供应商",
+    "newSupplier": "新建供应商",
+    "search": "搜索产品名称...",
+    "allCategories": "全部分类",
+    "attachments": "产品附件"
   },
   "services": {
     "title": "服务管理",
