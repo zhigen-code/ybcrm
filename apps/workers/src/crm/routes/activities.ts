@@ -154,12 +154,20 @@ activitiesRoutes.post(
     const body = c.req.valid('json')
     const { userId } = c.get('jwtPayload')
 
-    // 动态验证 activityType 是否在 option_items 中
+    // 动态验证 activityType 是否在 option_items 中，同时取 metadata
     const validType = await c.env.DB.prepare(
-      "SELECT id FROM option_items WHERE group_key = 'activity_type' AND value = ? AND is_active = 1",
-    ).bind(body.activityType).first()
+      "SELECT id, metadata FROM option_items WHERE group_key = 'activity_type' AND value = ? AND is_active = 1",
+    ).bind(body.activityType).first<{ id: string; metadata: string | null }>()
     if (!validType) {
       return c.json({ message: '无效的跟进类型' }, 400)
+    }
+    // 解析 milestoneMapping 配置
+    let milestoneMapping: { stepName?: string; action: 'in_progress' | 'complete'; advanceNext?: boolean } | null = null
+    if (validType.metadata) {
+      try {
+        const meta = JSON.parse(validType.metadata)
+        if (meta.milestoneMapping) milestoneMapping = meta.milestoneMapping
+      } catch { /* ignore */ }
     }
     const id = uuidv4()
 
@@ -202,6 +210,14 @@ activitiesRoutes.post(
       rawAttachments: undefined,
     }
 
+    // 自动推进客户里程碑
+    if (milestoneMapping && body.clientId) {
+      c.executionCtx.waitUntil(
+        applyMilestoneMapping(c.env.DB, body.clientId, milestoneMapping)
+          .catch((err) => console.error('[milestone] auto-update failed:', err)),
+      )
+    }
+
     // 触发跟进工作流
     c.executionCtx.waitUntil(
       executeWorkflowsForTrigger(c.env.DB, c.env, 'activity', id, { type: 'on_create' })
@@ -211,3 +227,51 @@ activitiesRoutes.post(
     return c.json({ data: activity }, 201)
   },
 )
+
+// 根据活动类型的 milestoneMapping 自动更新里程碑状态
+async function applyMilestoneMapping(
+  db: D1Database,
+  clientId: string,
+  mapping: { stepName?: string; action: 'in_progress' | 'complete'; advanceNext?: boolean },
+) {
+  const now = new Date().toISOString().slice(0, 10)
+
+  let milestone: { id: string; step_index: number; service_id: string } | null = null
+
+  if (mapping.stepName) {
+    // 按步骤名匹配（取第一个未完成的同名步骤）
+    milestone = await db.prepare(
+      `SELECT id, step_index, service_id FROM client_milestones
+       WHERE client_id = ? AND step_name = ? AND status != 'completed'
+       ORDER BY step_index ASC LIMIT 1`,
+    ).bind(clientId, mapping.stepName).first<{ id: string; step_index: number; service_id: string }>()
+  } else {
+    // 无步骤名则匹配当前 in_progress 步骤
+    milestone = await db.prepare(
+      `SELECT id, step_index, service_id FROM client_milestones
+       WHERE client_id = ? AND status = 'in_progress'
+       ORDER BY step_index ASC LIMIT 1`,
+    ).bind(clientId).first<{ id: string; step_index: number; service_id: string }>()
+  }
+
+  if (!milestone) return
+
+  const newStatus = mapping.action === 'complete' ? 'completed' : 'in_progress'
+  const completedDate = mapping.action === 'complete' ? now : null
+
+  const updates = completedDate
+    ? `status = '${newStatus}', completed_date = '${completedDate}', updated_at = datetime('now')`
+    : `status = '${newStatus}', updated_at = datetime('now')`
+
+  await db.prepare(
+    `UPDATE client_milestones SET ${updates} WHERE id = ?`,
+  ).bind(milestone.id).run()
+
+  // 自动推进下一步为 in_progress
+  if (mapping.action === 'complete' && mapping.advanceNext !== false) {
+    await db.prepare(
+      `UPDATE client_milestones SET status = 'in_progress', updated_at = datetime('now')
+       WHERE client_id = ? AND service_id = ? AND step_index = ? AND status = 'pending'`,
+    ).bind(clientId, milestone.service_id, milestone.step_index + 1).run()
+  }
+}

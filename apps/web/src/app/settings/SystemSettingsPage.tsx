@@ -11,7 +11,7 @@ import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Badge } from '@/shared/components/Badge'
 import type { Team } from '@/shared/types'
-import type { OptionItem, ActivityMeta, ActivityMetaField } from '@/shared/hooks/useOptions'
+import type { OptionItem, ActivityMeta, ActivityMetaField, MilestoneMapping } from '@/shared/hooks/useOptions'
 import { useOptions, parseActivityMeta } from '@/shared/hooks/useOptions'
 import type { Workflow } from '@/shared/hooks/useWorkflows'
 
@@ -1310,6 +1310,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
   const [editColor, setEditColor] = useState<Color>('gray')
   const [addColor, setAddColor] = useState<Color>('gray')
   const [editFields, setEditFields] = useState<ActivityMetaField[]>([])
+  const [editMilestoneMapping, setEditMilestoneMapping] = useState<MilestoneMapping | null>(null)
   const isActivityType = groupKey === 'activity_type'
 
   const { data, isLoading } = useQuery({
@@ -1368,7 +1369,9 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
     setEditColor(item.color)
     editForm.reset({ value: item.value, label: item.label, color: item.color })
     if (isActivityType) {
-      setEditFields(parseActivityMeta(item).fields ?? [])
+      const meta = parseActivityMeta(item)
+      setEditFields(meta.fields ?? [])
+      setEditMilestoneMapping(meta.milestoneMapping ?? null)
     }
   }
 
@@ -1380,7 +1383,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
     if (isActivityType) {
       const existingMeta = parseActivityMeta(editTarget!)
       const fields = editFields.filter((f) => f.key.trim() && f.label.trim())
-      const metadata = JSON.stringify({ ...existingMeta, fields })
+      const metadata = JSON.stringify({ ...existingMeta, fields, milestoneMapping: editMilestoneMapping })
       updateMutation.mutate({ id: editTarget!.id, ...d, color: editColor, metadata })
     } else {
       updateMutation.mutate({ id: editTarget!.id, ...d, color: editColor })
@@ -1648,6 +1651,62 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
                     ))}
                     <p className="text-xs text-gray-400">{t('settings.options.fieldHint')}</p>
                   </div>
+                )}
+              </div>
+            )}
+
+            {isActivityType && (
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">{t('settings.options.milestoneMapping')}</p>
+                  <button
+                    type="button"
+                    onClick={() => setEditMilestoneMapping(editMilestoneMapping ? null : { action: 'complete', advanceNext: true })}
+                    className="text-xs text-primary-600 hover:text-primary-800"
+                  >
+                    {editMilestoneMapping ? t('common.remove') : t('common.add')}
+                  </button>
+                </div>
+                {editMilestoneMapping ? (
+                  <div className="space-y-2 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-gray-500">{t('settings.options.milestoneStepName')}</label>
+                      <input
+                        placeholder={t('settings.options.milestoneStepNameHint')}
+                        value={editMilestoneMapping.stepName ?? ''}
+                        onChange={(e) => { if (editMilestoneMapping) setEditMilestoneMapping({ action: editMilestoneMapping.action, advanceNext: editMilestoneMapping.advanceNext, ...(e.target.value ? { stepName: e.target.value } : {}) } as MilestoneMapping) }}
+                        className="rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-gray-500">{t('settings.options.milestoneAction')}</label>
+                        <select
+                          value={editMilestoneMapping.action}
+                          onChange={(e) => { if (editMilestoneMapping) setEditMilestoneMapping({ ...editMilestoneMapping, action: e.target.value as 'in_progress' | 'complete' }) }}
+                          className="rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="in_progress">{t('settings.options.milestoneActionStart')}</option>
+                          <option value="complete">{t('settings.options.milestoneActionComplete')}</option>
+                        </select>
+                      </div>
+                      {editMilestoneMapping.action === 'complete' && (
+                        <div className="flex items-end pb-1">
+                          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editMilestoneMapping.advanceNext !== false}
+                              onChange={(e) => { if (editMilestoneMapping) setEditMilestoneMapping({ ...editMilestoneMapping, advanceNext: e.target.checked }) }}
+                              className="rounded"
+                            />
+                            {t('settings.options.milestoneAdvanceNext')}
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400">{t('settings.options.milestoneNoMapping')}</p>
                 )}
               </div>
             )}

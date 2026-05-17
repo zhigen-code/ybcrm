@@ -15,6 +15,7 @@ export default function PortalLayout() {
   const navItems = [
     { to: '/portal/profile', label: t('portal.nav.profile') },
     { to: '/portal/services', label: t('portal.nav.services') },
+    { to: '/portal/progress', label: t('portal.nav.progress') },
     { to: '/portal/resources', label: t('portal.nav.resources') },
   ]
 

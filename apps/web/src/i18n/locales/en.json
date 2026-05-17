@@ -204,7 +204,8 @@
       "nextContact": "Next Contact:",
       "editTitle": "Edit Client",
       "planPlaceholder": "Select...",
-      "noPlan": "No plan"
+      "noPlan": "No plan",
+      "milestones": "Progress"
     },
     "deleteConfirm": "Delete client \"{{name}}\"? This cannot be undone.",
     "noContact": "No contact info"
@@ -489,7 +490,15 @@
         "label": "Label",
         "scope": "Scope",
         "status": "Status"
-      }
+      },
+      "milestoneMapping": "Milestone Mapping",
+      "milestoneStepName": "Step Name",
+      "milestoneStepNameHint": "Leave empty to match current in-progress step",
+      "milestoneAction": "Action",
+      "milestoneActionStart": "Mark as In Progress",
+      "milestoneActionComplete": "Mark as Completed",
+      "milestoneAdvanceNext": "Auto-start next step on complete",
+      "milestoneNoMapping": "Not configured — creating this activity will not update milestones"
     },
     "ai": {
       "provider": "Model Providers",
@@ -983,10 +992,15 @@
       },
       "download": "Download"
     },
+    "progress": {
+      "title": "Progress Tracking",
+      "empty": "No progress records yet. Contact your advisor for details."
+    },
     "nav": {
       "profile": "Profile",
       "services": "Services",
       "resources": "My Files",
+      "progress": "Progress",
       "logout": "Logout"
     }
   },
@@ -1296,5 +1310,16 @@
     "loading": "Loading...",
     "loadFailed": "Failed to load",
     "download": "Download"
+  },
+  "milestone": {
+    "pending": "Pending",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "skipped": "Skipped",
+    "noMilestones": "No milestones yet. Initialize from a service:",
+    "initFrom": "Init from",
+    "completedOn": "Completed on",
+    "expectedOn": "Expected",
+    "notesHint": "Notes (optional)"
   }
 }

@@ -10,9 +10,16 @@ export interface ActivityMetaField {
   options?: string[]  // select 类型的选项列表
 }
 
+export interface MilestoneMapping {
+  stepName?: string
+  action: 'in_progress' | 'complete'
+  advanceNext?: boolean
+}
+
 export interface ActivityMeta {
   scope?: ('lead' | 'client')[]
   fields?: ActivityMetaField[]
+  milestoneMapping?: MilestoneMapping | null
 }
 
 export interface OptionItem {

@@ -204,7 +204,8 @@
       "nextContact": "下次联系：",
       "editTitle": "编辑客户信息",
       "planPlaceholder": "请选择...",
-      "noPlan": "未指定套餐"
+      "noPlan": "未指定套餐",
+      "milestones": "进度追踪"
     },
     "deleteConfirm": "确认删除客户「{{name}}」？此操作不可恢复。",
     "noContact": "无联系方式"
@@ -489,7 +490,15 @@
         "label": "标签",
         "scope": "适用范围",
         "status": "状态"
-      }
+      },
+      "milestoneMapping": "里程碑映射",
+      "milestoneStepName": "匹配步骤名",
+      "milestoneStepNameHint": "留空则匹配当前进行中步骤",
+      "milestoneAction": "触发动作",
+      "milestoneActionStart": "标记为进行中",
+      "milestoneActionComplete": "标记为已完成",
+      "milestoneAdvanceNext": "完成后自动开始下一步",
+      "milestoneNoMapping": "未配置，创建此类型跟进不会自动推进里程碑"
     },
     "ai": {
       "provider": "模型提供商",
@@ -983,10 +992,15 @@
       },
       "download": "下载"
     },
+    "progress": {
+      "title": "进度追踪",
+      "empty": "暂无进度记录，请联系您的顾问了解详情"
+    },
     "nav": {
       "profile": "个人资料",
       "services": "服务进度",
       "resources": "我的文件",
+      "progress": "进度",
       "logout": "退出"
     }
   },
@@ -1296,5 +1310,16 @@
     "loading": "加载中...",
     "loadFailed": "文件加载失败",
     "download": "下载"
+  },
+  "milestone": {
+    "pending": "待开始",
+    "inProgress": "进行中",
+    "completed": "已完成",
+    "skipped": "已跳过",
+    "noMilestones": "暂无进度记录，选择服务流程初始化：",
+    "initFrom": "初始化",
+    "completedOn": "完成于",
+    "expectedOn": "预计",
+    "notesHint": "备注（可选）"
   }
 }

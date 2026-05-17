@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { crmApi } from '@/shared/utils/request'
 import { Button } from '@/shared/components/Button'
@@ -13,6 +13,19 @@ import { Badge } from '@/shared/components/Badge'
 import { Modal } from '@/shared/components/Modal'
 import { formatDate } from '@/shared/utils/format'
 import type { Client, SalesActivity, Service } from '@/shared/types'
+
+interface Milestone {
+  id: string
+  clientId: string
+  serviceId: string
+  serviceName: string
+  stepIndex: number
+  stepName: string
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped'
+  expectedDate: string | null
+  completedDate: string | null
+  notes: string | null
+}
 import { useOptionGroup, toSelectOptions, getOptionColor, getOptionLabel, parseActivityMeta } from '@/shared/hooks/useOptions'
 import { ActivityModal } from '@/shared/components/ActivityModal'
 import type { ActivitySubmitData } from '@/shared/components/ActivityModal'
@@ -27,6 +40,172 @@ const editSchema = z.object({
 })
 type EditForm = z.infer<typeof editSchema>
 
+const STATUS_CONFIG = {
+  pending:     { color: 'bg-gray-200',    text: 'text-gray-400',   label: 'milestone.pending' },
+  in_progress: { color: 'bg-primary-500', text: 'text-primary-600', label: 'milestone.inProgress' },
+  completed:   { color: 'bg-green-500',   text: 'text-green-600',  label: 'milestone.completed' },
+  skipped:     { color: 'bg-gray-300',    text: 'text-gray-400',   label: 'milestone.skipped' },
+}
+
+function MilestonesTab({
+  milestones, isLoading, services, editingId, setEditingId, notesRef,
+  onInit, onUpdate, isInitPending, isUpdatePending,
+}: {
+  milestones: Milestone[]
+  isLoading: boolean
+  services: Service[]
+  editingId: string | null
+  setEditingId: (id: string | null) => void
+  notesRef: React.MutableRefObject<Record<string, string>>
+  onInit: (serviceId: string) => void
+  onUpdate: (id: string, patch: { status?: string; expectedDate?: string | null; completedDate?: string | null; notes?: string | null }) => void
+  isInitPending: boolean
+  isUpdatePending: boolean
+}) {
+  const { t } = useTranslation()
+
+  // 按服务分组
+  const byService: Record<string, { name: string; items: Milestone[] }> = {}
+  for (const m of milestones) {
+    if (!byService[m.serviceId]) byService[m.serviceId] = { name: m.serviceName, items: [] }
+    byService[m.serviceId]!.items.push(m)
+  }
+
+  if (isLoading) return <p className="text-sm text-gray-400 py-4">{t('common.loading')}</p>
+
+  return (
+    <div className="space-y-6">
+      {/* 无里程碑：初始化 */}
+      {milestones.length === 0 && (
+        <div>
+          <p className="text-sm text-gray-500 mb-3">{t('milestone.noMilestones')}</p>
+          <div className="flex flex-wrap gap-2">
+            {services.filter((s) => (s.processSteps ?? []).length > 0).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => onInit(s.id)}
+                disabled={isInitPending}
+                className="rounded-lg border border-primary-300 bg-primary-50 px-3 py-1.5 text-sm text-primary-700 hover:bg-primary-100 transition-colors disabled:opacity-50"
+              >
+                {isInitPending ? t('common.loading') : `${t('milestone.initFrom')} "${s.name}"`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 各服务里程碑 */}
+      {Object.values(byService).map(({ name, items }) => {
+        const completed = items.filter((m) => m.status === 'completed').length
+        const pct = Math.round((completed / items.length) * 100)
+        return (
+          <div key={name}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-700">{name}</span>
+              <span className="text-xs text-gray-400">{completed}/{items.length} · {pct}%</span>
+            </div>
+            {/* 进度条 */}
+            <div className="h-1.5 bg-gray-100 rounded-full mb-4 overflow-hidden">
+              <div className="h-full bg-primary-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+            </div>
+            {/* 步骤列表 */}
+            <div className="space-y-2">
+              {items.map((m, idx) => {
+                const cfg = STATUS_CONFIG[m.status]
+                const isEditing = editingId === m.id
+                return (
+                  <div key={m.id} className={`rounded-lg border p-3 transition-colors ${m.status === 'in_progress' ? 'border-primary-200 bg-primary-50/30' : 'bg-white'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold" style={{ background: m.status === 'completed' ? '#22c55e' : m.status === 'in_progress' ? '#6366f1' : '#d1d5db' }}>
+                        {m.status === 'completed' ? '✓' : idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-medium ${m.status === 'skipped' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{m.stepName}</span>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                          <span className={`text-xs font-medium ${cfg.text}`}>{t(cfg.label)}</span>
+                          {m.completedDate && <span className="text-xs text-gray-400">{t('milestone.completedOn')} {formatDate(m.completedDate)}</span>}
+                          {m.expectedDate && !m.completedDate && <span className="text-xs text-gray-400">{t('milestone.expectedOn')} {formatDate(m.expectedDate)}</span>}
+                        </div>
+                        {m.notes && !isEditing && <p className="mt-1 text-xs text-gray-500">{m.notes}</p>}
+                      </div>
+                      <button
+                        onClick={() => { setEditingId(isEditing ? null : m.id); if (!notesRef.current[m.id]) notesRef.current[m.id] = m.notes ?? '' }}
+                        className="flex-shrink-0 text-xs text-gray-400 hover:text-primary-600"
+                      >
+                        {isEditing ? t('common.cancel') : t('common.edit')}
+                      </button>
+                    </div>
+
+                    {isEditing && (
+                      <div className="mt-3 space-y-2 pl-9">
+                        <div className="flex gap-2 flex-wrap">
+                          {(['pending', 'in_progress', 'completed', 'skipped'] as const).map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => onUpdate(m.id, { status: s })}
+                              disabled={isUpdatePending}
+                              className={`rounded-full px-2.5 py-0.5 text-xs border transition-colors ${
+                                m.status === s
+                                  ? 'bg-primary-600 text-white border-primary-600'
+                                  : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
+                              }`}
+                            >
+                              {t(STATUS_CONFIG[s].label)}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="date"
+                            defaultValue={m.expectedDate ?? ''}
+                            placeholder={t('milestone.expectedOn')}
+                            onChange={(e) => notesRef.current[`${m.id}_exp`] = e.target.value}
+                            className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <textarea
+                            rows={2}
+                            defaultValue={m.notes ?? ''}
+                            placeholder={t('milestone.notesHint')}
+                            onChange={(e) => notesRef.current[m.id] = e.target.value}
+                            className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+                          />
+                          <button
+                            onClick={() => onUpdate(m.id, {
+                              notes: notesRef.current[m.id] ?? null,
+                              expectedDate: notesRef.current[`${m.id}_exp`] || null,
+                            })}
+                            disabled={isUpdatePending}
+                            className="self-end rounded bg-primary-600 text-white px-3 py-1 text-xs hover:bg-primary-700 disabled:opacity-50"
+                          >
+                            {t('common.save')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {/* 追加服务入口（当有多个服务时） */}
+            {services.filter((s) => (s.processSteps ?? []).length > 0 && !Object.keys(byService).includes(s.id)).length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {services.filter((s) => (s.processSteps ?? []).length > 0 && !Object.keys(byService).includes(s.id)).map((s) => (
+                  <button key={s.id} onClick={() => onInit(s.id)} disabled={isInitPending}
+                    className="text-xs text-gray-400 hover:text-primary-600 border border-dashed border-gray-300 rounded px-2 py-1 hover:border-primary-400 transition-colors">
+                    + {t('milestone.initFrom')} "{s.name}"
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function ClientDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
@@ -34,6 +213,9 @@ export default function ClientDetailPage() {
   const queryClient = useQueryClient()
   const [showEdit, setShowEdit] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
+  const [activeTab, setActiveTab] = useState<'activities' | 'milestones'>('activities')
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null)
+  const milestoneNotesRef = useRef<Record<string, string>>({})
 
   const { options: contractStatusOpts } = useOptionGroup('contract_status')
   const { options: activityTypeOpts } = useOptionGroup('activity_type')
@@ -99,8 +281,26 @@ export default function ClientDetailPage() {
     mutationFn: (body: ActivitySubmitData) => crmApi.post('/activities', { ...body, clientId: id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activities', 'client', id] })
+      queryClient.invalidateQueries({ queryKey: ['milestones', id] })
       setShowActivity(false)
     },
+  })
+
+  const { data: milestonesData, isLoading: milestonesLoading } = useQuery({
+    queryKey: ['milestones', id],
+    queryFn: () => crmApi.get<{ data: Milestone[] }>('/milestones', { params: { clientId: id } }).then((r) => r.data.data),
+  })
+  const milestones = milestonesData ?? []
+
+  const initMilestones = useMutation({
+    mutationFn: (serviceId: string) => crmApi.post('/milestones/init', { clientId: id, serviceId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['milestones', id] }),
+  })
+
+  const updateMilestone = useMutation({
+    mutationFn: ({ milestoneId, ...body }: { milestoneId: string; status?: string; expectedDate?: string | null; completedDate?: string | null; notes?: string | null }) =>
+      crmApi.put(`/milestones/${milestoneId}`, body),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['milestones', id] }); setEditingMilestoneId(null) },
   })
 
   if (!client) return <div className="p-6 text-sm text-gray-500">{t('common.loading')}</div>
@@ -169,8 +369,31 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* 跟进记录 */}
-      <div className="rounded-lg border bg-white p-4 sm:p-6">
+      {/* Tab 切换 */}
+      <div className="rounded-lg border bg-white overflow-hidden">
+        <div className="flex border-b">
+          {(['activities', 'milestones'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'text-primary-700 border-b-2 border-primary-600 bg-white'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {tab === 'activities' ? t('clients.detail.activities') : t('clients.detail.milestones')}
+              {tab === 'milestones' && milestones.length > 0 && (
+                <span className="ml-1.5 text-xs text-gray-400">
+                  ({milestones.filter((m) => m.status === 'completed').length}/{milestones.length})
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-4 sm:p-6">
+        {activeTab === 'activities' && (<>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-gray-900">{t('clients.detail.activities')}</h2>
           <Button size="sm" variant="secondary" onClick={() => setShowActivity(true)}>
@@ -216,6 +439,23 @@ export default function ClientDetailPage() {
             ))}
           </div>
         )}
+        </>)}
+
+        {activeTab === 'milestones' && (
+          <MilestonesTab
+            milestones={milestones}
+            isLoading={milestonesLoading}
+            services={serviceOptions}
+            editingId={editingMilestoneId}
+            setEditingId={setEditingMilestoneId}
+            notesRef={milestoneNotesRef}
+            onInit={(serviceId) => initMilestones.mutate(serviceId)}
+            onUpdate={(milestoneId, patch) => updateMilestone.mutate({ milestoneId, ...patch })}
+            isInitPending={initMilestones.isPending}
+            isUpdatePending={updateMilestone.isPending}
+          />
+        )}
+        </div>
       </div>
 
       {/* AI 分析 */}

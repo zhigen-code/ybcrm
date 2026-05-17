@@ -29,6 +29,7 @@ const PortalLayout = lazy(() => import('@/portal/layout/PortalLayout'))
 const PortalProfilePage = lazy(() => import('@/portal/profile/ProfilePage'))
 const PortalServicesPage = lazy(() => import('@/portal/services/ServicesPage'))
 const PortalResourcesPage = lazy(() => import('@/portal/resources/ResourcesPage'))
+const PortalProgressPage = lazy(() => import('@/portal/progress/ProgressPage'))
 
 export default function App() {
   return (
@@ -93,6 +94,7 @@ export default function App() {
                     <Route path="profile" element={<PortalProfilePage />} />
                     <Route path="services" element={<PortalServicesPage />} />
                     <Route path="resources" element={<PortalResourcesPage />} />
+                    <Route path="progress" element={<PortalProgressPage />} />
                     <Route index element={<Navigate to="profile" replace />} />
                   </Route>
                 </Routes>

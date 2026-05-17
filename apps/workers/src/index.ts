@@ -28,6 +28,7 @@ import { workflowsRoutes, workflowsAdminRoutes } from './crm/routes/workflows'
 import { actionTemplatesAdminRoutes } from './crm/routes/actionTemplates'
 import { entitySchemaRoutes } from './crm/routes/entitySchema'
 import { recycleBinRoutes } from './crm/routes/recycleBin'
+import { milestonesRoutes } from './crm/routes/milestones'
 import { requireApiKey } from './crm/middleware/apiKeyAuth'
 import { executeScheduledWorkflows } from './crm/workflow/executor'
 
@@ -36,6 +37,7 @@ import { portalAuthRoutes } from './portal/routes/auth'
 import { profileRoutes } from './portal/routes/profile'
 import { servicesRoutes as portalServicesRoutes } from './portal/routes/services'
 import { resourcesRoutes } from './portal/routes/resources'
+import { portalMilestonesRoutes } from './portal/routes/milestones'
 
 // 线索分配 Queue 消费逻辑
 import { handleLeadAssignmentBatch } from './assignment/handler'
@@ -213,12 +215,14 @@ app.route('/api/admin/workflows', workflowsAdminRoutes)
 app.route('/api/admin/action-templates', actionTemplatesAdminRoutes)
 app.route('/api/admin/entity-schema', entitySchemaRoutes)
 app.route('/api/admin/recycle-bin', recycleBinRoutes)
+app.route('/api/milestones', milestonesRoutes)
 
 // 客户门户 API（/api/client/*）
 app.route('/api/client/auth', portalAuthRoutes)
 app.route('/api/client/profile', profileRoutes)
 app.route('/api/client/services', portalServicesRoutes)
 app.route('/api/client/resources', resourcesRoutes)
+app.route('/api/client/milestones', portalMilestonesRoutes)
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
