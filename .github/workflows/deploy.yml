@@ -9,8 +9,8 @@ env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
 jobs:
-  deploy-workers:
-    name: Deploy Workers
+  deploy:
+    name: Deploy Workers + Pages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,54 +25,70 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check setup completed
+      # ── 步骤 1：计算资源命名前缀（与 setup.yml 相同公式）─────────────
+      - name: Compute resource names
         run: |
-          WORKER=$(grep -m1 '^name' apps/workers/wrangler.toml | cut -d'"' -f2)
-          if [ "$WORKER" = "placeholder-worker" ]; then
-            echo "❌ Run the Setup workflow first"
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
+          repo=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
+          branch=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-10)
+          PREFIX="${owner}-${repo}-${branch}"
+          echo "WORKER_NAME=${PREFIX}"              >> $GITHUB_ENV
+          echo "D1_DATABASE_NAME=${PREFIX}-db"      >> $GITHUB_ENV
+          echo "R2_BUCKET_NAME=${PREFIX}-store"     >> $GITHUB_ENV
+          echo "PAGES_PROJECT_NAME=${PREFIX}"       >> $GITHUB_ENV
+          echo "LEAD_QUEUE_NAME=${PREFIX}-leads"    >> $GITHUB_ENV
+          echo "NOTIFY_QUEUE_NAME=${PREFIX}-notify" >> $GITHUB_ENV
+          echo "Prefix: $PREFIX"
+
+      # ── 步骤 2：查询 D1 数据库 ID ────────────────────────────────────
+      - name: Get D1 database ID
+        working-directory: apps/workers
+        run: |
+          DB_LIST=$(npx wrangler d1 list --json)
+          D1_ID=$(echo "$DB_LIST" | jq -r --arg name "$D1_DATABASE_NAME" '.[] | select(.name==$name) | .uuid')
+          if [ -z "$D1_ID" ]; then
+            echo "❌ Database not found: $D1_DATABASE_NAME"
+            echo "   Please run the Setup workflow first."
             exit 1
           fi
-          DB_NAME=$(grep 'database_name' apps/workers/wrangler.toml | head -1 | cut -d'"' -f2)
-          echo "WORKER_NAME=$WORKER" >> $GITHUB_ENV
-          echo "D1_DATABASE_NAME=$DB_NAME" >> $GITHUB_ENV
-          echo "Worker: $WORKER / DB: $DB_NAME"
+          echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
+          echo "✅ Database: $D1_DATABASE_NAME ($D1_ID)"
 
-      - name: Deploy Workers
+      # ── 步骤 3：获取 workers.dev 子域名 ──────────────────────────────
+      - name: Get workers.dev subdomain
+        run: |
+          SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
+          if [ -z "$SUBDOMAIN" ]; then
+            echo "❌ Could not get workers.dev subdomain"
+            exit 1
+          fi
+          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
+
+      # ── 步骤 4：patch wrangler.toml（仅 runner 内存，不 commit）──────
+      - name: Patch wrangler.toml & deploy Workers
         working-directory: apps/workers
-        run: npx wrangler deploy
+        run: |
+          sed -i "s/placeholder-worker/$WORKER_NAME/" wrangler.toml
+          sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
+          sed -i "s/placeholder-db/$D1_DATABASE_NAME/" wrangler.toml
+          sed -i "s/placeholder-store/$R2_BUCKET_NAME/" wrangler.toml
+          sed -i "s/placeholder-leads/$LEAD_QUEUE_NAME/g" wrangler.toml
+          sed -i "s/placeholder-notify/$NOTIFY_QUEUE_NAME/g" wrangler.toml
+          npx wrangler deploy
 
+      # ── 步骤 5：执行数据库迁移 ───────────────────────────────────────
       - name: Run D1 migrations
         working-directory: apps/workers
         run: npx wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote
 
-  deploy-pages:
-    name: Deploy Pages
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check setup completed
+      # ── 步骤 6：构建前端（临时写 .env.production，不 commit）─────────
+      - name: Build web
         run: |
-          WORKER=$(grep -m1 '^name' apps/workers/wrangler.toml | cut -d'"' -f2)
-          if [ "$WORKER" = "placeholder-worker" ]; then
-            echo "❌ Run the Setup workflow first"
-            exit 1
-          fi
-          echo "PAGES_PROJECT_NAME=$WORKER" >> $GITHUB_ENV
+          echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" > apps/web/.env.production
+          pnpm --filter web build
 
-      - name: Build
-        run: pnpm --filter web build
-
+      # ── 步骤 7：部署 Pages ────────────────────────────────────────────
       - name: Deploy Pages
         working-directory: apps/web
         run: npx wrangler pages deploy dist --project-name "$PAGES_PROJECT_NAME" --branch main --commit-message "deploy ${{ github.sha }}"

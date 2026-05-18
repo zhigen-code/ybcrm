@@ -8,7 +8,7 @@ jobs:
     name: Create Cloudflare resources & deploy
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -26,13 +26,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # ── 步骤 1：计算资源命名前缀 ──────────────────────────────────────
-      - name: Set project names
+      - name: Compute resource names
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
-          repo=$(echo "${{ github.event.repository.name }}"  | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
+          repo=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
           branch=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-10)
           PREFIX="${owner}-${repo}-${branch}"
-
           echo "WORKER_NAME=${PREFIX}"              >> $GITHUB_ENV
           echo "D1_DATABASE_NAME=${PREFIX}-db"      >> $GITHUB_ENV
           echo "R2_BUCKET_NAME=${PREFIX}-store"     >> $GITHUB_ENV
@@ -83,55 +82,44 @@ jobs:
         run: |
           SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
+          if [ -z "$SUBDOMAIN" ]; then
+            echo "❌ Could not get workers.dev subdomain"
+            exit 1
+          fi
           echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
           echo "Workers URL: https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"
 
-      # ── 步骤 6：patch wrangler.toml + .env.production 并 commit ──────
-      # 不提交 account_id（从 Secret 读取），只提交资源名称和 ID
-      - name: Patch config files & commit
+      # ── 步骤 6：patch wrangler.toml（仅 runner 内存，不 commit）──────
+      - name: Patch wrangler.toml & deploy Workers
+        working-directory: apps/workers
         run: |
-          # 修改 wrangler.toml
-          cd apps/workers
           sed -i "s/placeholder-worker/$WORKER_NAME/" wrangler.toml
           sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
           sed -i "s/placeholder-db/$D1_DATABASE_NAME/" wrangler.toml
           sed -i "s/placeholder-store/$R2_BUCKET_NAME/" wrangler.toml
           sed -i "s/placeholder-leads/$LEAD_QUEUE_NAME/g" wrangler.toml
           sed -i "s/placeholder-notify/$NOTIFY_QUEUE_NAME/g" wrangler.toml
-          cd ../..
+          npx wrangler deploy
 
-          # 更新 .env.production（让前端构建指向正确的 API 地址）
-          echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" > apps/web/.env.production
-
-          # commit 两个文件（不含任何 secret）
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/workers/wrangler.toml apps/web/.env.production
-          git commit -m "chore: configure Cloudflare resources for this deployment [skip ci]"
-          git push
-
-      # ── 步骤 7：生成并写入 Worker Secrets ────────────────────────────
+      # ── 步骤 7：写入 Worker Secrets ───────────────────────────────────
       - name: Set Worker secrets
         working-directory: apps/workers
         run: |
           echo "$(openssl rand -base64 32)" | npx wrangler secret put JWT_SECRET
           echo "$(openssl rand -base64 32)" | npx wrangler secret put PORTAL_JWT_SECRET
 
-      # ── 步骤 8：部署 Workers ──────────────────────────────────────────
-      - name: Deploy Workers
-        working-directory: apps/workers
-        run: npx wrangler deploy
-
-      # ── 步骤 9：执行数据库迁移 ───────────────────────────────────────
+      # ── 步骤 8：执行数据库迁移 ───────────────────────────────────────
       - name: Run D1 migrations
         working-directory: apps/workers
         run: npx wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote
 
-      # ── 步骤 10：构建前端（使用已更新的 .env.production）────────────
+      # ── 步骤 9：构建前端（临时写 .env.production，不 commit）─────────
       - name: Build web
-        run: pnpm --filter web build
+        run: |
+          echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" > apps/web/.env.production
+          pnpm --filter web build
 
-      # ── 步骤 11：创建并部署 Pages ─────────────────────────────────────
+      # ── 步骤 10：创建并部署 Pages ─────────────────────────────────────
       - name: Create Pages project
         working-directory: apps/web
         run: |
