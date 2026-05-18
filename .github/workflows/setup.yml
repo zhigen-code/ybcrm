@@ -4,12 +4,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: write
+  contents: write   # 允许 commit .github/cloudflare.env
 
 env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   setup:
@@ -30,59 +28,50 @@ jobs:
 
       # ── 步骤 1：计算资源命名前缀 ──────────────────────────────────────
       - name: Compute resource names
-        id: names
         run: |
-          # 取 owner 和 repo 名称的第一个单词（- 或 _ 前），最多 8 字符，全小写
-          raw_owner="${{ github.repository_owner }}"
-          raw_repo="${{ github.event.repository.name }}"
-          raw_branch="${{ github.ref_name }}"
+          # 已有 cloudflare.env 则直接加载（重跑 setup 时复用已有命名）
+          if [ -f .github/cloudflare.env ]; then
+            echo "Loading existing config from .github/cloudflare.env"
+            cat .github/cloudflare.env >> $GITHUB_ENV
+            exit 0
+          fi
 
-          owner=$(echo "$raw_owner" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
-          repo=$(echo "$raw_repo"   | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
-          branch=$(echo "$raw_branch" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-10)
+          # 取 owner 和 repo 名称的第一个单词（- 或 _ 前），最多 8 字符，全小写
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
+          repo=$(echo "${{ github.event.repository.name }}"  | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
+          branch=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-10)
           PREFIX="${owner}-${repo}-${branch}"
 
-          # 已有 GitHub Variable 则沿用，否则使用默认值
-          WORKER_NAME="${{ vars.WORKER_NAME }}";           [ -z "$WORKER_NAME" ]         && WORKER_NAME="$PREFIX"
-          D1_DATABASE_NAME="${{ vars.D1_DATABASE_NAME }}"; [ -z "$D1_DATABASE_NAME" ]     && D1_DATABASE_NAME="${PREFIX}-db"
-          R2_BUCKET_NAME="${{ vars.R2_BUCKET_NAME }}";     [ -z "$R2_BUCKET_NAME" ]       && R2_BUCKET_NAME="${PREFIX}-store"
-          PAGES_PROJECT_NAME="${{ vars.PAGES_PROJECT_NAME }}"; [ -z "$PAGES_PROJECT_NAME" ] && PAGES_PROJECT_NAME="$PREFIX"
-          LEAD_QUEUE_NAME="${{ vars.LEAD_QUEUE_NAME }}";   [ -z "$LEAD_QUEUE_NAME" ]      && LEAD_QUEUE_NAME="${PREFIX}-leads"
-          NOTIFY_QUEUE_NAME="${{ vars.NOTIFY_QUEUE_NAME }}"; [ -z "$NOTIFY_QUEUE_NAME" ]  && NOTIFY_QUEUE_NAME="${PREFIX}-notify"
-
-          echo "WORKER_NAME=$WORKER_NAME"               >> $GITHUB_ENV
-          echo "D1_DATABASE_NAME=$D1_DATABASE_NAME"     >> $GITHUB_ENV
-          echo "R2_BUCKET_NAME=$R2_BUCKET_NAME"         >> $GITHUB_ENV
-          echo "PAGES_PROJECT_NAME=$PAGES_PROJECT_NAME" >> $GITHUB_ENV
-          echo "LEAD_QUEUE_NAME=$LEAD_QUEUE_NAME"       >> $GITHUB_ENV
-          echo "NOTIFY_QUEUE_NAME=$NOTIFY_QUEUE_NAME"   >> $GITHUB_ENV
-
+          echo "WORKER_NAME=${PREFIX}"               >> $GITHUB_ENV
+          echo "D1_DATABASE_NAME=${PREFIX}-db"       >> $GITHUB_ENV
+          echo "R2_BUCKET_NAME=${PREFIX}-store"      >> $GITHUB_ENV
+          echo "PAGES_PROJECT_NAME=${PREFIX}"        >> $GITHUB_ENV
+          echo "LEAD_QUEUE_NAME=${PREFIX}-leads"     >> $GITHUB_ENV
+          echo "NOTIFY_QUEUE_NAME=${PREFIX}-notify"  >> $GITHUB_ENV
           echo "Prefix: $PREFIX"
-          echo "Resources: worker=$WORKER_NAME db=$D1_DATABASE_NAME r2=$R2_BUCKET_NAME pages=$PAGES_PROJECT_NAME"
 
       # ── 步骤 2：通过 CF API 获取 Account ID 及 workers.dev 子域名 ──────
       - name: Get Cloudflare account info
         run: |
-          # 如果已有 GitHub Variable 则直接使用，跳过 API 查询
-          ACCOUNT_ID="${{ vars.CLOUDFLARE_ACCOUNT_ID }}"
-
-          if [ -z "$ACCOUNT_ID" ]; then
-            ACCOUNT_ID=$(curl -sf "https://api.cloudflare.com/client/v4/accounts?per_page=1" \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
+          # 如果已从 cloudflare.env 加载，跳过
+          if [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Using existing CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID"
+            exit 0
           fi
+
+          ACCOUNT_ID=$(curl -sf "https://api.cloudflare.com/client/v4/accounts?per_page=1" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
 
           SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/workers/subdomain" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
 
-          echo "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID"                                    >> $GITHUB_ENV
-          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"    >> $GITHUB_ENV
+          echo "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID"                                   >> $GITHUB_ENV
+          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"   >> $GITHUB_ENV
           echo "Account: $ACCOUNT_ID  Subdomain: $SUBDOMAIN"
 
-      # ── 步骤 3：创建 D1 数据库 ────────────────────────────────────────
-      # 资源创建全部通过 CF REST API，避免 wrangler 验证 wrangler.toml 时变量未替换报错
+      # ── 步骤 3：创建 D1 数据库（CF REST API，不调用 wrangler）────────
       - name: Create D1 database
         run: |
-          CF_AUTH="-H \"Authorization: Bearer $CLOUDFLARE_API_TOKEN\""
           BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
 
           D1_ID=$(curl -s "$BASE/d1/database" \
@@ -108,7 +97,7 @@ jobs:
           BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
           curl -s -X PUT "$BASE/r2/buckets/$R2_BUCKET_NAME" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | \
-            jq -r '.success, (.errors[]?.message // empty)'
+            jq -r '"R2: " + if .success then "ok" else (.errors[]?.message // "failed") end'
 
       # ── 步骤 5：创建队列 ─────────────────────────────────────────────
       - name: Create Queues
@@ -118,22 +107,30 @@ jobs:
             curl -s -X POST "$BASE/queues" \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"queue_name\": \"$QUEUE\"}" | jq -r '.success, (.errors[]?.message // empty)'
+              -d "{\"queue_name\": \"$QUEUE\"}" | \
+              jq -r "\"Queue $QUEUE: \" + if .success then \"ok\" else (.errors[]?.message // \"failed\") end"
           done
 
-      # ── 步骤 6：保存所有 GitHub Variables ────────────────────────────
-      - name: Save GitHub Variables
+      # ── 步骤 6：将配置写入文件并 commit ──────────────────────────────
+      - name: Save config to .github/cloudflare.env
         run: |
-          REPO="${{ github.repository }}"
-          gh variable set CLOUDFLARE_ACCOUNT_ID --body "$CLOUDFLARE_ACCOUNT_ID" --repo "$REPO"
-          gh variable set WORKER_NAME           --body "$WORKER_NAME"           --repo "$REPO"
-          gh variable set D1_DATABASE_NAME      --body "$D1_DATABASE_NAME"      --repo "$REPO"
-          gh variable set D1_DATABASE_ID        --body "$D1_DATABASE_ID"        --repo "$REPO"
-          gh variable set R2_BUCKET_NAME        --body "$R2_BUCKET_NAME"        --repo "$REPO"
-          gh variable set PAGES_PROJECT_NAME    --body "$PAGES_PROJECT_NAME"    --repo "$REPO"
-          gh variable set LEAD_QUEUE_NAME       --body "$LEAD_QUEUE_NAME"       --repo "$REPO"
-          gh variable set NOTIFY_QUEUE_NAME     --body "$NOTIFY_QUEUE_NAME"     --repo "$REPO"
-          gh variable set VITE_API_BASE_URL     --body "$VITE_API_BASE_URL"     --repo "$REPO"
+          cat > .github/cloudflare.env << EOF
+          CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID
+          WORKER_NAME=$WORKER_NAME
+          D1_DATABASE_NAME=$D1_DATABASE_NAME
+          D1_DATABASE_ID=$D1_DATABASE_ID
+          R2_BUCKET_NAME=$R2_BUCKET_NAME
+          PAGES_PROJECT_NAME=$PAGES_PROJECT_NAME
+          LEAD_QUEUE_NAME=$LEAD_QUEUE_NAME
+          NOTIFY_QUEUE_NAME=$NOTIFY_QUEUE_NAME
+          VITE_API_BASE_URL=$VITE_API_BASE_URL
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/cloudflare.env
+          git diff --cached --quiet || git commit -m "chore: save Cloudflare resource config [skip ci]"
+          git push
 
       # ── 步骤 7：生成并写入 Worker Secrets ────────────────────────────
       - name: Set Worker secrets
@@ -155,8 +152,6 @@ jobs:
       # ── 步骤 10：构建前端 ─────────────────────────────────────────────
       - name: Build web
         run: pnpm --filter web build
-        env:
-          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
 
       # ── 步骤 11：创建 Pages 项目（幂等）并部署 ───────────────────────
       - name: Create Pages project
