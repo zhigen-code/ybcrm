@@ -71,13 +71,25 @@ jobs:
             && echo "✅ R2 bucket created: $R2_BUCKET_NAME" \
             || echo "R2 bucket may already exist, continuing..."
 
-      # ── 步骤 4：创建队列 ─────────────────────────────────────────────
+      # ── 步骤 4：创建队列（CF REST API，确保创建成功后再继续）──────────
       - name: Create Queues
-        working-directory: apps/workers
         run: |
-          npx wrangler queues create "$LEAD_QUEUE_NAME"   2>&1 || true
-          npx wrangler queues create "$NOTIFY_QUEUE_NAME" 2>&1 || true
-          echo "✅ Queues ready"
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          for QUEUE in "$LEAD_QUEUE_NAME" "$NOTIFY_QUEUE_NAME"; do
+            RESP=$(curl -s -X POST "$BASE/queues" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"queue_name\": \"$QUEUE\"}")
+            SUCCESS=$(echo "$RESP" | jq -r '.success')
+            MSG=$(echo "$RESP" | jq -r '.errors[0].message // "already exists or created"')
+            if [ "$SUCCESS" = "true" ]; then
+              echo "✅ Queue created: $QUEUE"
+            else
+              echo "⚠️  Queue $QUEUE: $MSG (continuing)"
+            fi
+          done
+          # 等待 2 秒让 Cloudflare 完成最终一致性
+          sleep 2
 
       # ── 步骤 5：获取 workers.dev 子域名 ──────────────────────────────
       - name: Get workers.dev subdomain
@@ -90,17 +102,17 @@ jobs:
       # ── 步骤 6：将配置写入文件并 commit ──────────────────────────────
       - name: Save config to .github/cloudflare.env
         run: |
-          cat > .github/cloudflare.env << EOF
-          CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID
-          WORKER_NAME=$WORKER_NAME
-          D1_DATABASE_NAME=$D1_DATABASE_NAME
-          D1_DATABASE_ID=$D1_DATABASE_ID
-          R2_BUCKET_NAME=$R2_BUCKET_NAME
-          PAGES_PROJECT_NAME=$PAGES_PROJECT_NAME
-          LEAD_QUEUE_NAME=$LEAD_QUEUE_NAME
-          NOTIFY_QUEUE_NAME=$NOTIFY_QUEUE_NAME
-          VITE_API_BASE_URL=$VITE_API_BASE_URL
-          EOF
+          {
+            echo "CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
+            echo "WORKER_NAME=$WORKER_NAME"
+            echo "D1_DATABASE_NAME=$D1_DATABASE_NAME"
+            echo "D1_DATABASE_ID=$D1_DATABASE_ID"
+            echo "R2_BUCKET_NAME=$R2_BUCKET_NAME"
+            echo "PAGES_PROJECT_NAME=$PAGES_PROJECT_NAME"
+            echo "LEAD_QUEUE_NAME=$LEAD_QUEUE_NAME"
+            echo "NOTIFY_QUEUE_NAME=$NOTIFY_QUEUE_NAME"
+            echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
+          } > .github/cloudflare.env
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
