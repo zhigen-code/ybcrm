@@ -132,28 +132,33 @@ jobs:
           git diff --cached --quiet || git commit -m "chore: save Cloudflare resource config [skip ci]"
           git push
 
-      # ── 步骤 7：生成并写入 Worker Secrets ────────────────────────────
+      # ── 步骤 7：展开 wrangler.toml 中的 ${VAR} 占位符 ───────────────
+      # wrangler 3.x 先校验格式再做替换，需要提前用 envsubst 处理
+      - name: Resolve wrangler.toml
+        run: envsubst < apps/workers/wrangler.toml > /tmp/wrangler.toml && cp /tmp/wrangler.toml apps/workers/wrangler.toml
+
+      # ── 步骤 8：生成并写入 Worker Secrets ────────────────────────────
       - name: Set Worker secrets
         working-directory: apps/workers
         run: |
           echo "$(openssl rand -base64 32)" | npx wrangler secret put JWT_SECRET        --name "$WORKER_NAME"
           echo "$(openssl rand -base64 32)" | npx wrangler secret put PORTAL_JWT_SECRET --name "$WORKER_NAME"
 
-      # ── 步骤 8：部署 Workers ──────────────────────────────────────────
+      # ── 步骤 9：部署 Workers ──────────────────────────────────────────
       - name: Deploy Workers
         working-directory: apps/workers
         run: npx wrangler deploy
 
-      # ── 步骤 9：执行数据库迁移 ───────────────────────────────────────
+      # ── 步骤 10：执行数据库迁移 ──────────────────────────────────────
       - name: Run D1 migrations
         working-directory: apps/workers
         run: npx wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote
 
-      # ── 步骤 10：构建前端 ─────────────────────────────────────────────
+      # ── 步骤 11：构建前端 ─────────────────────────────────────────────
       - name: Build web
         run: pnpm --filter web build
 
-      # ── 步骤 11：创建 Pages 项目（幂等）并部署 ───────────────────────
+      # ── 步骤 12：创建 Pages 项目（幂等）并部署 ───────────────────────
       - name: Create Pages project
         working-directory: apps/web
         run: npx wrangler pages project create "$PAGES_PROJECT_NAME" --production-branch main 2>/dev/null || true

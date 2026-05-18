@@ -29,6 +29,11 @@ jobs:
           [ -f .github/cloudflare.env ] || (echo "Run the Setup workflow first" && exit 1)
           cat .github/cloudflare.env >> $GITHUB_ENV
 
+      - name: Resolve wrangler.toml
+        run: |
+          set -a; source .github/cloudflare.env; set +a
+          envsubst < apps/workers/wrangler.toml > /tmp/wrangler.toml && cp /tmp/wrangler.toml apps/workers/wrangler.toml
+
       - name: Deploy Workers
         working-directory: apps/workers
         run: npx wrangler deploy
