@@ -1,5 +1,4 @@
-name = "${WORKER_NAME}"
-account_id = "${CLOUDFLARE_ACCOUNT_ID}"
+name = "placeholder-worker"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
@@ -9,29 +8,29 @@ ENVIRONMENT = "production"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "${D1_DATABASE_NAME}"
-database_id = "${D1_DATABASE_ID}"
+database_name = "placeholder-db"
+database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "STORAGE"
-bucket_name = "${R2_BUCKET_NAME}"
+bucket_name = "placeholder-store"
 
 [[queues.producers]]
 binding = "LEAD_ASSIGNMENT_QUEUE"
-queue = "${LEAD_QUEUE_NAME}"
+queue = "placeholder-leads"
 
 [[queues.producers]]
 binding = "NOTIFICATION_QUEUE"
-queue = "${NOTIFY_QUEUE_NAME}"
+queue = "placeholder-notify"
 
 [[queues.consumers]]
-queue = "${LEAD_QUEUE_NAME}"
+queue = "placeholder-leads"
 max_batch_size = 10
 max_batch_timeout = 5
 
 [[queues.consumers]]
-queue = "${NOTIFY_QUEUE_NAME}"
+queue = "placeholder-notify"
 max_batch_size = 20
 max_batch_timeout = 10
 

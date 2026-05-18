@@ -1,18 +1,15 @@
-name: Setup
+name: 🚀 Setup (Run Once)
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write   # 允许 commit .github/cloudflare.env
-
-env:
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
 jobs:
   setup:
-    name: Create Cloudflare Resources & Deploy
+    name: Create Cloudflare resources & deploy
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,89 +24,66 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # ── 步骤 1：计算资源命名前缀 ──────────────────────────────────────
-      - name: Compute resource names
+      - name: Set project names
         run: |
-          # 已有 cloudflare.env 则直接加载（重跑 setup 时复用已有命名）
+          # 已有 cloudflare.env 则直接加载（重跑时复用已有命名）
           if [ -f .github/cloudflare.env ]; then
-            echo "Loading existing config from .github/cloudflare.env"
+            echo "Loading existing config"
             cat .github/cloudflare.env >> $GITHUB_ENV
             exit 0
           fi
 
-          # 取 owner 和 repo 名称的第一个单词（- 或 _ 前），最多 8 字符，全小写
+          # 取 owner 和 repo 名称的第一个单词，最多 8 字符，全小写
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
           repo=$(echo "${{ github.event.repository.name }}"  | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
           branch=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-10)
           PREFIX="${owner}-${repo}-${branch}"
 
-          echo "WORKER_NAME=${PREFIX}"               >> $GITHUB_ENV
-          echo "D1_DATABASE_NAME=${PREFIX}-db"       >> $GITHUB_ENV
-          echo "R2_BUCKET_NAME=${PREFIX}-store"      >> $GITHUB_ENV
-          echo "PAGES_PROJECT_NAME=${PREFIX}"        >> $GITHUB_ENV
-          echo "LEAD_QUEUE_NAME=${PREFIX}-leads"     >> $GITHUB_ENV
-          echo "NOTIFY_QUEUE_NAME=${PREFIX}-notify"  >> $GITHUB_ENV
+          echo "WORKER_NAME=${PREFIX}"              >> $GITHUB_ENV
+          echo "D1_DATABASE_NAME=${PREFIX}-db"      >> $GITHUB_ENV
+          echo "R2_BUCKET_NAME=${PREFIX}-store"     >> $GITHUB_ENV
+          echo "PAGES_PROJECT_NAME=${PREFIX}"       >> $GITHUB_ENV
+          echo "LEAD_QUEUE_NAME=${PREFIX}-leads"    >> $GITHUB_ENV
+          echo "NOTIFY_QUEUE_NAME=${PREFIX}-notify" >> $GITHUB_ENV
           echo "Prefix: $PREFIX"
 
-      # ── 步骤 2：通过 CF API 获取 Account ID 及 workers.dev 子域名 ──────
-      - name: Get Cloudflare account info
-        run: |
-          # 如果已从 cloudflare.env 加载，跳过
-          if [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "Using existing CLOUDFLARE_ACCOUNT_ID: $CLOUDFLARE_ACCOUNT_ID"
-            exit 0
-          fi
-
-          ACCOUNT_ID=$(curl -sf "https://api.cloudflare.com/client/v4/accounts?per_page=1" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
-
-          SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/workers/subdomain" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
-
-          echo "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID"                                   >> $GITHUB_ENV
-          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"   >> $GITHUB_ENV
-          echo "Account: $ACCOUNT_ID  Subdomain: $SUBDOMAIN"
-
-      # ── 步骤 3：创建 D1 数据库（CF REST API，不调用 wrangler）────────
+      # ── 步骤 2：创建 D1 数据库 ────────────────────────────────────────
       - name: Create D1 database
+        working-directory: apps/workers
         run: |
-          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
-
-          D1_ID=$(curl -s "$BASE/d1/database" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | \
-            jq -r --arg n "$D1_DATABASE_NAME" '.result[] | select(.name==$n) | .uuid' | head -1)
-
+          npx wrangler d1 create "$D1_DATABASE_NAME" 2>&1 || true
+          DB_LIST=$(npx wrangler d1 list --json)
+          D1_ID=$(echo "$DB_LIST" | jq -r --arg name "$D1_DATABASE_NAME" '.[] | select(.name==$name) | .uuid')
           if [ -z "$D1_ID" ]; then
-            echo "Creating D1 database: $D1_DATABASE_NAME"
-            RESP=$(curl -s -X POST "$BASE/d1/database" \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"name\": \"$D1_DATABASE_NAME\"}")
-            D1_ID=$(echo "$RESP" | jq -r '.result.uuid // empty')
+            echo "❌ Failed to create or find database: $D1_DATABASE_NAME"
+            exit 1
           fi
-
           echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
-          echo "D1 ID: $D1_ID"
-          [ -n "$D1_ID" ] || (echo "ERROR: Failed to create D1 database" && exit 1)
+          echo "✅ Database ready: $D1_DATABASE_NAME ($D1_ID)"
 
-      # ── 步骤 4：创建 R2 存储桶 ───────────────────────────────────────
+      # ── 步骤 3：创建 R2 存储桶 ───────────────────────────────────────
       - name: Create R2 bucket
+        working-directory: apps/workers
         run: |
-          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
-          curl -s -X PUT "$BASE/r2/buckets/$R2_BUCKET_NAME" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | \
-            jq -r '"R2: " + if .success then "ok" else (.errors[]?.message // "failed") end'
+          npx wrangler r2 bucket create "$R2_BUCKET_NAME" \
+            && echo "✅ R2 bucket created: $R2_BUCKET_NAME" \
+            || echo "R2 bucket may already exist, continuing..."
 
-      # ── 步骤 5：创建队列 ─────────────────────────────────────────────
+      # ── 步骤 4：创建队列 ─────────────────────────────────────────────
       - name: Create Queues
+        working-directory: apps/workers
         run: |
-          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
-          for QUEUE in "$LEAD_QUEUE_NAME" "$NOTIFY_QUEUE_NAME"; do
-            curl -s -X POST "$BASE/queues" \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"queue_name\": \"$QUEUE\"}" | \
-              jq -r "\"Queue $QUEUE: \" + if .success then \"ok\" else (.errors[]?.message // \"failed\") end"
-          done
+          npx wrangler queues create "$LEAD_QUEUE_NAME"   2>&1 || true
+          npx wrangler queues create "$NOTIFY_QUEUE_NAME" 2>&1 || true
+          echo "✅ Queues ready"
+
+      # ── 步骤 5：获取 workers.dev 子域名 ──────────────────────────────
+      - name: Get workers.dev subdomain
+        run: |
+          SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
+          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
+          echo "Workers URL: https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"
 
       # ── 步骤 6：将配置写入文件并 commit ──────────────────────────────
       - name: Save config to .github/cloudflare.env
@@ -132,17 +106,26 @@ jobs:
           git diff --cached --quiet || git commit -m "chore: save Cloudflare resource config [skip ci]"
           git push
 
-      # ── 步骤 7：展开 wrangler.toml 中的 ${VAR} 占位符 ───────────────
-      # wrangler 3.x 先校验格式再做替换，需要提前用 envsubst 处理
-      - name: Resolve wrangler.toml
-        run: envsubst < apps/workers/wrangler.toml > /tmp/wrangler.toml && cp /tmp/wrangler.toml apps/workers/wrangler.toml
+      # ── 步骤 7：用 sed 将 wrangler.toml 占位符替换为真实值 ───────────
+      - name: Patch wrangler.toml
+        working-directory: apps/workers
+        run: |
+          sed -i "s/placeholder-worker/$WORKER_NAME/" wrangler.toml
+          sed -i "s/placeholder-db-id/$D1_DATABASE_ID/" wrangler.toml
+          sed -i "s/placeholder-db/$D1_DATABASE_NAME/" wrangler.toml
+          sed -i "s/placeholder-store/$R2_BUCKET_NAME/" wrangler.toml
+          sed -i "s/placeholder-leads/$LEAD_QUEUE_NAME/g" wrangler.toml
+          sed -i "s/placeholder-notify/$NOTIFY_QUEUE_NAME/g" wrangler.toml
+          sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
+          echo "✅ wrangler.toml patched"
+          grep -E "^name|database_name|database_id|bucket_name" wrangler.toml
 
       # ── 步骤 8：生成并写入 Worker Secrets ────────────────────────────
       - name: Set Worker secrets
         working-directory: apps/workers
         run: |
-          echo "$(openssl rand -base64 32)" | npx wrangler secret put JWT_SECRET        --name "$WORKER_NAME"
-          echo "$(openssl rand -base64 32)" | npx wrangler secret put PORTAL_JWT_SECRET --name "$WORKER_NAME"
+          echo "$(openssl rand -base64 32)" | npx wrangler secret put JWT_SECRET
+          echo "$(openssl rand -base64 32)" | npx wrangler secret put PORTAL_JWT_SECRET
 
       # ── 步骤 9：部署 Workers ──────────────────────────────────────────
       - name: Deploy Workers
@@ -161,7 +144,10 @@ jobs:
       # ── 步骤 12：创建 Pages 项目（幂等）并部署 ───────────────────────
       - name: Create Pages project
         working-directory: apps/web
-        run: npx wrangler pages project create "$PAGES_PROJECT_NAME" --production-branch main 2>/dev/null || true
+        run: |
+          npx wrangler pages project create "$PAGES_PROJECT_NAME" --production-branch main \
+            && echo "✅ Pages project created" \
+            || echo "Pages project may already exist, continuing..."
 
       - name: Deploy Pages
         working-directory: apps/web
@@ -169,11 +155,12 @@ jobs:
 
       - name: Done
         run: |
+          echo ""
           echo "✅ Setup complete!"
           echo "   Workers API : $VITE_API_BASE_URL"
           echo "   Pages URL   : https://${PAGES_PROJECT_NAME}.pages.dev"
           echo ""
-          echo "Next steps:"
-          echo "  1. Optional: bind a custom domain in Cloudflare dashboard"
-          echo "  2. Optional: set EMAIL_FROM / RESEND_API_KEY / SENDGRID_API_KEY via wrangler secret put"
-          echo "  3. Create the first admin user via the API"
+          echo "Optional next steps:"
+          echo "  wrangler secret put EMAIL_FROM"
+          echo "  wrangler secret put RESEND_API_KEY"
+          echo "  wrangler secret put PORTAL_BASE_URL"

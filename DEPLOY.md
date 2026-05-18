@@ -24,6 +24,7 @@ Fork 仓库后只需两步即可完成全自动部署：
 | 类型 | 名称 | 说明 |
 |---|---|---|
 | **Secret** | `CLOUDFLARE_API_TOKEN` | Cloudflare API Token，需包含 Workers、D1、R2、Queues、Pages 的编辑权限 |
+| **Secret** | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID（在 CF 控制台右侧边栏查看） |
 
 > 在 Cloudflare 控制台 → My Profile → API Tokens → Create Token 创建，建议使用 "Edit Cloudflare Workers" 模板并额外添加 D1、R2、Pages、Queues 权限。
 
