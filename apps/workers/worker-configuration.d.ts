@@ -11,6 +11,8 @@ interface Env {
   RESEND_API_KEY: string      // 邮件发送（优先）
   SENDGRID_API_KEY: string    // 邮件发送（回退）
   PORTAL_BASE_URL: string     // Magic Link 基础 URL
+  EMAIL_FROM?: string         // 发件人邮箱（可选，默认 noreply@example.com）
+  EMAIL_FROM_NAME?: string    // 发件人名称（可选）
 
   // Vars
   ENVIRONMENT: string

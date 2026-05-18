@@ -1,0 +1,163 @@
+name: Setup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  setup:
+    name: Create Cloudflare Resources & Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── 步骤 1：计算资源命名前缀 ──────────────────────────────────────
+      - name: Compute resource names
+        id: names
+        run: |
+          # 取 owner 和 repo 名称的第一个单词（- 或 _ 前），最多 8 字符，全小写
+          raw_owner="${{ github.repository_owner }}"
+          raw_repo="${{ github.event.repository.name }}"
+          raw_branch="${{ github.ref_name }}"
+
+          owner=$(echo "$raw_owner" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
+          repo=$(echo "$raw_repo"   | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
+          branch=$(echo "$raw_branch" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-10)
+          PREFIX="${owner}-${repo}-${branch}"
+
+          # 已有 GitHub Variable 则沿用，否则使用默认值
+          WORKER_NAME="${{ vars.WORKER_NAME }}";           [ -z "$WORKER_NAME" ]         && WORKER_NAME="$PREFIX"
+          D1_DATABASE_NAME="${{ vars.D1_DATABASE_NAME }}"; [ -z "$D1_DATABASE_NAME" ]     && D1_DATABASE_NAME="${PREFIX}-db"
+          R2_BUCKET_NAME="${{ vars.R2_BUCKET_NAME }}";     [ -z "$R2_BUCKET_NAME" ]       && R2_BUCKET_NAME="${PREFIX}-store"
+          PAGES_PROJECT_NAME="${{ vars.PAGES_PROJECT_NAME }}"; [ -z "$PAGES_PROJECT_NAME" ] && PAGES_PROJECT_NAME="$PREFIX"
+          LEAD_QUEUE_NAME="${{ vars.LEAD_QUEUE_NAME }}";   [ -z "$LEAD_QUEUE_NAME" ]      && LEAD_QUEUE_NAME="${PREFIX}-leads"
+          NOTIFY_QUEUE_NAME="${{ vars.NOTIFY_QUEUE_NAME }}"; [ -z "$NOTIFY_QUEUE_NAME" ]  && NOTIFY_QUEUE_NAME="${PREFIX}-notify"
+
+          echo "WORKER_NAME=$WORKER_NAME"               >> $GITHUB_ENV
+          echo "D1_DATABASE_NAME=$D1_DATABASE_NAME"     >> $GITHUB_ENV
+          echo "R2_BUCKET_NAME=$R2_BUCKET_NAME"         >> $GITHUB_ENV
+          echo "PAGES_PROJECT_NAME=$PAGES_PROJECT_NAME" >> $GITHUB_ENV
+          echo "LEAD_QUEUE_NAME=$LEAD_QUEUE_NAME"       >> $GITHUB_ENV
+          echo "NOTIFY_QUEUE_NAME=$NOTIFY_QUEUE_NAME"   >> $GITHUB_ENV
+
+          echo "Prefix: $PREFIX"
+          echo "Resources: worker=$WORKER_NAME db=$D1_DATABASE_NAME r2=$R2_BUCKET_NAME pages=$PAGES_PROJECT_NAME"
+
+      # ── 步骤 2：获取 Account ID 及 workers.dev 子域名 ─────────────────
+      - name: Get Cloudflare account info
+        working-directory: apps/workers
+        run: |
+          WHOAMI=$(npx wrangler whoami --json 2>/dev/null || npx wrangler whoami 2>&1)
+
+          ACCOUNT_ID=$(echo "$WHOAMI" | jq -r '.accounts[0].id // empty' 2>/dev/null || true)
+          if [ -z "$ACCOUNT_ID" ]; then
+            # 回退：从文本输出解析
+            ACCOUNT_ID=$(echo "$WHOAMI" | grep -oP '(?<=Account ID: )\S+' | head -1)
+          fi
+
+          SUBDOMAIN=$(echo "$WHOAMI" | jq -r '.workersSubdomain // empty' 2>/dev/null || true)
+          if [ -z "$SUBDOMAIN" ]; then
+            SUBDOMAIN=$(echo "$WHOAMI" | grep -oP '(?<=Workers Subdomain: )\S+' | head -1)
+          fi
+
+          echo "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID"                              >> $GITHUB_ENV
+          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
+          echo "Account: $ACCOUNT_ID  Subdomain: $SUBDOMAIN"
+
+      # ── 步骤 3：创建 D1 数据库 ────────────────────────────────────────
+      - name: Create D1 database
+        working-directory: apps/workers
+        run: |
+          D1_ID=$(npx wrangler d1 create "$D1_DATABASE_NAME" --json 2>/dev/null | jq -r '.uuid // empty' || true)
+          if [ -z "$D1_ID" ]; then
+            # 已存在，读取 ID
+            D1_ID=$(npx wrangler d1 list --json | jq -r --arg n "$D1_DATABASE_NAME" '.[] | select(.name==$n) | .uuid')
+          fi
+          echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
+          echo "D1 ID: $D1_ID"
+
+      # ── 步骤 4：创建 R2 存储桶 ───────────────────────────────────────
+      - name: Create R2 bucket
+        working-directory: apps/workers
+        run: npx wrangler r2 bucket create "$R2_BUCKET_NAME" 2>/dev/null || true
+
+      # ── 步骤 5：创建队列 ─────────────────────────────────────────────
+      - name: Create Queues
+        working-directory: apps/workers
+        run: |
+          npx wrangler queues create "$LEAD_QUEUE_NAME"   2>/dev/null || true
+          npx wrangler queues create "$NOTIFY_QUEUE_NAME" 2>/dev/null || true
+
+      # ── 步骤 6：保存所有 GitHub Variables ────────────────────────────
+      - name: Save GitHub Variables
+        run: |
+          REPO="${{ github.repository }}"
+          gh variable set CLOUDFLARE_ACCOUNT_ID --body "$CLOUDFLARE_ACCOUNT_ID" --repo "$REPO"
+          gh variable set WORKER_NAME           --body "$WORKER_NAME"           --repo "$REPO"
+          gh variable set D1_DATABASE_NAME      --body "$D1_DATABASE_NAME"      --repo "$REPO"
+          gh variable set D1_DATABASE_ID        --body "$D1_DATABASE_ID"        --repo "$REPO"
+          gh variable set R2_BUCKET_NAME        --body "$R2_BUCKET_NAME"        --repo "$REPO"
+          gh variable set PAGES_PROJECT_NAME    --body "$PAGES_PROJECT_NAME"    --repo "$REPO"
+          gh variable set LEAD_QUEUE_NAME       --body "$LEAD_QUEUE_NAME"       --repo "$REPO"
+          gh variable set NOTIFY_QUEUE_NAME     --body "$NOTIFY_QUEUE_NAME"     --repo "$REPO"
+          gh variable set VITE_API_BASE_URL     --body "$VITE_API_BASE_URL"     --repo "$REPO"
+
+      # ── 步骤 7：生成并写入 Worker Secrets ────────────────────────────
+      - name: Set Worker secrets
+        working-directory: apps/workers
+        run: |
+          echo "$(openssl rand -base64 32)" | npx wrangler secret put JWT_SECRET        --name "$WORKER_NAME"
+          echo "$(openssl rand -base64 32)" | npx wrangler secret put PORTAL_JWT_SECRET --name "$WORKER_NAME"
+
+      # ── 步骤 8：部署 Workers ──────────────────────────────────────────
+      - name: Deploy Workers
+        working-directory: apps/workers
+        run: npx wrangler deploy
+
+      # ── 步骤 9：执行数据库迁移 ───────────────────────────────────────
+      - name: Run D1 migrations
+        working-directory: apps/workers
+        run: npx wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote
+
+      # ── 步骤 10：构建前端 ─────────────────────────────────────────────
+      - name: Build web
+        run: pnpm --filter web build
+        env:
+          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+
+      # ── 步骤 11：创建 Pages 项目（幂等）并部署 ───────────────────────
+      - name: Create Pages project
+        working-directory: apps/web
+        run: npx wrangler pages project create "$PAGES_PROJECT_NAME" --production-branch main 2>/dev/null || true
+
+      - name: Deploy Pages
+        working-directory: apps/web
+        run: npx wrangler pages deploy dist --project-name "$PAGES_PROJECT_NAME" --branch main
+
+      - name: Done
+        run: |
+          echo "✅ Setup complete!"
+          echo "   Workers API : $VITE_API_BASE_URL"
+          echo "   Pages URL   : https://${PAGES_PROJECT_NAME}.pages.dev"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Optional: bind a custom domain in Cloudflare dashboard"
+          echo "  2. Optional: set EMAIL_FROM / RESEND_API_KEY / SENDGRID_API_KEY via wrangler secret put"
+          echo "  3. Create the first admin user via the API"

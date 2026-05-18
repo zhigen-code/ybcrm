@@ -1,5 +1,5 @@
-name = "crm-workers"
-account_id = "31e3e7b5940076dd1813afe9c32a408d"
+name = "${WORKER_NAME}"
+account_id = "${CLOUDFLARE_ACCOUNT_ID}"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
@@ -9,39 +9,34 @@ ENVIRONMENT = "production"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "crm-db"
-database_id = "52b1a99e-9d18-4e45-8b80-bad871cb471c"
+database_name = "${D1_DATABASE_NAME}"
+database_id = "${D1_DATABASE_ID}"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "STORAGE"
-bucket_name = "crm-storage"
+bucket_name = "${R2_BUCKET_NAME}"
 
-# 线索分配队列：既是 producer（crm 推送），也是 consumer（分配逻辑消费）
 [[queues.producers]]
 binding = "LEAD_ASSIGNMENT_QUEUE"
-queue = "lead-assignment-queue"
+queue = "${LEAD_QUEUE_NAME}"
 
 [[queues.producers]]
 binding = "NOTIFICATION_QUEUE"
-queue = "notification-queue"
+queue = "${NOTIFY_QUEUE_NAME}"
 
 [[queues.consumers]]
-queue = "lead-assignment-queue"
+queue = "${LEAD_QUEUE_NAME}"
 max_batch_size = 10
 max_batch_timeout = 5
 
 [[queues.consumers]]
-queue = "notification-queue"
+queue = "${NOTIFY_QUEUE_NAME}"
 max_batch_size = 20
 max_batch_timeout = 10
 
-[[routes]]
-pattern = "crmapi.irfc.cn"
-custom_domain = true
-
 [triggers]
-crons = ["0 1 * * *"]   # 每天 UTC 01:00（北京时间 09:00）执行定时工作流
+crons = ["0 1 * * *"]
 
 [dev]
 port = 8787

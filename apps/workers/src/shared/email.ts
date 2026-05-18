@@ -1,6 +1,3 @@
-const FROM_EMAIL = 'crm@1115.eu.org'
-const FROM_NAME = '辅助生殖 CRM'
-
 export async function sendEmail(
   env: Env,
   to: string,
@@ -8,6 +5,9 @@ export async function sendEmail(
   body: string,
   opts?: { html?: boolean },
 ): Promise<void> {
+  const fromEmail = env.EMAIL_FROM ?? 'noreply@example.com'
+  const fromName  = env.EMAIL_FROM_NAME ?? 'CRM'
+
   if (env.RESEND_API_KEY) {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -16,7 +16,7 @@ export async function sendEmail(
         'Authorization': `Bearer ${env.RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        from: `${fromName} <${fromEmail}>`,
         to: [to],
         subject,
         ...(opts?.html ? { html: body } : { text: body }),
@@ -33,7 +33,7 @@ export async function sendEmail(
         'Authorization': `Bearer ${env.SENDGRID_API_KEY}`,
       },
       body: JSON.stringify({
-        from: { email: FROM_EMAIL, name: FROM_NAME },
+        from: { email: fromEmail, name: fromName },
         personalizations: [{ to: [{ email: to }], subject }],
         content: [{ type: opts?.html ? 'text/html' : 'text/plain', value: body }],
       }),
