@@ -87,8 +87,9 @@ jobs:
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].uuid // empty')
 
           if [ -z "$D1_ID" ]; then
-            # 不存在则创建
-            D1_ID=$(npx wrangler d1 create "$D1_DATABASE_NAME" --json | jq -r '.uuid')
+            # 不存在则创建，从输出中解析 database_id
+            CREATE_OUT=$(npx wrangler d1 create "$D1_DATABASE_NAME" 2>&1)
+            D1_ID=$(echo "$CREATE_OUT" | grep -oP '(?<=database_id = ")[^"]+')
           fi
 
           echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
