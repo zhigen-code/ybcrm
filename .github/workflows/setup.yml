@@ -79,40 +79,47 @@ jobs:
           echo "Account: $ACCOUNT_ID  Subdomain: $SUBDOMAIN"
 
       # ── 步骤 3：创建 D1 数据库 ────────────────────────────────────────
+      # 资源创建全部通过 CF REST API，避免 wrangler 验证 wrangler.toml 时变量未替换报错
       - name: Create D1 database
-        working-directory: apps/workers
         run: |
-          # 列出所有 D1 数据库，按名称过滤（更可靠，避免 query param 兼容问题）
-          CF_LIST=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
-          D1_ID=$(echo "$CF_LIST" | jq -r --arg n "$D1_DATABASE_NAME" \
-            '.result[] | select(.name==$n) | .uuid' 2>/dev/null | head -1 || echo "")
+          CF_AUTH="-H \"Authorization: Bearer $CLOUDFLARE_API_TOKEN\""
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+
+          D1_ID=$(curl -s "$BASE/d1/database" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | \
+            jq -r --arg n "$D1_DATABASE_NAME" '.result[] | select(.name==$n) | .uuid' | head -1)
 
           if [ -z "$D1_ID" ]; then
-            echo "Database not found, creating..."
-            npx wrangler d1 create "$D1_DATABASE_NAME"
-            # 创建后再查一次
-            CF_LIST=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database" \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
-            D1_ID=$(echo "$CF_LIST" | jq -r --arg n "$D1_DATABASE_NAME" \
-              '.result[] | select(.name==$n) | .uuid' | head -1)
+            echo "Creating D1 database: $D1_DATABASE_NAME"
+            RESP=$(curl -s -X POST "$BASE/d1/database" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"name\": \"$D1_DATABASE_NAME\"}")
+            D1_ID=$(echo "$RESP" | jq -r '.result.uuid // empty')
           fi
 
           echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
           echo "D1 ID: $D1_ID"
-          [ -n "$D1_ID" ] || (echo "ERROR: Failed to get D1 database ID" && exit 1)
+          [ -n "$D1_ID" ] || (echo "ERROR: Failed to create D1 database" && exit 1)
 
       # ── 步骤 4：创建 R2 存储桶 ───────────────────────────────────────
       - name: Create R2 bucket
-        working-directory: apps/workers
-        run: npx wrangler r2 bucket create "$R2_BUCKET_NAME" 2>/dev/null || true
+        run: |
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          curl -s -X PUT "$BASE/r2/buckets/$R2_BUCKET_NAME" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | \
+            jq -r '.success, (.errors[]?.message // empty)'
 
       # ── 步骤 5：创建队列 ─────────────────────────────────────────────
       - name: Create Queues
-        working-directory: apps/workers
         run: |
-          npx wrangler queues create "$LEAD_QUEUE_NAME"   2>/dev/null || true
-          npx wrangler queues create "$NOTIFY_QUEUE_NAME" 2>/dev/null || true
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          for QUEUE in "$LEAD_QUEUE_NAME" "$NOTIFY_QUEUE_NAME"; do
+            curl -s -X POST "$BASE/queues" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"queue_name\": \"$QUEUE\"}" | jq -r '.success, (.errors[]?.message // empty)'
+          done
 
       # ── 步骤 6：保存所有 GitHub Variables ────────────────────────────
       - name: Save GitHub Variables
