@@ -60,36 +60,37 @@ jobs:
           echo "Prefix: $PREFIX"
           echo "Resources: worker=$WORKER_NAME db=$D1_DATABASE_NAME r2=$R2_BUCKET_NAME pages=$PAGES_PROJECT_NAME"
 
-      # ── 步骤 2：获取 Account ID 及 workers.dev 子域名 ─────────────────
+      # ── 步骤 2：通过 CF API 获取 Account ID 及 workers.dev 子域名 ──────
       - name: Get Cloudflare account info
-        working-directory: apps/workers
         run: |
-          WHOAMI=$(npx wrangler whoami --json 2>/dev/null || npx wrangler whoami 2>&1)
+          # 如果已有 GitHub Variable 则直接使用，跳过 API 查询
+          ACCOUNT_ID="${{ vars.CLOUDFLARE_ACCOUNT_ID }}"
 
-          ACCOUNT_ID=$(echo "$WHOAMI" | jq -r '.accounts[0].id // empty' 2>/dev/null || true)
           if [ -z "$ACCOUNT_ID" ]; then
-            # 回退：从文本输出解析
-            ACCOUNT_ID=$(echo "$WHOAMI" | grep -oP '(?<=Account ID: )\S+' | head -1)
+            ACCOUNT_ID=$(curl -sf "https://api.cloudflare.com/client/v4/accounts?per_page=1" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].id')
           fi
 
-          SUBDOMAIN=$(echo "$WHOAMI" | jq -r '.workersSubdomain // empty' 2>/dev/null || true)
-          if [ -z "$SUBDOMAIN" ]; then
-            SUBDOMAIN=$(echo "$WHOAMI" | grep -oP '(?<=Workers Subdomain: )\S+' | head -1)
-          fi
+          SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/workers/subdomain" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
 
-          echo "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID"                              >> $GITHUB_ENV
-          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
+          echo "CLOUDFLARE_ACCOUNT_ID=$ACCOUNT_ID"                                    >> $GITHUB_ENV
+          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"    >> $GITHUB_ENV
           echo "Account: $ACCOUNT_ID  Subdomain: $SUBDOMAIN"
 
       # ── 步骤 3：创建 D1 数据库 ────────────────────────────────────────
       - name: Create D1 database
         working-directory: apps/workers
         run: |
-          D1_ID=$(npx wrangler d1 create "$D1_DATABASE_NAME" --json 2>/dev/null | jq -r '.uuid // empty' || true)
+          # 先尝试通过 CF API 查询是否已存在
+          D1_ID=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database?name=${D1_DATABASE_NAME}" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].uuid // empty')
+
           if [ -z "$D1_ID" ]; then
-            # 已存在，读取 ID
-            D1_ID=$(npx wrangler d1 list --json | jq -r --arg n "$D1_DATABASE_NAME" '.[] | select(.name==$n) | .uuid')
+            # 不存在则创建
+            D1_ID=$(npx wrangler d1 create "$D1_DATABASE_NAME" --json | jq -r '.uuid')
           fi
+
           echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
           echo "D1 ID: $D1_ID"
 
