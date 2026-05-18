@@ -28,14 +28,6 @@ jobs:
       # ── 步骤 1：计算资源命名前缀 ──────────────────────────────────────
       - name: Set project names
         run: |
-          # 已有 cloudflare.env 则直接加载（重跑时复用已有命名）
-          if [ -f .github/cloudflare.env ]; then
-            echo "Loading existing config"
-            cat .github/cloudflare.env >> $GITHUB_ENV
-            exit 0
-          fi
-
-          # 取 owner 和 repo 名称的第一个单词，最多 8 字符，全小写
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
           repo=$(echo "${{ github.event.repository.name }}"  | tr '[:upper:]' '[:lower:]' | sed 's/[-_].*//' | cut -c1-8)
           branch=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-10)
@@ -61,17 +53,17 @@ jobs:
             exit 1
           fi
           echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
-          echo "✅ Database ready: $D1_DATABASE_NAME ($D1_ID)"
+          echo "✅ Database: $D1_DATABASE_NAME ($D1_ID)"
 
       # ── 步骤 3：创建 R2 存储桶 ───────────────────────────────────────
       - name: Create R2 bucket
         working-directory: apps/workers
         run: |
           npx wrangler r2 bucket create "$R2_BUCKET_NAME" \
-            && echo "✅ R2 bucket created: $R2_BUCKET_NAME" \
-            || echo "R2 bucket may already exist, continuing..."
+            && echo "✅ R2: $R2_BUCKET_NAME" \
+            || echo "R2 may already exist, continuing..."
 
-      # ── 步骤 4：创建队列（CF REST API，确保创建成功后再继续）──────────
+      # ── 步骤 4：创建队列（CF REST API）───────────────────────────────
       - name: Create Queues
         run: |
           BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
@@ -81,14 +73,9 @@ jobs:
               -H "Content-Type: application/json" \
               -d "{\"queue_name\": \"$QUEUE\"}")
             SUCCESS=$(echo "$RESP" | jq -r '.success')
-            MSG=$(echo "$RESP" | jq -r '.errors[0].message // "already exists or created"')
-            if [ "$SUCCESS" = "true" ]; then
-              echo "✅ Queue created: $QUEUE"
-            else
-              echo "⚠️  Queue $QUEUE: $MSG (continuing)"
-            fi
+            MSG=$(echo "$RESP" | jq -r '.errors[0].message // "ok"')
+            echo "Queue $QUEUE: $SUCCESS / $MSG"
           done
-          # 等待 2 秒让 Cloudflare 完成最终一致性
           sleep 2
 
       # ── 步骤 5：获取 workers.dev 子域名 ──────────────────────────────
@@ -99,68 +86,57 @@ jobs:
           echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
           echo "Workers URL: https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"
 
-      # ── 步骤 6：将配置写入文件并 commit ──────────────────────────────
-      - name: Save config to .github/cloudflare.env
+      # ── 步骤 6：patch wrangler.toml + .env.production 并 commit ──────
+      # 不提交 account_id（从 Secret 读取），只提交资源名称和 ID
+      - name: Patch config files & commit
         run: |
-          {
-            echo "CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
-            echo "WORKER_NAME=$WORKER_NAME"
-            echo "D1_DATABASE_NAME=$D1_DATABASE_NAME"
-            echo "D1_DATABASE_ID=$D1_DATABASE_ID"
-            echo "R2_BUCKET_NAME=$R2_BUCKET_NAME"
-            echo "PAGES_PROJECT_NAME=$PAGES_PROJECT_NAME"
-            echo "LEAD_QUEUE_NAME=$LEAD_QUEUE_NAME"
-            echo "NOTIFY_QUEUE_NAME=$NOTIFY_QUEUE_NAME"
-            echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
-          } > .github/cloudflare.env
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/cloudflare.env
-          git diff --cached --quiet || git commit -m "chore: save Cloudflare resource config [skip ci]"
-          git push
-
-      # ── 步骤 7：用 sed 将 wrangler.toml 占位符替换为真实值 ───────────
-      - name: Patch wrangler.toml
-        working-directory: apps/workers
-        run: |
+          # 修改 wrangler.toml
+          cd apps/workers
           sed -i "s/placeholder-worker/$WORKER_NAME/" wrangler.toml
-          sed -i "s/placeholder-db-id/$D1_DATABASE_ID/" wrangler.toml
+          sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
           sed -i "s/placeholder-db/$D1_DATABASE_NAME/" wrangler.toml
           sed -i "s/placeholder-store/$R2_BUCKET_NAME/" wrangler.toml
           sed -i "s/placeholder-leads/$LEAD_QUEUE_NAME/g" wrangler.toml
           sed -i "s/placeholder-notify/$NOTIFY_QUEUE_NAME/g" wrangler.toml
-          sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
-          echo "✅ wrangler.toml patched"
-          grep -E "^name|database_name|database_id|bucket_name" wrangler.toml
+          cd ../..
 
-      # ── 步骤 8：生成并写入 Worker Secrets ────────────────────────────
+          # 更新 .env.production（让前端构建指向正确的 API 地址）
+          echo "VITE_API_BASE_URL=$VITE_API_BASE_URL" > apps/web/.env.production
+
+          # commit 两个文件（不含任何 secret）
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/workers/wrangler.toml apps/web/.env.production
+          git commit -m "chore: configure Cloudflare resources for this deployment [skip ci]"
+          git push
+
+      # ── 步骤 7：生成并写入 Worker Secrets ────────────────────────────
       - name: Set Worker secrets
         working-directory: apps/workers
         run: |
           echo "$(openssl rand -base64 32)" | npx wrangler secret put JWT_SECRET
           echo "$(openssl rand -base64 32)" | npx wrangler secret put PORTAL_JWT_SECRET
 
-      # ── 步骤 9：部署 Workers ──────────────────────────────────────────
+      # ── 步骤 8：部署 Workers ──────────────────────────────────────────
       - name: Deploy Workers
         working-directory: apps/workers
         run: npx wrangler deploy
 
-      # ── 步骤 10：执行数据库迁移 ──────────────────────────────────────
+      # ── 步骤 9：执行数据库迁移 ───────────────────────────────────────
       - name: Run D1 migrations
         working-directory: apps/workers
         run: npx wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote
 
-      # ── 步骤 11：构建前端 ─────────────────────────────────────────────
+      # ── 步骤 10：构建前端（使用已更新的 .env.production）────────────
       - name: Build web
         run: pnpm --filter web build
 
-      # ── 步骤 12：创建 Pages 项目（幂等）并部署 ───────────────────────
+      # ── 步骤 11：创建并部署 Pages ─────────────────────────────────────
       - name: Create Pages project
         working-directory: apps/web
         run: |
           npx wrangler pages project create "$PAGES_PROJECT_NAME" --production-branch main \
-            && echo "✅ Pages project created" \
+            && echo "✅ Pages project: $PAGES_PROJECT_NAME" \
             || echo "Pages project may already exist, continuing..."
 
       - name: Deploy Pages
@@ -169,12 +145,6 @@ jobs:
 
       - name: Done
         run: |
-          echo ""
           echo "✅ Setup complete!"
           echo "   Workers API : $VITE_API_BASE_URL"
           echo "   Pages URL   : https://${PAGES_PROJECT_NAME}.pages.dev"
-          echo ""
-          echo "Optional next steps:"
-          echo "  wrangler secret put EMAIL_FROM"
-          echo "  wrangler secret put RESEND_API_KEY"
-          echo "  wrangler secret put PORTAL_BASE_URL"

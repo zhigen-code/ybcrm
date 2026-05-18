@@ -1,4 +1,4 @@
-name = "placeholder-worker"
+name = "zhigen-crm-main"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
@@ -8,29 +8,29 @@ ENVIRONMENT = "production"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "placeholder-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "zhigen-crm-main-db"
+database_id = "b695a83e-ffea-4232-9e66-1c7583927b7e"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "STORAGE"
-bucket_name = "placeholder-store"
+bucket_name = "zhigen-crm-main-store"
 
 [[queues.producers]]
 binding = "LEAD_ASSIGNMENT_QUEUE"
-queue = "placeholder-leads"
+queue = "zhigen-crm-main-leads"
 
 [[queues.producers]]
 binding = "NOTIFICATION_QUEUE"
-queue = "placeholder-notify"
+queue = "zhigen-crm-main-notify"
 
 [[queues.consumers]]
-queue = "placeholder-leads"
+queue = "zhigen-crm-main-leads"
 max_batch_size = 10
 max_batch_timeout = 5
 
 [[queues.consumers]]
-queue = "placeholder-notify"
+queue = "zhigen-crm-main-notify"
 max_batch_size = 20
 max_batch_timeout = 10
 

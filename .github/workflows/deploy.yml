@@ -25,18 +25,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Load config & patch wrangler.toml
+      - name: Check setup completed
         run: |
-          [ -f .github/cloudflare.env ] || (echo "Run the Setup workflow first" && exit 1)
-          set -a; source .github/cloudflare.env; set +a
-          cat .github/cloudflare.env >> $GITHUB_ENV
-          cd apps/workers
-          sed -i "s/placeholder-worker/$WORKER_NAME/" wrangler.toml
-          sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
-          sed -i "s/placeholder-db/$D1_DATABASE_NAME/" wrangler.toml
-          sed -i "s/placeholder-store/$R2_BUCKET_NAME/" wrangler.toml
-          sed -i "s/placeholder-leads/$LEAD_QUEUE_NAME/g" wrangler.toml
-          sed -i "s/placeholder-notify/$NOTIFY_QUEUE_NAME/g" wrangler.toml
+          WORKER=$(grep -m1 '^name' apps/workers/wrangler.toml | cut -d'"' -f2)
+          if [ "$WORKER" = "placeholder-worker" ]; then
+            echo "❌ Run the Setup workflow first"
+            exit 1
+          fi
+          DB_NAME=$(grep 'database_name' apps/workers/wrangler.toml | head -1 | cut -d'"' -f2)
+          echo "WORKER_NAME=$WORKER" >> $GITHUB_ENV
+          echo "D1_DATABASE_NAME=$DB_NAME" >> $GITHUB_ENV
+          echo "Worker: $WORKER / DB: $DB_NAME"
 
       - name: Deploy Workers
         working-directory: apps/workers
@@ -62,10 +61,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Load config
+      - name: Check setup completed
         run: |
-          [ -f .github/cloudflare.env ] || (echo "Run the Setup workflow first" && exit 1)
-          cat .github/cloudflare.env >> $GITHUB_ENV
+          WORKER=$(grep -m1 '^name' apps/workers/wrangler.toml | cut -d'"' -f2)
+          if [ "$WORKER" = "placeholder-worker" ]; then
+            echo "❌ Run the Setup workflow first"
+            exit 1
+          fi
+          echo "PAGES_PROJECT_NAME=$WORKER" >> $GITHUB_ENV
 
       - name: Build
         run: pnpm --filter web build
