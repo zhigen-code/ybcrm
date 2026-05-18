@@ -82,18 +82,25 @@ jobs:
       - name: Create D1 database
         working-directory: apps/workers
         run: |
-          # 先尝试通过 CF API 查询是否已存在
-          D1_ID=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database?name=${D1_DATABASE_NAME}" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result[0].uuid // empty')
+          # 列出所有 D1 数据库，按名称过滤（更可靠，避免 query param 兼容问题）
+          CF_LIST=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+          D1_ID=$(echo "$CF_LIST" | jq -r --arg n "$D1_DATABASE_NAME" \
+            '.result[] | select(.name==$n) | .uuid' 2>/dev/null | head -1 || echo "")
 
           if [ -z "$D1_ID" ]; then
-            # 不存在则创建，从输出中解析 database_id
-            CREATE_OUT=$(npx wrangler d1 create "$D1_DATABASE_NAME" 2>&1)
-            D1_ID=$(echo "$CREATE_OUT" | grep -oP '(?<=database_id = ")[^"]+')
+            echo "Database not found, creating..."
+            npx wrangler d1 create "$D1_DATABASE_NAME"
+            # 创建后再查一次
+            CF_LIST=$(curl -s "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+            D1_ID=$(echo "$CF_LIST" | jq -r --arg n "$D1_DATABASE_NAME" \
+              '.result[] | select(.name==$n) | .uuid' | head -1)
           fi
 
           echo "D1_DATABASE_ID=$D1_ID" >> $GITHUB_ENV
           echo "D1 ID: $D1_ID"
+          [ -n "$D1_ID" ] || (echo "ERROR: Failed to get D1 database ID" && exit 1)
 
       # ── 步骤 4：创建 R2 存储桶 ───────────────────────────────────────
       - name: Create R2 bucket
