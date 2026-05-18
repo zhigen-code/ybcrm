@@ -87,6 +87,30 @@ app.use(
 app.route('/api/options', optionsRoutes)
 
 // 公开接口（无需登录）
+app.get('/api/public/setup-required', async (c) => {
+  const row = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM users').first<{ cnt: number }>()
+  return c.json({ data: { required: (row?.cnt ?? 0) === 0 } })
+})
+
+app.post('/api/public/setup', zValidator('json', z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(8),
+})), async (c) => {
+  const row = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM users').first<{ cnt: number }>()
+  if ((row?.cnt ?? 0) > 0) {
+    return c.json({ message: '系统已完成初始化' }, 403)
+  }
+  const { name, email, password } = c.req.valid('json')
+  const bcrypt = await import('bcryptjs')
+  const passwordHash = await bcrypt.default.hash(password, 12)
+  const id = uuidv4()
+  await c.env.DB.prepare(
+    'INSERT INTO users (id, email, password_hash, name, role) VALUES (?, ?, ?, ?, ?)',
+  ).bind(id, email, passwordHash, name, 'admin').run()
+  return c.json({ data: { id, email, name, role: 'admin' } }, 201)
+})
+
 app.get('/api/public/settings', async (c) => {
   const rows = await c.env.DB.prepare(
     "SELECT key, value FROM system_settings WHERE key IN ('system_name', 'timezone', 'ai_agent_enabled')",

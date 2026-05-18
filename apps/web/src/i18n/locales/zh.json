@@ -99,7 +99,17 @@
     "login": "登录",
     "invalidEmail": "请输入有效邮箱",
     "passwordMin": "密码至少 6 位",
-    "loginFailed": "邮箱或密码错误，请重试"
+    "passwordMin8": "密码至少 8 位",
+    "loginFailed": "邮箱或密码错误，请重试",
+    "setupTitle": "初始化系统 — 创建管理员账号",
+    "setupSubmit": "创建账号并登录",
+    "setupFailed": "创建失败，请重试",
+    "name": "姓名",
+    "namePlaceholder": "您的姓名",
+    "confirmPassword": "确认密码",
+    "confirmPasswordPlaceholder": "再次输入密码",
+    "passwordMismatch": "两次密码不一致",
+    "nameRequired": "请输入姓名"
   },
   "leads": {
     "title": "线索管理",

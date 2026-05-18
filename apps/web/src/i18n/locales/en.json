@@ -99,7 +99,17 @@
     "login": "Sign in",
     "invalidEmail": "Enter a valid email",
     "passwordMin": "Password must be at least 6 characters",
-    "loginFailed": "Invalid email or password"
+    "passwordMin8": "Password must be at least 8 characters",
+    "loginFailed": "Invalid email or password",
+    "setupTitle": "Set up your system — create admin account",
+    "setupSubmit": "Create account & sign in",
+    "setupFailed": "Setup failed, please try again",
+    "name": "Name",
+    "namePlaceholder": "Your name",
+    "confirmPassword": "Confirm password",
+    "confirmPasswordPlaceholder": "Enter password again",
+    "passwordMismatch": "Passwords do not match",
+    "nameRequired": "Name is required"
   },
   "leads": {
     "title": "Leads",
