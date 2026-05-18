@@ -60,17 +60,10 @@ app.use(
   '*',
   cors({
     origin: (origin) => {
-      const allowed = [
-        'https://youbei.zhigen.net',
-        'https://crm.irfc.cn',
-        'https://crm-web-6sc.pages.dev',
-        'https://crm-irfc.pages.dev',
-        'http://localhost:5173',
-      ]
-      if (allowed.includes(origin)) return origin
-      // 允许 Cloudflare Pages 预览部署的子域名
-      if (origin?.endsWith('.crm-web-6sc.pages.dev')) return origin
-      if (origin?.endsWith('.crm-irfc.pages.dev')) return origin
+      // 允许本地开发
+      if (origin === 'http://localhost:5173') return origin
+      // 允许所有 Cloudflare Pages 域名（含 fork 部署）
+      if (origin?.endsWith('.pages.dev')) return origin
       // 允许阿里云 ESA Pages 子域名
       if (origin?.endsWith('.esapages.com')) return origin
       if (origin?.endsWith('.er.aliyun-esa.net')) return origin
