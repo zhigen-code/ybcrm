@@ -77,19 +77,7 @@ jobs:
           done
           sleep 2
 
-      # ── 步骤 5：获取 workers.dev 子域名 ──────────────────────────────
-      - name: Get workers.dev subdomain
-        run: |
-          SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
-          if [ -z "$SUBDOMAIN" ]; then
-            echo "❌ Could not get workers.dev subdomain"
-            exit 1
-          fi
-          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
-          echo "Workers URL: https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"
-
-      # ── 步骤 6：patch wrangler.toml（仅 runner 内存，不 commit）──────
+      # ── 步骤 5：patch wrangler.toml & 部署 Worker（新账号首次部署会自动激活 workers.dev 子域名）
       - name: Patch wrangler.toml & deploy Workers
         working-directory: apps/workers
         run: |
@@ -100,6 +88,18 @@ jobs:
           sed -i "s/placeholder-leads/$LEAD_QUEUE_NAME/g" wrangler.toml
           sed -i "s/placeholder-notify/$NOTIFY_QUEUE_NAME/g" wrangler.toml
           npx wrangler deploy
+
+      # ── 步骤 6：获取 workers.dev 子域名（部署后子域名必然存在）────────
+      - name: Get workers.dev subdomain
+        run: |
+          SUBDOMAIN=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -r '.result.subdomain // empty')
+          if [ -z "$SUBDOMAIN" ]; then
+            echo "❌ Could not get workers.dev subdomain after deploy"
+            exit 1
+          fi
+          echo "VITE_API_BASE_URL=https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev" >> $GITHUB_ENV
+          echo "Workers URL: https://${WORKER_NAME}.${SUBDOMAIN}.workers.dev"
 
       # ── 步骤 7：写入 Worker Secrets ───────────────────────────────────
       - name: Set Worker secrets
