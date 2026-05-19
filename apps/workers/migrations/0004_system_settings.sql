@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO system_settings (key, value) VALUES ('system_name',     '辅助生殖 CRM');
+INSERT OR IGNORE INTO system_settings (key, value) VALUES ('system_name',     'CRM');
 INSERT OR IGNORE INTO system_settings (key, value) VALUES ('smtp_host',       '');
 INSERT OR IGNORE INTO system_settings (key, value) VALUES ('smtp_port',       '465');
 INSERT OR IGNORE INTO system_settings (key, value) VALUES ('smtp_secure',     'true');
