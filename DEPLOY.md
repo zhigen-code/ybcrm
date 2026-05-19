@@ -84,6 +84,25 @@ Setup 工作流会根据仓库信息自动计算资源名称（如 `zhigen-crm-m
 - **Worker 自定义域名**：Workers & Pages → 对应 Worker → Settings → Domains & Routes
 - **Pages 自定义域名**：Workers & Pages → 对应 Pages → Custom domains
 
+### 更换后端地址（绑定自定义域名后必做）
+
+前端的 API 地址（`VITE_API_BASE_URL`）在**构建时**编译进静态文件。  
+默认情况下，每次 Deploy 工作流会自动使用 `{worker-name}.{subdomain}.workers.dev`。
+
+如果 Worker 绑定了自定义域名并希望前端指向它，需要在 GitHub Secrets 中添加覆盖值：
+
+| Secret | 示例值 |
+|---|---|
+| `VITE_API_BASE_URL` | `https://api.yourdomain.com` |
+
+设置后触发任意一次部署（push 一个空 commit 即可）：
+
+```bash
+git commit --allow-empty -m "chore: update api url" && git push
+```
+
+> 不设置此 Secret 时，Deploy 工作流始终自动使用 workers.dev 地址，无需手动维护。
+
 ---
 
 ## 本地开发
