@@ -88,7 +88,9 @@ jobs:
 
       # ── 步骤 5.5：Patch Pages wrangler.toml（注入 Worker Service Binding）──
       - name: Patch Pages wrangler.toml
-        run: sed -i "s/placeholder-worker/$WORKER_NAME/" apps/web/wrangler.toml
+        run: |
+          sed -i "s/placeholder-pages/$PAGES_PROJECT_NAME/" apps/web/wrangler.toml
+          sed -i "s/placeholder-worker/$WORKER_NAME/" apps/web/wrangler.toml
 
       # ── 步骤 6：构建前端（临时写 .env.production，不 commit）─────────
       - name: Build web
