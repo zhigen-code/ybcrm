@@ -785,7 +785,16 @@
       "empty": "暂无失败记录",
       "createLead": "创建线索",
       "dismiss": "忽略",
-      "confirmDismiss": "确认忽略该条记录？忽略后不可恢复。"
+      "confirmDismiss": "确认忽略该条记录？忽略后不可恢复。",
+      "created": "线索已创建",
+      "dismissed": "已忽略",
+      "cols": {
+        "time": "提交时间",
+        "keyPrefix": "API Key",
+        "contact": "提交信息",
+        "error": "错误信息",
+        "actions": "操作"
+      }
     },
     "timezones": {
       "Asia/Shanghai": "中国标准时间 (UTC+8)",

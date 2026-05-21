@@ -785,7 +785,16 @@
       "empty": "No failed submissions",
       "createLead": "Create Lead",
       "dismiss": "Dismiss",
-      "confirmDismiss": "Dismiss this record? This cannot be undone."
+      "confirmDismiss": "Dismiss this record? This cannot be undone.",
+      "created": "Lead created",
+      "dismissed": "Dismissed",
+      "cols": {
+        "time": "Submitted At",
+        "keyPrefix": "API Key",
+        "contact": "Submitted Data",
+        "error": "Error",
+        "actions": "Actions"
+      }
     },
     "timezones": {
       "Asia/Shanghai": "China Standard Time (UTC+8)",
