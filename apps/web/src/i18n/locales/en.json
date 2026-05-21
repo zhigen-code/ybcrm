@@ -853,6 +853,8 @@
         "submit": "Submit a New Lead",
         "headers": "Headers",
         "body": "Request Body (JSON)",
+        "services": "Available Services (intendedServices field)",
+        "servicesHint": "Unknown service names will be recorded as \"Other\"",
         "adInfo": "Optional fields for ad tracking (ip, url, account, campaign, ad group, ad). Viewable in lead details.",
         "curl": "cURL Example",
         "response": "Success Response (201)",
