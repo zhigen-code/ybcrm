@@ -853,6 +853,8 @@
         "submit": "提交新线索",
         "headers": "请求头",
         "body": "请求体（JSON）",
+        "services": "可选服务分类（intendedServices 字段）",
+        "servicesHint": "填写系统中不存在的服务名将被自动记录为「其他」",
         "adInfo": "可选字段，用于记录广告追踪信息（ip、url、账户、广告计划、广告组、广告），提交后可在线索详情页查看。",
         "curl": "cURL 示例",
         "response": "成功响应（201）",

@@ -123,6 +123,8 @@ function PasswordTab() {
   )
 }
 
+interface Service { id: string; name: string }
+
 // ---- API 接入 Tab ----
 function ApiTab() {
   const { t } = useTranslation()
@@ -134,6 +136,11 @@ function ApiTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['api-keys'],
     queryFn: () => crmApi.get<{ data: ApiKey[] }>('/auth/api-keys').then((r) => r.data.data),
+  })
+
+  const { data: services } = useQuery({
+    queryKey: ['services-list'],
+    queryFn: () => crmApi.get<{ data: Service[] }>('/services').then((r) => r.data.data),
   })
 
   const form = useForm<ApiKeyForm>({ resolver: zodResolver(apiKeySchema) })
@@ -246,6 +253,19 @@ function ApiTab() {
             <p className="text-gray-500 mb-1">{t('profile.api.docs.body')}</p>
             <code className="block rounded bg-gray-50 border px-3 py-2 text-xs font-mono text-gray-700 whitespace-pre">{t('profile.api.docs.bodyExample')}</code>
           </div>
+          {services && services.length > 0 && (
+            <div>
+              <p className="text-gray-500 mb-1.5">{t('profile.api.docs.services')}</p>
+              <div className="rounded bg-gray-50 border px-3 py-2 flex flex-wrap gap-1.5">
+                {services.map((s) => (
+                  <span key={s.id} className="inline-block rounded border border-gray-200 bg-white px-2 py-0.5 text-xs font-mono text-gray-700">
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-gray-400">{t('profile.api.docs.servicesHint')}</p>
+            </div>
+          )}
           <p className="text-xs text-gray-400">{t('profile.api.docs.adInfo')}</p>
           <div>
             <p className="text-gray-500 mb-1">{t('profile.api.docs.curl')}</p>
