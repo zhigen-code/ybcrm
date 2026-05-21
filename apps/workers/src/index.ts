@@ -204,7 +204,7 @@ app.post(
       JSON.stringify(dedupedServices),
       finalNotes, finalAdInfo, userId,
     ).run()
-    await c.env.LEAD_ASSIGNMENT_QUEUE.send({ leadId: id }).catch(() => {})
+    await c.env.LEAD_ASSIGNMENT_QUEUE?.send({ leadId: id }).catch(() => {})
     return c.json({ data: { id, status: 'New' } }, 201)
   },
 )
