@@ -4,6 +4,7 @@ interface Env {
   STORAGE: R2Bucket
   LEAD_ASSIGNMENT_QUEUE: Queue
   NOTIFICATION_QUEUE: Queue
+  AI: Ai
 
   // Secrets（通过 wrangler secret put 管理，不写入 wrangler.toml）
   JWT_SECRET: string          // CRM 内部员工认证

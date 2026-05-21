@@ -10,16 +10,15 @@ function resolveOpenAIBase(baseUrl: string | null): string {
 }
 
 export async function callAiModel(
-  db: D1Database,
+  env: Env,
   modelId: string | null | undefined,
   systemPrompt: string,
   userPrompt: string,
 ): Promise<AiCallResult> {
-  // 选择模型：指定 modelId 优先，否则取第一个 enabled 模型
   let row: { model_id: string; display_name: string; provider_type: string; api_key: string; base_url: string | null } | null = null
 
   if (modelId) {
-    row = await db.prepare(`
+    row = await env.DB.prepare(`
       SELECT m.model_id, m.display_name, p.provider_type, p.api_key, p.base_url
       FROM ai_models m JOIN ai_providers p ON m.provider_id = p.id
       WHERE m.id = ? AND m.is_enabled = 1 AND p.is_active = 1
@@ -27,7 +26,7 @@ export async function callAiModel(
   }
 
   if (!row) {
-    row = await db.prepare(`
+    row = await env.DB.prepare(`
       SELECT m.model_id, m.display_name, p.provider_type, p.api_key, p.base_url
       FROM ai_models m JOIN ai_providers p ON m.provider_id = p.id
       WHERE m.is_enabled = 1 AND p.is_active = 1
@@ -38,6 +37,24 @@ export async function callAiModel(
 
   if (!row) throw new Error('未配置可用的 AI 模型，请在系统管理 → AI 模型中启用至少一个模型')
 
+  // Cloudflare Workers AI（原生绑定，无需 API Key）
+  if (row.provider_type === 'cloudflare') {
+    const result = await env.AI.run(
+      row.model_id as Parameters<typeof env.AI.run>[0],
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      },
+    )
+    const content = typeof result === 'object' && result !== null && 'response' in result
+      ? String((result as { response?: unknown }).response ?? '')
+      : ''
+    return { content, modelDisplayName: row.display_name }
+  }
+
+  // Anthropic
   if (row.provider_type === 'anthropic') {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -61,7 +78,7 @@ export async function callAiModel(
     return { content: json.content?.[0]?.text ?? '', modelDisplayName: row.display_name }
   }
 
-  // OpenAI 兼容接口
+  // OpenAI 兼容接口（openai / custom）
   const baseUrl = resolveOpenAIBase(row.base_url)
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',

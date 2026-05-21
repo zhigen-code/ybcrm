@@ -548,6 +548,7 @@
       "enabledModels": "Enabled Models",
       "noEnabledModels": "No enabled models. Add a provider and fetch models.",
       "customProvider": "Custom (OpenAI compatible)",
+      "cloudflareHint": "Cloudflare Workers AI uses a native binding — no API Key required.",
       "promptTitle": "AI Analysis Prompts",
       "promptSubtitle": "Configure prompts used for lead and client AI analysis",
       "systemPrompt": "System Prompt",

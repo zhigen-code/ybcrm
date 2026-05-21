@@ -260,7 +260,7 @@ export async function executeWorkflowsForTrigger(
             interpolate(action.body,     ctx),
           )
         } else if (action.type === 'ai_analysis' && (entityType === 'lead' || entityType === 'client')) {
-          const result = await runAnalysis(db, entityType, entityId, null, 'workflow')
+          const result = await runAnalysis(env, entityType, entityId, null, 'workflow')
           // 自动执行指定类型的建议操作
           if (action.autoExecute?.length && Array.isArray(result.actions)) {
             for (const act of result.actions as { type: string; value: string }[]) {
