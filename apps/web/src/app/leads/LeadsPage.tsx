@@ -416,16 +416,16 @@ export default function LeadsPage() {
         <div className="py-12 text-center text-sm text-gray-500">{search ? t('leads.noMatch') : t('leads.empty')}</div>
       ) : (
         <>
-          <div className="hidden sm:block rounded-lg border bg-white overflow-hidden">
+          <div className="hidden sm:block rounded-lg border bg-white overflow-visible">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  {visibleCols.map((c) => (
-                    <th key={c.key} className="px-4 py-3 text-left font-medium text-gray-700 whitespace-nowrap">
+                  {visibleCols.map((c, idx) => (
+                    <th key={c.key} className={`px-4 py-3 text-left font-medium text-gray-700 whitespace-nowrap${idx === 0 ? ' rounded-tl-lg' : ''}`}>
                       {colLabels[c.key]}
                     </th>
                   ))}
-                  <th className="px-4 py-3">
+                  <th className="px-4 py-3 rounded-tr-lg">
                     <div className="flex items-center justify-end gap-1 relative">
                       <button onClick={() => setShowColSettings((v) => !v)} className="text-gray-400 hover:text-gray-600 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
