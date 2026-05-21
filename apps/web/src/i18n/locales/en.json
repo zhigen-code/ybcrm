@@ -416,7 +416,8 @@
       "ai": "AI",
       "options": "Options",
       "workflow": "Workflows",
-      "trash": "Trash"
+      "trash": "Trash",
+      "apiFailures": "API Failures"
     },
     "basic": {
       "title": "Basic Info",
@@ -777,6 +778,14 @@
       },
       "hardDeleteConfirm": "Permanently delete \"{{name}}\"? This cannot be undone. Related follow-up records will also be deleted.",
       "hardDelete": "Delete Permanently"
+    },
+    "apiFailures": {
+      "title": "API Submission Failures",
+      "subtitle": "Failed leads submitted via external API — retry or dismiss",
+      "empty": "No failed submissions",
+      "createLead": "Create Lead",
+      "dismiss": "Dismiss",
+      "confirmDismiss": "Dismiss this record? This cannot be undone."
     },
     "timezones": {
       "Asia/Shanghai": "China Standard Time (UTC+8)",

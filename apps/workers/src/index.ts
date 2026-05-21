@@ -28,6 +28,7 @@ import { workflowsRoutes, workflowsAdminRoutes } from './crm/routes/workflows'
 import { actionTemplatesAdminRoutes } from './crm/routes/actionTemplates'
 import { entitySchemaRoutes } from './crm/routes/entitySchema'
 import { recycleBinRoutes } from './crm/routes/recycleBin'
+import { apiFailuresRoutes } from './crm/routes/apiFailures'
 import { milestonesRoutes } from './crm/routes/milestones'
 import { requireApiKey } from './crm/middleware/apiKeyAuth'
 import { executeScheduledWorkflows } from './crm/workflow/executor'
@@ -154,58 +155,72 @@ app.post(
     const id = uuidv4()
 
     // 查询系统中存在的服务名
-    const serviceRows = await c.env.DB.prepare('SELECT name FROM services WHERE deleted_at IS NULL').all<{ name: string }>()
-    const validServiceNames = new Set(serviceRows.results.map((r) => r.name))
+    try {
+      const serviceRows = await c.env.DB.prepare('SELECT name FROM services WHERE deleted_at IS NULL').all<{ name: string }>()
+      const validServiceNames = new Set(serviceRows.results.map((r) => r.name))
 
-    const notesParts: string[] = []
-    if (body.notes) notesParts.push(String(body.notes))
+      const notesParts: string[] = []
+      if (body.notes) notesParts.push(String(body.notes))
 
-    // 检查意向服务：不在系统中的附加到备注，并替换为「其他」
-    const submittedServices = body.intendedServices as string[]
-    const unknownServices = submittedServices.filter((s) => !validServiceNames.has(s))
-    if (unknownServices.length > 0) {
-      notesParts.push(`意向服务（系统未收录）：${unknownServices.join('、')}`)
-    }
-    const finalServices = submittedServices.map((s) => validServiceNames.has(s) ? s : '其他')
-    // 去重
-    const dedupedServices = [...new Set(finalServices)]
-
-    // 提取广告字段到 ad_info：优先用 adInfo 对象，再合并顶层别名字段，其余未知字段拼到备注
-    const adInfo: Record<string, string> = {}
-    // 1. adInfo 对象中的字段
-    if (body.adInfo && typeof body.adInfo === 'object') {
-      for (const [k, v] of Object.entries(body.adInfo as Record<string, unknown>)) {
-        if (v !== undefined && v !== null && v !== '') adInfo[k] = String(v)
+      // 检查意向服务：不在系统中的附加到备注，并替换为「其他」
+      const submittedServices = body.intendedServices as string[]
+      const unknownServices = submittedServices.filter((s) => !validServiceNames.has(s))
+      if (unknownServices.length > 0) {
+        notesParts.push(`意向服务（系统未收录）：${unknownServices.join('、')}`)
       }
-    }
-    // 2. 顶层别名字段（兼容旧格式，已有的 adInfo key 不覆盖）
-    const extraFields: string[] = []
-    for (const [k, v] of Object.entries(body)) {
-      if (KNOWN_V1_FIELDS.has(k)) continue
-      const adKey = AD_FIELD_ALIASES[k]
-      if (adKey) {
-        if (!adInfo[adKey]) adInfo[adKey] = String(v)
-      } else {
-        extraFields.push(`${k}：${v}`)
+      const finalServices = submittedServices.map((s) => validServiceNames.has(s) ? s : '其他')
+      // 去重
+      const dedupedServices = [...new Set(finalServices)]
+
+      // 提取广告字段到 ad_info：优先用 adInfo 对象，再合并顶层别名字段，其余未知字段拼到备注
+      const adInfo: Record<string, string> = {}
+      // 1. adInfo 对象中的字段
+      if (body.adInfo && typeof body.adInfo === 'object') {
+        for (const [k, v] of Object.entries(body.adInfo as Record<string, unknown>)) {
+          if (v !== undefined && v !== null && v !== '') adInfo[k] = String(v)
+        }
       }
-    }
-    if (extraFields.length > 0) {
-      notesParts.push(`附加信息：${extraFields.join('；')}`)
-    }
+      // 2. 顶层别名字段（兼容旧格式，已有的 adInfo key 不覆盖）
+      const extraFields: string[] = []
+      for (const [k, v] of Object.entries(body)) {
+        if (KNOWN_V1_FIELDS.has(k)) continue
+        const adKey = AD_FIELD_ALIASES[k]
+        if (adKey) {
+          if (!adInfo[adKey]) adInfo[adKey] = String(v)
+        } else {
+          extraFields.push(`${k}：${v}`)
+        }
+      }
+      if (extraFields.length > 0) {
+        notesParts.push(`附加信息：${extraFields.join('；')}`)
+      }
 
-    const finalNotes = notesParts.length > 0 ? notesParts.join('\n') : null
-    const finalAdInfo = Object.keys(adInfo).length > 0 ? JSON.stringify(adInfo) : null
+      const finalNotes = notesParts.length > 0 ? notesParts.join('\n') : null
+      const finalAdInfo = Object.keys(adInfo).length > 0 ? JSON.stringify(adInfo) : null
 
-    await c.env.DB.prepare(
-      `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, ad_info, created_by_userId, lead_no)
-       VALUES (?, ?, ?, ?, ?, 'New', ?, ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
-    ).bind(
-      id, body.source as string, body.name as string, body.contactInfo as string,
-      JSON.stringify(dedupedServices),
-      finalNotes, finalAdInfo, userId,
-    ).run()
-    await c.env.LEAD_ASSIGNMENT_QUEUE?.send({ leadId: id }).catch(() => {})
-    return c.json({ data: { id, status: 'New' } }, 201)
+      await c.env.DB.prepare(
+        `INSERT INTO leads (id, source, name, contact_info, intended_services, status, notes, ad_info, created_by_userId, lead_no)
+         VALUES (?, ?, ?, ?, ?, 'New', ?, ?, ?, (SELECT COALESCE(MAX(lead_no), 0) + 1 FROM leads))`,
+      ).bind(
+        id, body.source as string, body.name as string, body.contactInfo as string,
+        JSON.stringify(dedupedServices),
+        finalNotes, finalAdInfo, userId,
+      ).run()
+      await c.env.LEAD_ASSIGNMENT_QUEUE?.send({ leadId: id }).catch(() => {})
+      return c.json({ data: { id, status: 'New' } }, 201)
+    } catch (err) {
+      // 异步保存失败记录，不阻塞响应，也不抛出新错误
+      void c.env.DB.prepare(
+        `INSERT INTO api_lead_failures (id, request_body, error_message, api_key_prefix)
+         VALUES (?, ?, ?, ?)`,
+      ).bind(
+        uuidv4(),
+        JSON.stringify(body),
+        err instanceof Error ? err.message : String(err),
+        (c.req.header('X-API-Key') ?? '').slice(0, 12) || null,
+      ).run().catch(() => {})
+      throw err
+    }
   },
 )
 
@@ -232,6 +247,7 @@ app.route('/api/admin/workflows', workflowsAdminRoutes)
 app.route('/api/admin/action-templates', actionTemplatesAdminRoutes)
 app.route('/api/admin/entity-schema', entitySchemaRoutes)
 app.route('/api/admin/recycle-bin', recycleBinRoutes)
+app.route('/api/admin/api-failures', apiFailuresRoutes)
 app.route('/api/milestones', milestonesRoutes)
 
 // 客户门户 API（/api/client/*）
