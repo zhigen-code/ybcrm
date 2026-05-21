@@ -56,7 +56,7 @@ aiAnalysisRoutes.put(
 // ─── 分析执行辅助 ─────────────────────────────────────────────────────────────
 
 async function runAnalysis(
-  db: D1Database,
+  env: Env,
   entityType: 'lead' | 'client',
   entityId: string,
   userId: string | null,
@@ -65,7 +65,7 @@ async function runAnalysis(
   const promptKey = entityType === 'lead' ? 'lead_analysis' : 'client_analysis'
 
   // 加载提示词
-  const promptRow = await db.prepare(
+  const promptRow = await env.DB.prepare(
     'SELECT system_prompt, user_prompt_template, model_id FROM ai_prompts WHERE key = ? AND is_active = 1',
   ).bind(promptKey).first<{ system_prompt: string; user_prompt_template: string; model_id: string | null }>()
   if (!promptRow) throw new HTTPException(400, { message: `提示词 ${promptKey} 未配置或已禁用` })
@@ -73,7 +73,7 @@ async function runAnalysis(
   // 加载实体数据
   let entityData: Record<string, string> = {}
   if (entityType === 'lead') {
-    const row = await db.prepare(`
+    const row = await env.DB.prepare(`
       SELECT l.name, l.source, l.status, l.intended_services, l.next_contact_date, l.contact_info,
              u.name as assigned_to_name
       FROM leads l LEFT JOIN users u ON l.assigned_to_userId = u.id
@@ -87,7 +87,7 @@ async function runAnalysis(
     } catch { /* keep as-is */ }
     for (const [k, v] of Object.entries(parsed)) entityData[k] = v == null ? '' : String(v)
   } else {
-    const row = await db.prepare(`
+    const row = await env.DB.prepare(`
       SELECT c.name, c.contract_status, c.service_plans, c.next_contact_date,
              u.name as assigned_sales_name
       FROM clients c LEFT JOIN users u ON c.assigned_sales_userId = u.id
@@ -103,7 +103,7 @@ async function runAnalysis(
   }
 
   // 加载最近 20 条跟进记录
-  const actRows = await db.prepare(`
+  const actRows = await env.DB.prepare(`
     SELECT sa.activity_type, sa.description, sa.activity_date, sa.next_contact_date,
            u.name as recorder_name
     FROM sales_activities sa LEFT JOIN users u ON sa.user_id = u.id
@@ -123,13 +123,13 @@ async function runAnalysis(
       }).join('\n')
 
   // 加载可用跟进类型
-  const typeRows = await db.prepare(
+  const typeRows = await env.DB.prepare(
     "SELECT label FROM option_items WHERE group_key = 'activity_type' AND is_active = 1 ORDER BY sort_order ASC",
   ).all<{ label: string }>()
   const activityTypes = typeRows.results.map((r) => r.label).join('、') || '（未配置）'
 
   // 加载系统时区
-  const tzRow = await db.prepare("SELECT value FROM system_settings WHERE key = 'timezone'")
+  const tzRow = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'timezone'")
     .first<{ value: string }>()
   const today = new Date().toLocaleDateString('en-CA', { timeZone: tzRow?.value ?? 'Asia/Shanghai' })
 
@@ -143,7 +143,7 @@ async function runAnalysis(
   const userPrompt = promptRow.user_prompt_template.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? '')
 
   // 调用 AI
-  const { content, modelDisplayName } = await callAiModel(db, promptRow.model_id, promptRow.system_prompt, userPrompt)
+  const { content, modelDisplayName } = await callAiModel(env, promptRow.model_id, promptRow.system_prompt, userPrompt)
 
   // 解析 JSON
   let parsed: Record<string, unknown> = {}
@@ -154,7 +154,7 @@ async function runAnalysis(
   }
 
   const analysisId = uuidv4()
-  await db.prepare(`
+  await env.DB.prepare(`
     INSERT INTO ai_analyses (id, entity_type, entity_id, prompt_key, model_display_name, summary, analysis, actions_json, triggered_by, created_by_user_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
@@ -197,7 +197,7 @@ aiAnalysisRoutes.get('/leads/:id/ai-analyses/latest', async (c) => {
 aiAnalysisRoutes.post('/leads/:id/ai-analyses', async (c) => {
   const { userId } = c.get('jwtPayload')
   const id = c.req.param('id')
-  const result = await runAnalysis(c.env.DB, 'lead', id, userId, 'manual')
+  const result = await runAnalysis(c.env, 'lead', id, userId, 'manual')
   return c.json({ data: result }, 201)
 })
 
@@ -218,7 +218,7 @@ aiAnalysisRoutes.get('/clients/:id/ai-analyses/latest', async (c) => {
 aiAnalysisRoutes.post('/clients/:id/ai-analyses', async (c) => {
   const { userId } = c.get('jwtPayload')
   const id = c.req.param('id')
-  const result = await runAnalysis(c.env.DB, 'client', id, userId, 'manual')
+  const result = await runAnalysis(c.env, 'client', id, userId, 'manual')
   return c.json({ data: result }, 201)
 })
 

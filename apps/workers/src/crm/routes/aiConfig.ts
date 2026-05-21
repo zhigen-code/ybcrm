@@ -33,6 +33,15 @@ const ANTHROPIC_BUILTIN = [
   { id: 'claude-3-opus-20240229',     name: 'Claude 3 Opus' },
 ]
 
+// Cloudflare Workers AI 内置模型列表（原生绑定，无需 API Key）
+const CLOUDFLARE_BUILTIN = [
+  { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', name: 'Llama 3.3 70B Instruct (快速)' },
+  { id: '@cf/meta/llama-3.1-8b-instruct',           name: 'Llama 3.1 8B Instruct' },
+  { id: '@cf/google/gemma-3-12b-it',                name: 'Gemma 3 12B' },
+  { id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', name: 'DeepSeek R1 Distill Qwen 32B' },
+  { id: '@cf/qwen/qwen2.5-72b-instruct',            name: 'Qwen 2.5 72B Instruct' },
+]
+
 // ─── 提供商 ────────────────────────────────────────────────────────────────
 
 // GET /api/admin/ai/providers
@@ -58,8 +67,8 @@ aiConfigRoutes.post(
   '/providers',
   zValidator('json', z.object({
     name:         z.string().min(1, '请填写名称'),
-    providerType: z.enum(['openai', 'anthropic', 'custom']),
-    apiKey:       z.string().min(1, '请填写 API Key'),
+    providerType: z.enum(['openai', 'anthropic', 'custom', 'cloudflare']),
+    apiKey:       z.string().optional().default(''),
     baseUrl:      z.string().url().optional().or(z.literal('')),
   })),
   async (c) => {
@@ -67,16 +76,20 @@ aiConfigRoutes.post(
     requireAdmin(role)
 
     const body = c.req.valid('json')
+    if (body.providerType !== 'cloudflare' && !body.apiKey) {
+      throw new HTTPException(400, { message: '请填写 API Key' })
+    }
     const id = uuidv4()
 
     await c.env.DB.prepare(
       'INSERT INTO ai_providers (id, name, provider_type, api_key, base_url) VALUES (?, ?, ?, ?, ?)',
-    ).bind(id, body.name, body.providerType, body.apiKey, body.baseUrl || null).run()
+    ).bind(id, body.name, body.providerType, body.apiKey ?? '', body.baseUrl || null).run()
 
     return c.json({
       data: {
         id, name: body.name, providerType: body.providerType,
-        apiKeyMasked: maskKey(body.apiKey), baseUrl: body.baseUrl || null, isActive: 1,
+        apiKeyMasked: body.apiKey ? maskKey(body.apiKey) : '（无需配置）',
+        baseUrl: body.baseUrl || null, isActive: 1,
       },
     }, 201)
   },
@@ -149,6 +162,11 @@ aiConfigRoutes.get('/providers/:id/available-models', async (c) => {
     'SELECT * FROM ai_providers WHERE id = ?',
   ).bind(id).first<{ provider_type: string; api_key: string; base_url: string | null }>()
   if (!provider) throw new HTTPException(404, { message: '提供商不存在' })
+
+  // Cloudflare Workers AI：返回内置列表
+  if (provider.provider_type === 'cloudflare') {
+    return c.json({ data: CLOUDFLARE_BUILTIN.map((m) => ({ id: m.id, name: m.name })) })
+  }
 
   // Anthropic：无公开 list 接口，返回内置列表
   if (provider.provider_type === 'anthropic') {
@@ -278,6 +296,18 @@ aiConfigRoutes.post(
     if (!row) throw new HTTPException(404, { message: '模型不存在' })
 
     const start = Date.now()
+
+    // Cloudflare Workers AI
+    if (row.provider_type === 'cloudflare') {
+      const result = await c.env.AI.run(
+        row.model_id as Parameters<typeof c.env.AI.run>[0],
+        { messages: [{ role: 'user', content: prompt }] },
+      )
+      const reply = typeof result === 'object' && result !== null && 'response' in result
+        ? String((result as { response?: unknown }).response ?? '（无返回内容）')
+        : '（无返回内容）'
+      return c.json({ data: { reply, latencyMs: Date.now() - start } })
+    }
 
     // Anthropic
     if (row.provider_type === 'anthropic') {

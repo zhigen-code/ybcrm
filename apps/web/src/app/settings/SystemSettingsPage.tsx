@@ -1748,7 +1748,7 @@ function OptionGroupPanel({ groupKey, noAdd }: { groupKey: string; noAdd: boolea
 interface AiProvider {
   id: string
   name: string
-  providerType: 'openai' | 'anthropic' | 'custom'
+  providerType: 'openai' | 'anthropic' | 'custom' | 'cloudflare'
   apiKeyMasked: string
   baseUrl: string | null
   isActive: number
@@ -2390,16 +2390,25 @@ export default function SystemSettingsPage() {
                     >
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
+                      <option value="cloudflare">Cloudflare Workers AI</option>
                       <option value="custom">{t('settings.ai.customProvider')}</option>
                     </select>
                   </div>
-                  <Input
-                    label="API Key"
-                    placeholder="sk-..."
-                    value={aiProviderForm.apiKey}
-                    onChange={(e) => setAiProviderForm((f) => ({ ...f, apiKey: e.target.value }))}
-                  />
-                  {aiProviderForm.providerType !== 'anthropic' && (
+                  {aiProviderForm.providerType === 'cloudflare' ? (
+                    <div className="sm:col-span-2">
+                      <p className="text-sm text-blue-600 bg-blue-50 rounded px-3 py-2">
+                        {t('settings.ai.cloudflareHint')}
+                      </p>
+                    </div>
+                  ) : (
+                    <Input
+                      label="API Key"
+                      placeholder="sk-..."
+                      value={aiProviderForm.apiKey}
+                      onChange={(e) => setAiProviderForm((f) => ({ ...f, apiKey: e.target.value }))}
+                    />
+                  )}
+                  {aiProviderForm.providerType !== 'anthropic' && aiProviderForm.providerType !== 'cloudflare' && (
                     <div>
                       <Input
                         label={aiProviderForm.providerType === 'openai' ? t('settings.ai.baseUrl') : 'Base URL'}
@@ -2418,7 +2427,7 @@ export default function SystemSettingsPage() {
                     size="sm"
                     loading={addProvider.isPending}
                     onClick={() => addProvider.mutate(aiProviderForm)}
-                    disabled={!aiProviderForm.name || !aiProviderForm.apiKey}
+                    disabled={!aiProviderForm.name || (aiProviderForm.providerType !== 'cloudflare' && !aiProviderForm.apiKey)}
                   >
                     {t('common.save')}
                   </Button>

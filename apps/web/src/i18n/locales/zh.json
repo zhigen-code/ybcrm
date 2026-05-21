@@ -548,6 +548,7 @@
       "enabledModels": "已启用模型",
       "noEnabledModels": "暂无已启用模型，请先添加提供商并查询模型",
       "customProvider": "自定义（OpenAI 兼容）",
+      "cloudflareHint": "Cloudflare Workers AI 通过原生绑定调用，无需配置 API Key，直接使用即可。",
       "promptTitle": "AI 分析提示词",
       "promptSubtitle": "配置线索和客户 AI 分析时使用的提示词模板",
       "systemPrompt": "系统角色设定（System Prompt）",

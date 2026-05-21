@@ -189,7 +189,23 @@ aiAgentRoutes.post(
 
     try {
       let finalText: string
-      if (modelRow.provider_type === 'anthropic') {
+      if (modelRow.provider_type === 'cloudflare') {
+        // Cloudflare Workers AI 不支持 tool_use，降级为单轮对话
+        const userMsg = messages.filter((m) => m.role === 'user').at(-1)
+        const userText = typeof userMsg?.content === 'string' ? userMsg.content : JSON.stringify(userMsg?.content ?? '')
+        const result = await c.env.AI.run(
+          modelRow.model_id as Parameters<typeof c.env.AI.run>[0],
+          {
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'user', content: userText },
+            ],
+          },
+        )
+        finalText = typeof result === 'object' && result !== null && 'response' in result
+          ? String((result as { response?: unknown }).response ?? '')
+          : ''
+      } else if (modelRow.provider_type === 'anthropic') {
         finalText = await runAnthropicAgent(modelRow.api_key, modelRow.model_id, messages, agentCtx)
       } else {
         finalText = await runOpenAiAgent(modelRow.api_key, modelRow.base_url, modelRow.model_id, messages, agentCtx)
